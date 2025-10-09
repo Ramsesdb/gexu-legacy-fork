@@ -21,6 +21,12 @@ jobs:
         run: |
           git config user.name  "gexu-bot"
           git config user.email "gexu-bot@users.noreply.github.com"
+      - name: Ensure labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create "upstream-sweep" --color BFD4F2 --description "Automated sweep from upstream forks" -f || true
+          gh label create "do-not-merge" --color d73a4a --description "Do not merge PRs from automated upstream sweep" -f || true
       - name: Mirror forks into vendor/*
         run: bash scripts/bootstrap-vendors.sh
       - name: Open/Update PRs vendor/* -> main
