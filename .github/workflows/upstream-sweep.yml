@@ -3,6 +3,8 @@ on:
   workflow_dispatch: {}
   schedule:
     - cron: "0 6 * * *"
+  push:
+    branches: ["main"]
 
 permissions:
   contents: write
@@ -31,11 +33,10 @@ jobs:
             title="Upstream sweep: ${br#vendor/}"
             body="PR automático para revisar cambios de \`${br#vendor/}\` contra \`main\`.\n\n**No hacer merge directo**; usar cherry-pick/rebase selectivo."
             if [ -z "$number" ]; then
-              gh pr create --base main --head "$br" --title "$title" --body "$body" --draft
-              gh pr edit --add-label "upstream-sweep,do-not-merge" || true
+              number=$(gh pr create --base main --head "$br" --title "$title" --body "$body" --draft --json number --jq .number)
+              gh pr edit "$number" --add-label "upstream-sweep,do-not-merge" || true
             else
               gh pr edit "$number" --title "$title" --body "$body" --add-label "upstream-sweep" || true
               gh pr comment "$number" --body "🔄 \`$br\` actualizado."
             fi
           done
-
