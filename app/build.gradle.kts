@@ -21,10 +21,10 @@ if (Config.includeTelemetry) {
 shortcutHelper.setFilePath("./shortcuts.xml")
 
 android {
-    namespace = "eu.kanade.tachiyomi"
+    namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
 
     defaultConfig {
-        applicationId = "app.mihon"
+        applicationId = "com.ramsesbr.gexu" // nuevo ID instalable
 
         versionCode = 13
         versionName = "0.19.1"
@@ -36,12 +36,16 @@ android {
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        minSdk = 26
     }
 
     buildTypes {
         val debug by getting {
-            applicationIdSuffix = ".dev"
-            versionNameSuffix = "-${getCommitCount()}"
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // ...existing code...
             isPseudoLocalesEnabled = true
         }
         val release by getting {
