@@ -23,8 +23,8 @@ jobs:
   sweep:
     runs-on: ubuntu-latest
     env:
-      HEAD_BRANCH: ${{ github.event.inputs.head_branch }}
-      BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+      HEAD_BRANCH: ${{ github.event.inputs.head_branch || format('ci/upstream-sweep-{0}', github.run_id) }}
+      BASE_BRANCH: ${{ github.event.inputs.base_branch || 'main' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
@@ -71,6 +71,10 @@ jobs:
       - name: Prepare head branch
         run: |
           set -euo pipefail
+          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
+          BASE_BRANCH=${BASE_BRANCH:-main}
+          : "${HEAD_BRANCH:?HEAD_BRANCH is empty. Use workflow inputs or set a default.}"
+          : "${BASE_BRANCH:?BASE_BRANCH is empty. Use workflow inputs or set a default.}"
           if git show-ref --verify --quiet "refs/heads/$HEAD_BRANCH"; then
             git checkout "$HEAD_BRANCH"
           elif git ls-remote --exit-code origin "$HEAD_BRANCH" >/dev/null 2>&1; then
@@ -86,8 +90,8 @@ jobs:
           REPO_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          HEAD_BRANCH=$HEAD_BRANCH
-          BASE_BRANCH=$BASE_BRANCH
+          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
+          BASE_BRANCH=${BASE_BRANCH:-main}
           if PR_URL=$(gh pr create --base "$BASE_BRANCH" --head "$REPO_OWNER:$HEAD_BRANCH" --title "Upstream sweep" --body "Automated sweep" --draft); then
             echo "PR_URL=$PR_URL"
           else
