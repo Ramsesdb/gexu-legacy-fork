@@ -23,12 +23,40 @@ if [[ -n "${GH_PAT:-}" ]]; then
   echo "${GH_PAT}" | gh auth login --with-token
 fi
 
+# Ensure git identity for CI commits
+if ! git config user.name >/dev/null; then
+  git config user.name "github-actions[bot]"
+fi
+if ! git config user.email >/dev/null; then
+  git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+fi
+
 git fetch --all --prune
 # Ensure local branch exists before PR ops
 if git show-ref --verify --quiet "refs/heads/${PR_BRANCH}"; then
   git checkout "${PR_BRANCH}"
 else
   git checkout -b "${PR_BRANCH}" "origin/${PR_BRANCH}" || git checkout -b "${PR_BRANCH}"
+fi
+
+# Stage and commit job changes if any, then push head branch
+if ! git diff --quiet; then
+  git add -A
+fi
+if ! git diff --cached --quiet; then
+  git commit -m "ci: auto-commit workspace changes for ${PR_BRANCH}"
+  git push -u origin "${PR_BRANCH}"
+else
+  echo "No local changes to commit."
+  git push -u origin "${PR_BRANCH}" || true
+fi
+
+# Skip PR if there is no diff vs base
+git fetch origin "${BASE_BRANCH}"
+ahead_count=$(git rev-list --count "origin/${BASE_BRANCH}..${PR_BRANCH}")
+if [[ "${ahead_count}" -eq 0 ]]; then
+  echo "No commits ahead of ${BASE_BRANCH}; skipping PR creation."
+  exit 0
 fi
 
 existing_number="$(gh pr list --repo "${REPO}" --head "${PR_BRANCH}" --state open --json number -q '.[0].number' || true)"
