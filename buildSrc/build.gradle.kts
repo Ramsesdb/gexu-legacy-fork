@@ -14,9 +14,3 @@ dependencies {
     implementation(files(compose.javaClass.superclass.protectionDomain.codeSource.location))
     implementation(files(kotlinx.javaClass.superclass.protectionDomain.codeSource.location))
 }
-
-repositories {
-    gradlePluginPortal()
-    mavenCentral()
-    google()
-}
