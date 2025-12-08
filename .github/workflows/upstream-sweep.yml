@@ -33,7 +33,8 @@ jobs:
             title="Upstream sweep: ${br#vendor/}"
             body="PR automático para revisar cambios de \`${br#vendor/}\` contra \`main\`.\n\n**No hacer merge directo**; usar cherry-pick/rebase selectivo."
             if [ -z "$number" ]; then
-              number=$(gh pr create --base main --head "$br" --title "$title" --body "$body" --draft --json number --jq .number)
+              pr_url=$(gh pr create --base main --head "$br" --title "$title" --body "$body" --draft)
+              number=${pr_url##*/}
               gh pr edit "$number" --add-label "upstream-sweep,do-not-merge" || true
             else
               gh pr edit "$number" --title "$title" --body "$body" --add-label "upstream-sweep" || true
