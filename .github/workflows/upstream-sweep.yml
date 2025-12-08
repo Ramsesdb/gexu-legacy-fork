@@ -31,7 +31,25 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
+      - name: Ensure vendor remotes (fetch-only)
+        run: |
+          set -euo pipefail
+          add_or_update() {
+            local name="$1" url="$2"
+            if git remote get-url "$name" >/dev/null 2>&1; then
+              git remote set-url "$name" "$url"
+            else
+              git remote add "$name" "$url"
+            fi
+            git remote set-url --push "$name" no_push || true
+          }
+          add_or_update upstream https://github.com/mihonapp/mihon.git
+          add_or_update j2k https://github.com/Jays2Kings/tachiyomiJ2K.git
+          add_or_update sy https://github.com/jobobby04/TachiyomiSY.git
+          add_or_update yokai https://github.com/keiyoushi/Yokai.git
+          add_or_update neko https://github.com/nekomangaorg/Neko.git
+          add_or_update komikku https://github.com/komikku-app/komikku.git
+          git remote -v
       - name: Debug context
         run: |
           set -x

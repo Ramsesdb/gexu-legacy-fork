@@ -48,6 +48,13 @@ android {
         minSdk = 26
     }
 
+    flavorDimensions += "default"
+    productFlavors {
+        create("standard") {
+            dimension = "default"
+        }
+    }
+
     buildTypes {
         val debug by getting {
             isMinifyEnabled = false
