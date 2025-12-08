@@ -6,9 +6,19 @@ import mihon.buildlogic.getGitSha
 plugins {
     id("mihon.android.application")
     id("mihon.android.application.compose")
-    id("com.github.zellius.shortcut-helper")
     kotlin("plugin.serialization")
     alias(libs.plugins.aboutLibraries)
+}
+
+// Aplicar el plugin de shortcuts mediante classpath para evitar uso del Plugin Portal
+afterEvaluate {
+    apply(plugin = "com.github.zellius.shortcut-helper")
+    // Configurar la extensión vía reflexión para no depender del accessor generado por el DSL de plugins
+    extensions.findByName("shortcutHelper")?.let { ext ->
+        runCatching {
+            ext.javaClass.methods.firstOrNull { it.name == "setFilePath" && it.parameterCount == 1 }?.invoke(ext, "./shortcuts.xml")
+        }
+    }
 }
 
 if (Config.includeTelemetry) {
@@ -17,8 +27,6 @@ if (Config.includeTelemetry) {
         apply(libs.plugins.firebase.crashlytics.get().pluginId)
     }
 }
-
-shortcutHelper.setFilePath("./shortcuts.xml")
 
 android {
     namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
