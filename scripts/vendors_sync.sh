@@ -1,27 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Remotos externos a espejar en vendor/* (solo fetch)
-REMOTES=(
-  upstream
-  j2k
-  sy
-  yokai
-  neko
-  komikku
+# External remotes to mirror (name -> URL)
+declare -A REMOTES=(
+  [upstream]="https://github.com/mihonapp/mihon.git"
+  [j2k]="https://github.com/Jays2Kings/tachiyomiJ2K.git"
+  [sy]="https://github.com/jobobby04/TachiyomiSY.git"
+  [yokai]="https://github.com/null2264/yokai.git"
+  [neko]="https://github.com/nekomangaorg/Neko.git"
+  [komikku]="https://github.com/komikku-app/komikku.git"
 )
 
-BASE_BRANCH="main"
-GIT_USER="gexu-bot"
-GIT_EMAIL="gexu-bot@users.noreply.github.com"
+BASE_BRANCH="${BASE_BRANCH:-main}"
+GIT_USER="${GIT_USER:-github-actions[bot]}"
+GIT_EMAIL="${GIT_EMAIL:-41898282+github-actions[bot]@users.noreply.github.com}"
 
 main() {
   git config user.name  "$GIT_USER"
   git config user.email "$GIT_EMAIL"
 
+  ensure_remotes
+
   git fetch --all --prune
 
-  for remote in "${REMOTES[@]}"; do
+  for remote in "${!REMOTES[@]}"; do
     sync_remote "$remote"
   done
 
@@ -47,5 +49,13 @@ sync_remote() {
   git push origin "$vendor_branch" --force
 }
 
-main "$@"
+ensure_remotes() {
+  for remote in "${!REMOTES[@]}"; do
+    if ! git remote get-url "$remote" >/dev/null 2>&1; then
+      git remote add "$remote" "${REMOTES[$remote]}"
+    fi
+    git remote set-url --push "$remote" no_push || true
+  done
+}
 
+main "$@"
