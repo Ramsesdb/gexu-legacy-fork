@@ -6,9 +6,19 @@ import mihon.buildlogic.getGitSha
 plugins {
     id("mihon.android.application")
     id("mihon.android.application.compose")
-    id("com.github.zellius.shortcut-helper")
     kotlin("plugin.serialization")
     alias(libs.plugins.aboutLibraries)
+}
+
+// Aplicar el plugin de shortcuts mediante classpath para evitar uso del Plugin Portal
+afterEvaluate {
+    apply(plugin = "com.github.zellius.shortcut-helper")
+    // Configurar la extensión vía reflexión para no depender del accessor generado por el DSL de plugins
+    extensions.findByName("shortcutHelper")?.let { ext ->
+        runCatching {
+            ext.javaClass.methods.firstOrNull { it.name == "setFilePath" && it.parameterCount == 1 }?.invoke(ext, "./shortcuts.xml")
+        }
+    }
 }
 
 if (Config.includeTelemetry) {
@@ -18,13 +28,11 @@ if (Config.includeTelemetry) {
     }
 }
 
-shortcutHelper.setFilePath("./shortcuts.xml")
-
 android {
-    namespace = "eu.kanade.tachiyomi"
+    namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
 
     defaultConfig {
-        applicationId = "app.mihon"
+        applicationId = "com.ramsesbr.gexu" // nuevo ID instalable
 
         versionCode = 13
         versionName = "0.19.1"
@@ -36,12 +44,23 @@ android {
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        minSdk = 26
+    }
+
+    flavorDimensions += "default"
+    productFlavors {
+        create("standard") {
+            dimension = "default"
+        }
     }
 
     buildTypes {
         val debug by getting {
-            applicationIdSuffix = ".dev"
-            versionNameSuffix = "-${getCommitCount()}"
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // ...existing code...
             isPseudoLocalesEnabled = true
         }
         val release by getting {

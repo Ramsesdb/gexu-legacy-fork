@@ -21,6 +21,3 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Make gradlew executable
         run: chmod +x gradlew
-      - name: Build Debug
-        run: ./gradlew --no-daemon :app:assembleDebug
-

@@ -1,6 +1,15 @@
 name: Upstream sweep
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      head_branch:
+        description: "Branch to PR from"
+        required: true
+        default: "feat/rebranding-gexu"
+      base_branch:
+        description: "PR base"
+        required: true
+        default: "main"
   schedule:
     - cron: "0 6 * * *"
   push:
@@ -13,36 +22,73 @@ permissions:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    env:
+      HEAD_BRANCH: ${{ github.event.inputs.head_branch }}
+      BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Set git identity
-        run: |
-          git config user.name  "gexu-bot"
-          git config user.email "gexu-bot@users.noreply.github.com"
-      - name: Ensure labels exist
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          gh label create "upstream-sweep" --color BFD4F2 --description "Automated sweep from upstream forks" -f || true
-          gh label create "do-not-merge" --color d73a4a --description "Do not merge PRs from automated upstream sweep" -f || true
-      - name: Mirror forks into vendor/*
-        run: bash scripts/bootstrap-vendors.sh
-      - name: Open/Update PRs vendor/* -> main
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: Ensure vendor remotes (fetch-only)
         run: |
           set -euo pipefail
-          for br in vendor/upstream vendor/j2k vendor/sy vendor/yokai vendor/neko vendor/komikku; do
-            number=$(gh pr list --base main --head "$br" --state open --json number --jq '.[0].number' || true)
-            title="Upstream sweep: ${br#vendor/}"
-            body="PR automático para revisar cambios de \`${br#vendor/}\` contra \`main\`.\n\n**No hacer merge directo**; usar cherry-pick/rebase selectivo."
-            if [ -z "$number" ]; then
-              number=$(gh pr create --base main --head "$br" --title "$title" --body "$body" --draft --json number --jq .number)
-              gh pr edit "$number" --add-label "upstream-sweep,do-not-merge" || true
+          add_or_update() {
+            local name="$1" url="$2"
+            if git remote get-url "$name" >/dev/null 2>&1; then
+              git remote set-url "$name" "$url"
             else
-              gh pr edit "$number" --title "$title" --body "$body" --add-label "upstream-sweep" || true
-              gh pr comment "$number" --body "🔄 \`$br\` actualizado."
+              git remote add "$name" "$url"
             fi
+            git remote set-url --push "$name" no_push || true
+          }
+          add_or_update upstream https://github.com/mihonapp/mihon.git
+          add_or_update j2k https://github.com/Jays2Kings/tachiyomiJ2K.git
+          add_or_update sy https://github.com/jobobby04/TachiyomiSY.git
+          add_or_update yokai https://github.com/keiyoushi/Yokai.git
+          add_or_update neko https://github.com/nekomangaorg/Neko.git
+          add_or_update komikku https://github.com/komikku-app/komikku.git
+          git remote -v
+      - name: Debug context
+        run: |
+          set -x
+          git --version
+          git remote -v
+          git branch -a
+          for r in origin upstream j2k sy yokai neko komikku; do
+            git remote get-url "$r" && git ls-remote --symref "$r" HEAD || true
           done
+
+      - name: Sync vendors
+        run: bash scripts/vendors_sync.sh
+
+      - name: Prepare head branch
+        run: |
+          set -euo pipefail
+          if git show-ref --verify --quiet "refs/heads/$HEAD_BRANCH"; then
+            git checkout "$HEAD_BRANCH"
+          elif git ls-remote --exit-code origin "$HEAD_BRANCH" >/dev/null 2>&1; then
+            git checkout -b "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          else
+            git checkout -b "$HEAD_BRANCH"
+          fi
+          git push origin "$HEAD_BRANCH" --set-upstream
+
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+        run: |
+          set -euo pipefail
+          HEAD_BRANCH=$HEAD_BRANCH
+          BASE_BRANCH=$BASE_BRANCH
+          if PR_URL=$(gh pr create --base "$BASE_BRANCH" --head "$REPO_OWNER:$HEAD_BRANCH" --title "Upstream sweep" --body "Automated sweep" --draft); then
+            echo "PR_URL=$PR_URL"
+          else
+            PR_URL=$(gh pr view --head "$HEAD_BRANCH" --json url -q .url)
+            gh pr edit "$PR_URL" --base "$BASE_BRANCH" --add-label "upstream-sweep"
+            echo "PR_URL=$PR_URL"
+          fi
+          PR_NUMBER=$(basename "$PR_URL" | sed 's/#//')
+          echo "PR_NUMBER=$PR_NUMBER"
