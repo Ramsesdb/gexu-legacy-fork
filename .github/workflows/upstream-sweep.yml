@@ -88,16 +88,12 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           REPO_OWNER: ${{ github.repository_owner }}
+          HEAD_BRANCH: ${{ env.HEAD_BRANCH }}
+          BASE_BRANCH: ${{ env.BASE_BRANCH }}
         run: |
           set -euo pipefail
           HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
           BASE_BRANCH=${BASE_BRANCH:-main}
-          if PR_URL=$(gh pr create --base "$BASE_BRANCH" --head "$REPO_OWNER:$HEAD_BRANCH" --title "Upstream sweep" --body "Automated sweep" --draft); then
-            echo "PR_URL=$PR_URL"
-          else
-            PR_URL=$(gh pr view --head "$HEAD_BRANCH" --json url -q .url)
-            gh pr edit "$PR_URL" --base "$BASE_BRANCH" --add-label "upstream-sweep"
-            echo "PR_URL=$PR_URL"
-          fi
-          PR_NUMBER=$(basename "$PR_URL" | sed 's/#//')
-          echo "PR_NUMBER=$PR_NUMBER"
+          export PR_BRANCH="$HEAD_BRANCH"
+          export BASE_BRANCH
+          bash scripts/create_or_update_pr.sh
