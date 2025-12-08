@@ -23,8 +23,13 @@ jobs:
         run: chmod +x gradlew
       - name: Build Standard Debug
         run: |
-          set -o pipefail
-          ./gradlew --no-daemon :app:assembleStandardDebug | tee build.log
+          set -euo pipefail
+          if ./gradlew :app:help --task :app:assembleStandardDebug > /dev/null 2>&1; then
+              ./gradlew --no-daemon :app:assembleStandardDebug
+          else
+              echo "assembleStandardDebug not found; falling back to assembleDebug"
+              ./gradlew --no-daemon :app:assembleDebug
+          fi
       - name: Upload APK artifact (Standard Debug)
         if: ${{ always() }}
         uses: actions/upload-artifact@v4
