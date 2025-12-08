@@ -56,7 +56,6 @@ abstract class BaseUpdatesGridGlanceWidget(
     private val getUpdates: GetUpdates = Injekt.get(),
     private val preferences: SecurityPreferences = Injekt.get(),
 ) : GlanceAppWidget() {
-
     override val sizeMode = SizeMode.Exact
 
     abstract val foreground: ColorProvider
@@ -64,21 +63,26 @@ abstract class BaseUpdatesGridGlanceWidget(
     abstract val topPadding: Dp
     abstract val bottomPadding: Dp
 
-    override suspend fun provideGlance(context: Context, id: GlanceId) {
+    override suspend fun provideGlance(
+        context: Context,
+        id: GlanceId,
+    ) {
         val locked = preferences.useAuthenticator().get()
-        val containerModifier = GlanceModifier
-            .fillMaxSize()
-            .background(background)
-            .appWidgetBackground()
-            .padding(top = topPadding, bottom = bottomPadding)
-            .appWidgetBackgroundRadius()
+        val containerModifier =
+            GlanceModifier
+                .fillMaxSize()
+                .background(background)
+                .appWidgetBackground()
+                .padding(top = topPadding, bottom = bottomPadding)
+                .appWidgetBackgroundRadius()
 
         val manager = GlanceAppWidgetManager(context)
         val ids = manager.getGlanceIds(javaClass)
-        val (rowCount, columnCount) = ids
-            .flatMap { manager.getAppWidgetSizes(it) }
-            .maxBy { it.height.value * it.width.value }
-            .calculateRowAndColumnCount(topPadding, bottomPadding)
+        val (rowCount, columnCount) =
+            ids
+                .flatMap { manager.getAppWidgetSizes(it) }
+                .maxBy { it.height.value * it.width.value }
+                .calculateRowAndColumnCount(topPadding, bottomPadding)
 
         provideContent {
             // If app lock enabled, don't do anything
@@ -90,13 +94,14 @@ abstract class BaseUpdatesGridGlanceWidget(
                 return@provideContent
             }
 
-            val flow = remember {
-                getUpdates
-                    .subscribe(false, DateLimit.toEpochMilli())
-                    .map { rawData ->
-                        rawData.prepareData(rowCount, columnCount)
-                    }
-            }
+            val flow =
+                remember {
+                    getUpdates
+                        .subscribe(false, DateLimit.toEpochMilli())
+                        .map { rawData ->
+                            rawData.prepareData(rowCount, columnCount)
+                        }
+                }
             val data by flow.collectAsState(initial = null)
             UpdatesWidget(
                 data = data,
@@ -122,35 +127,36 @@ abstract class BaseUpdatesGridGlanceWidget(
                 .distinctBy { it.mangaId }
                 .take(rowCount * columnCount)
                 .map { updatesView ->
-                    val request = ImageRequest.Builder(context)
-                        .data(
-                            MangaCover(
-                                mangaId = updatesView.mangaId,
-                                sourceId = updatesView.sourceId,
-                                isMangaFavorite = true,
-                                url = updatesView.coverData.url,
-                                lastModified = updatesView.coverData.lastModified,
-                            ),
-                        )
-                        .memoryCachePolicy(CachePolicy.DISABLED)
-                        .precision(Precision.EXACT)
-                        .size(widthPx, heightPx)
-                        .scale(Scale.FILL)
-                        .let {
-                            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
-                                it.transformations(RoundedCornersTransformation(roundPx))
-                            } else {
-                                it // Handled by system
-                            }
-                        }
-                        .build()
-                    val bitmap = context.imageLoader.executeBlocking(request)
-                        .image
-                        ?.asDrawable(context.resources)
-                        ?.toBitmap()
+                    val request =
+                        ImageRequest
+                            .Builder(context)
+                            .data(
+                                MangaCover(
+                                    mangaId = updatesView.mangaId,
+                                    sourceId = updatesView.sourceId,
+                                    isMangaFavorite = true,
+                                    url = updatesView.coverData.url,
+                                    lastModified = updatesView.coverData.lastModified,
+                                ),
+                            ).memoryCachePolicy(CachePolicy.DISABLED)
+                            .precision(Precision.EXACT)
+                            .size(widthPx, heightPx)
+                            .scale(Scale.FILL)
+                            .let {
+                                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) {
+                                    it.transformations(RoundedCornersTransformation(roundPx))
+                                } else {
+                                    it // Handled by system
+                                }
+                            }.build()
+                    val bitmap =
+                        context.imageLoader
+                            .executeBlocking(request)
+                            .image
+                            ?.asDrawable(context.resources)
+                            ?.toBitmap()
                     Pair(updatesView.mangaId, bitmap)
-                }
-                .toImmutableList()
+                }.toImmutableList()
         }
     }
 
@@ -159,3 +165,4 @@ abstract class BaseUpdatesGridGlanceWidget(
             get() = ZonedDateTime.now().minusMonths(3).toInstant()
     }
 }
+

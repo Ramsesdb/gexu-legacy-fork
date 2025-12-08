@@ -17,19 +17,22 @@ class GlobalExceptionHandler private constructor(
     private val defaultHandler: Thread.UncaughtExceptionHandler,
     private val activityToBeLaunched: Class<*>,
 ) : Thread.UncaughtExceptionHandler {
-
     object ThrowableSerializer : KSerializer<Throwable> {
         override val descriptor: SerialDescriptor =
             PrimitiveSerialDescriptor("Throwable", PrimitiveKind.STRING)
 
-        override fun deserialize(decoder: Decoder): Throwable =
-            Throwable(message = decoder.decodeString())
+        override fun deserialize(decoder: Decoder): Throwable = Throwable(message = decoder.decodeString())
 
-        override fun serialize(encoder: Encoder, value: Throwable) =
-            encoder.encodeString(value.stackTraceToString())
+        override fun serialize(
+            encoder: Encoder,
+            value: Throwable,
+        ) = encoder.encodeString(value.stackTraceToString())
     }
 
-    override fun uncaughtException(thread: Thread, exception: Throwable) {
+    override fun uncaughtException(
+        thread: Thread,
+        exception: Throwable,
+    ) {
         logcat(priority = LogPriority.ERROR, throwable = exception)
         launchActivity(applicationContext, activityToBeLaunched, exception)
         defaultHandler.uncaughtException(thread, exception)
@@ -40,11 +43,12 @@ class GlobalExceptionHandler private constructor(
         activity: Class<*>,
         exception: Throwable,
     ) {
-        val intent = Intent(applicationContext, activity).apply {
-            putExtra(INTENT_EXTRA, Json.encodeToString(ThrowableSerializer, exception))
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
-        }
+        val intent =
+            Intent(applicationContext, activity).apply {
+                putExtra(INTENT_EXTRA, Json.encodeToString(ThrowableSerializer, exception))
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            }
         applicationContext.startActivity(intent)
     }
 
@@ -55,21 +59,22 @@ class GlobalExceptionHandler private constructor(
             applicationContext: Context,
             activityToBeLaunched: Class<*>,
         ) {
-            val handler = GlobalExceptionHandler(
-                applicationContext,
-                Thread.getDefaultUncaughtExceptionHandler() as Thread.UncaughtExceptionHandler,
-                activityToBeLaunched,
-            )
+            val handler =
+                GlobalExceptionHandler(
+                    applicationContext,
+                    Thread.getDefaultUncaughtExceptionHandler() as Thread.UncaughtExceptionHandler,
+                    activityToBeLaunched,
+                )
             Thread.setDefaultUncaughtExceptionHandler(handler)
         }
 
-        fun getThrowableFromIntent(intent: Intent): Throwable? {
-            return try {
+        fun getThrowableFromIntent(intent: Intent): Throwable? =
+            try {
                 Json.decodeFromString(ThrowableSerializer, intent.getStringExtra(INTENT_EXTRA)!!)
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Wasn't able to retrieve throwable from intent" }
                 null
             }
-        }
     }
 }
+

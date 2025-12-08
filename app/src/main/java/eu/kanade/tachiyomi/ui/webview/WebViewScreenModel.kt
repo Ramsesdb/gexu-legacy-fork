@@ -21,7 +21,6 @@ class WebViewScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val network: NetworkHelper = Injekt.get(),
 ) : StateScreenModel<StatsScreenState>(StatsScreenState.Loading) {
-
     var headers = emptyMap<String, String>()
 
     init {
@@ -34,7 +33,10 @@ class WebViewScreenModel(
         }
     }
 
-    fun shareWebpage(context: Context, url: String) {
+    fun shareWebpage(
+        context: Context,
+        url: String,
+    ) {
         try {
             context.startActivity(url.toUri().toShareIntent(context, type = "text/plain"))
         } catch (e: Exception) {
@@ -42,7 +44,10 @@ class WebViewScreenModel(
         }
     }
 
-    fun openInBrowser(context: Context, url: String) {
+    fun openInBrowser(
+        context: Context,
+        url: String,
+    ) {
         context.openInBrowser(url, forceDefaultBrowser = true)
     }
 
@@ -53,3 +58,4 @@ class WebViewScreenModel(
         }
     }
 }
+

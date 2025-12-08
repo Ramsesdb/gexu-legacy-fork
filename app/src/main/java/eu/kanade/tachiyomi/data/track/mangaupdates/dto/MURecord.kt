@@ -23,8 +23,8 @@ data class MURecord(
     val latestChapter: Int? = null,
 )
 
-fun MURecord.toTrackSearch(id: Long): TrackSearch {
-    return TrackSearch.create(id).apply {
+fun MURecord.toTrackSearch(id: Long): TrackSearch =
+    TrackSearch.create(id).apply {
         remote_id = this@toTrackSearch.seriesId ?: 0L
         title = this@toTrackSearch.title?.htmlDecode() ?: ""
         total_chapters = 0
@@ -35,4 +35,4 @@ fun MURecord.toTrackSearch(id: Long): TrackSearch {
         publishing_type = this@toTrackSearch.type.toString()
         start_date = this@toTrackSearch.year.toString()
     }
-}
+

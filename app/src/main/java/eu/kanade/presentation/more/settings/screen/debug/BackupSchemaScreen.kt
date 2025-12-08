@@ -26,7 +26,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 
 class BackupSchemaScreen : Screen() {
-
     companion object {
         const val TITLE = "Backup file schema"
     }
@@ -62,12 +61,14 @@ class BackupSchemaScreen : Screen() {
         ) { contentPadding ->
             Text(
                 text = schema,
-                modifier = Modifier
-                    .verticalScroll(rememberScrollState())
-                    .padding(contentPadding)
-                    .padding(16.dp),
+                modifier =
+                    Modifier
+                        .verticalScroll(rememberScrollState())
+                        .padding(contentPadding)
+                        .padding(16.dp),
                 fontFamily = FontFamily.Monospace,
             )
         }
     }
 }
+

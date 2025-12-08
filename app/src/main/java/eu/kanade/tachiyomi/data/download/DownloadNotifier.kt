@@ -24,8 +24,9 @@ import java.util.regex.Pattern
  *
  * @param context context of application
  */
-internal class DownloadNotifier(private val context: Context) {
-
+internal class DownloadNotifier(
+    private val context: Context,
+) {
     private val preferences: SecurityPreferences by injectLazy()
 
     private val progressNotificationBuilder by lazy {
@@ -90,11 +91,12 @@ internal class DownloadNotifier(private val context: Context) {
                 )
             }
 
-            val downloadingProgressText = context.stringResource(
-                MR.strings.chapter_downloading_progress,
-                download.downloadedImages,
-                download.pages!!.size,
-            )
+            val downloadingProgressText =
+                context.stringResource(
+                    MR.strings.chapter_downloading_progress,
+                    download.downloadedImages,
+                    download.pages!!.size,
+                )
 
             if (preferences.hideNotificationContent().get()) {
                 setContentTitle(downloadingProgressText)
@@ -102,10 +104,11 @@ internal class DownloadNotifier(private val context: Context) {
             } else {
                 val title = download.manga.title.chop(15)
                 val quotedTitle = Pattern.quote(title)
-                val chapter = download.chapter.name.replaceFirst(
-                    "$quotedTitle[\\s]*[-]*[\\s]*".toRegex(RegexOption.IGNORE_CASE),
-                    "",
-                )
+                val chapter =
+                    download.chapter.name.replaceFirst(
+                        "$quotedTitle[\\s]*[-]*[\\s]*".toRegex(RegexOption.IGNORE_CASE),
+                        "",
+                    )
                 setContentTitle("$title - $chapter".chop(30))
                 setContentText(downloadingProgressText)
             }
@@ -168,7 +171,12 @@ internal class DownloadNotifier(private val context: Context) {
      * @param mangaId the id of the entry being warned about
      * Only works on Android 8+.
      */
-    fun onWarning(reason: String, timeout: Long? = null, contentIntent: PendingIntent? = null, mangaId: Long? = null) {
+    fun onWarning(
+        reason: String,
+        timeout: Long? = null,
+        contentIntent: PendingIntent? = null,
+        mangaId: Long? = null,
+    ) {
         with(errorNotificationBuilder) {
             setContentTitle(context.stringResource(MR.strings.download_notifier_downloader_title))
             setStyle(NotificationCompat.BigTextStyle().bigText(reason))
@@ -202,7 +210,12 @@ internal class DownloadNotifier(private val context: Context) {
      * @param chapter string containing chapter title.
      * @param mangaId the id of the entry that the error occurred on
      */
-    fun onError(error: String? = null, chapter: String? = null, mangaTitle: String? = null, mangaId: Long? = null) {
+    fun onError(
+        error: String? = null,
+        chapter: String? = null,
+        mangaTitle: String? = null,
+        mangaId: Long? = null,
+    ) {
         // Create notification
         with(errorNotificationBuilder) {
             setContentTitle(
@@ -228,3 +241,4 @@ internal class DownloadNotifier(private val context: Context) {
         isDownloading = false
     }
 }
+

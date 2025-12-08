@@ -9,6 +9,6 @@ open class ReaderPage(
     imageUrl: String? = null,
     var stream: (() -> InputStream)? = null,
 ) : Page(index, url, imageUrl, null) {
-
     open lateinit var chapter: ReaderChapter
 }
+

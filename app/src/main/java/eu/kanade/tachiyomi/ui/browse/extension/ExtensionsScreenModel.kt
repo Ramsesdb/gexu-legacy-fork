@@ -40,7 +40,6 @@ class ExtensionsScreenModel(
     private val extensionManager: ExtensionManager = Injekt.get(),
     private val getExtensions: GetExtensionsByType = Injekt.get(),
 ) : StateScreenModel<ExtensionsScreenModel.State>(State()) {
-
     private val currentDownloads = MutableStateFlow<Map<String, InstallStep>>(hashMapOf())
 
     init {
@@ -104,37 +103,41 @@ class ExtensionsScreenModel(
                     itemsGroups[ExtensionUiModel.Header.Resource(MR.strings.ext_installed)] = installed + untrusted
                 }
 
-                val languagesWithExtensions = _available
-                    .filter(queryFilter(searchQuery))
-                    .groupBy { it.lang }
-                    .toSortedMap(LocaleHelper.comparator)
-                    .map { (lang, exts) ->
-                        ExtensionUiModel.Header.Text(LocaleHelper.getSourceDisplayName(lang, context)) to
-                            exts.map(extensionMapper(downloads))
-                    }
+                val languagesWithExtensions =
+                    _available
+                        .filter(queryFilter(searchQuery))
+                        .groupBy { it.lang }
+                        .toSortedMap(LocaleHelper.comparator)
+                        .map { (lang, exts) ->
+                            ExtensionUiModel.Header.Text(LocaleHelper.getSourceDisplayName(lang, context)) to
+                                exts.map(extensionMapper(downloads))
+                        }
                 if (languagesWithExtensions.isNotEmpty()) {
                     itemsGroups.putAll(languagesWithExtensions)
                 }
 
                 itemsGroups
-            }
-                .collectLatest {
-                    mutableState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            items = it,
-                        )
-                    }
+            }.collectLatest {
+                mutableState.update { state ->
+                    state.copy(
+                        isLoading = false,
+                        items = it,
+                    )
                 }
+            }
         }
 
         screenModelScope.launchIO { findAvailableExtensions() }
 
-        preferences.extensionUpdatesCount().changes()
+        preferences
+            .extensionUpdatesCount()
+            .changes()
             .onEach { mutableState.update { state -> state.copy(updates = it) } }
             .launchIn(screenModelScope)
 
-        basePreferences.extensionInstaller().changes()
+        basePreferences
+            .extensionInstaller()
+            .changes()
             .onEach { mutableState.update { state -> state.copy(installer = it) } }
             .launchIn(screenModelScope)
     }
@@ -147,7 +150,8 @@ class ExtensionsScreenModel(
 
     fun updateAllExtensions() {
         screenModelScope.launchIO {
-            state.value.items.values.flatten()
+            state.value.items.values
+                .flatten()
                 .map { it.extension }
                 .filterIsInstance<Extension.Installed>()
                 .filter { it.hasUpdate }
@@ -171,7 +175,10 @@ class ExtensionsScreenModel(
         extensionManager.cancelInstallUpdateExtension(extension)
     }
 
-    private fun addDownloadState(extension: Extension, installStep: InstallStep) {
+    private fun addDownloadState(
+        extension: Extension,
+        installStep: InstallStep,
+    ) {
         currentDownloads.update { it + Pair(extension.pkgName, installStep) }
     }
 
@@ -225,8 +232,13 @@ typealias ItemGroups = MutableMap<ExtensionUiModel.Header, List<ExtensionUiModel
 
 object ExtensionUiModel {
     sealed interface Header {
-        data class Resource(val textRes: StringResource) : Header
-        data class Text(val text: String) : Header
+        data class Resource(
+            val textRes: StringResource,
+        ) : Header
+
+        data class Text(
+            val text: String,
+        ) : Header
     }
 
     data class Item(
@@ -234,3 +246,4 @@ object ExtensionUiModel {
         val installStep: InstallStep,
     )
 }
+

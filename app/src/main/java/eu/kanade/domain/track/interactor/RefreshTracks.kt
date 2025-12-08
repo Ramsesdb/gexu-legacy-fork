@@ -16,7 +16,6 @@ class RefreshTracks(
     private val insertTrack: InsertTrack,
     private val syncChapterProgressWithTrack: SyncChapterProgressWithTrack,
 ) {
-
     /**
      * Fetches updated tracking data from all logged in trackers.
      *
@@ -24,7 +23,8 @@ class RefreshTracks(
      */
     suspend fun await(mangaId: Long): List<Pair<Tracker?, Throwable>> {
         return supervisorScope {
-            return@supervisorScope getTracks.await(mangaId)
+            return@supervisorScope getTracks
+                .await(mangaId)
                 .map { it to trackerManager.get(it.trackerId) }
                 .filter { (_, service) -> service?.isLoggedIn == true }
                 .map { (track, service) ->
@@ -38,9 +38,9 @@ class RefreshTracks(
                             service to e
                         }
                     }
-                }
-                .awaitAll()
+                }.awaitAll()
                 .filterNotNull()
         }
     }
 }
+

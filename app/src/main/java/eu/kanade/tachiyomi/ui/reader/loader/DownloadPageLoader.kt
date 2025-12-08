@@ -24,7 +24,6 @@ internal class DownloadPageLoader(
     private val downloadManager: DownloadManager,
     private val downloadProvider: DownloadProvider,
 ) : PageLoader() {
-
     private val context: Application by injectLazy()
 
     private var archivePageLoader: ArchivePageLoader? = null
@@ -33,13 +32,14 @@ internal class DownloadPageLoader(
 
     override suspend fun getPages(): List<ReaderPage> {
         val dbChapter = chapter.chapter
-        val chapterPath = downloadProvider.findChapterDir(
-            dbChapter.name,
-            dbChapter.scanlator,
-            dbChapter.url,
-            manga.title,
-            source,
-        )
+        val chapterPath =
+            downloadProvider.findChapterDir(
+                dbChapter.name,
+                dbChapter.scanlator,
+                dbChapter.url,
+                manga.title,
+                source,
+            )
         return if (chapterPath?.isFile == true) {
             getPagesFromArchive(chapterPath)
         } else {
@@ -72,3 +72,4 @@ internal class DownloadPageLoader(
         archivePageLoader?.loadPage(page)
     }
 }
+

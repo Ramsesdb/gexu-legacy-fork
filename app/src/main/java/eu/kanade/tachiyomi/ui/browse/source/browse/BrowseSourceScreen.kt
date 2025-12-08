@@ -69,8 +69,8 @@ import tachiyomi.source.local.LocalSource
 data class BrowseSourceScreen(
     val sourceId: Long,
     private val listingQuery: String?,
-) : Screen(), AssistContentScreen {
-
+) : Screen(),
+    AssistContentScreen {
     private var assistUrl: String? = null
 
     override fun onProvideAssistUrl() = assistUrl
@@ -125,9 +125,10 @@ data class BrowseSourceScreen(
         Scaffold(
             topBar = {
                 Column(
-                    modifier = Modifier
-                        .background(MaterialTheme.colorScheme.surface)
-                        .pointerInput(Unit) {},
+                    modifier =
+                        Modifier
+                            .background(MaterialTheme.colorScheme.surface)
+                            .pointerInput(Unit) {},
                 ) {
                     BrowseSourceToolbar(
                         searchQuery = state.toolbarQuery,
@@ -143,9 +144,10 @@ data class BrowseSourceScreen(
                     )
 
                     Row(
-                        modifier = Modifier
-                            .horizontalScroll(rememberScrollState())
-                            .padding(horizontal = MaterialTheme.padding.small),
+                        modifier =
+                            Modifier
+                                .horizontalScroll(rememberScrollState())
+                                .padding(horizontal = MaterialTheme.padding.small),
                         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                     ) {
                         FilterChip(
@@ -158,8 +160,9 @@ data class BrowseSourceScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.Favorite,
                                     contentDescription = null,
-                                    modifier = Modifier
-                                        .size(FilterChipDefaults.IconSize),
+                                    modifier =
+                                        Modifier
+                                            .size(FilterChipDefaults.IconSize),
                                 )
                             },
                             label = {
@@ -177,8 +180,9 @@ data class BrowseSourceScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.NewReleases,
                                         contentDescription = null,
-                                        modifier = Modifier
-                                            .size(FilterChipDefaults.IconSize),
+                                        modifier =
+                                            Modifier
+                                                .size(FilterChipDefaults.IconSize),
                                     )
                                 },
                                 label = {
@@ -194,8 +198,9 @@ data class BrowseSourceScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.FilterList,
                                         contentDescription = null,
-                                        modifier = Modifier
-                                            .size(FilterChipDefaults.IconSize),
+                                        modifier =
+                                            Modifier
+                                                .size(FilterChipDefaults.IconSize),
                                     )
                                 },
                                 label = {
@@ -226,9 +231,10 @@ data class BrowseSourceScreen(
                         val duplicates = screenModel.getDuplicateLibraryManga(manga)
                         when {
                             manga.favorite -> screenModel.setDialog(BrowseSourceScreenModel.Dialog.RemoveManga(manga))
-                            duplicates.isNotEmpty() -> screenModel.setDialog(
-                                BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
-                            )
+                            duplicates.isNotEmpty() ->
+                                screenModel.setDialog(
+                                    BrowseSourceScreenModel.Dialog.AddDuplicateManga(manga, duplicates),
+                                )
                             else -> screenModel.addFavorite(manga)
                         }
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -291,7 +297,8 @@ data class BrowseSourceScreen(
         }
 
         LaunchedEffect(Unit) {
-            queryEvent.receiveAsFlow()
+            queryEvent
+                .receiveAsFlow()
                 .collectLatest {
                     when (it) {
                         is SearchType.Genre -> screenModel.searchGenre(it.txt)
@@ -302,14 +309,23 @@ data class BrowseSourceScreen(
     }
 
     suspend fun search(query: String) = queryEvent.send(SearchType.Text(query))
+
     suspend fun searchGenre(name: String) = queryEvent.send(SearchType.Genre(name))
 
     companion object {
         private val queryEvent = Channel<SearchType>()
     }
 
-    sealed class SearchType(val txt: String) {
-        class Text(txt: String) : SearchType(txt)
-        class Genre(txt: String) : SearchType(txt)
+    sealed class SearchType(
+        val txt: String,
+    ) {
+        class Text(
+            txt: String,
+        ) : SearchType(txt)
+
+        class Genre(
+            txt: String,
+        ) : SearchType(txt)
     }
 }
+

@@ -27,15 +27,16 @@ fun Screen.migrateSourceTab(): TabContent {
 
     return TabContent(
         titleRes = MR.strings.label_migration,
-        actions = persistentListOf(
-            AppBar.Action(
-                title = stringResource(MR.strings.migration_help_guide),
-                icon = Icons.AutoMirrored.Outlined.HelpOutline,
-                onClick = {
-                    uriHandler.openUri("https://mihon.app/docs/guides/source-migration")
-                },
+        actions =
+            persistentListOf(
+                AppBar.Action(
+                    title = stringResource(MR.strings.migration_help_guide),
+                    icon = Icons.AutoMirrored.Outlined.HelpOutline,
+                    onClick = {
+                        uriHandler.openUri("https://mihon.app/docs/guides/source-migration")
+                    },
+                ),
             ),
-        ),
         content = { contentPadding, _ ->
             MigrateSourceScreen(
                 state = state,
@@ -49,3 +50,4 @@ fun Screen.migrateSourceTab(): TabContent {
         },
     )
 }
+

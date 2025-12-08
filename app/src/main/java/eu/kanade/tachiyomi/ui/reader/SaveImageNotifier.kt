@@ -22,8 +22,9 @@ import tachiyomi.i18n.MR
 /**
  * Class used to show BigPictureStyle notifications
  */
-class SaveImageNotifier(private val context: Context) {
-
+class SaveImageNotifier(
+    private val context: Context,
+) {
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_COMMON)
     private val notificationId: Int = Notifications.ID_DOWNLOAD_IMAGE
 
@@ -33,15 +34,16 @@ class SaveImageNotifier(private val context: Context) {
      * @param uri image file containing downloaded page image.
      */
     fun onComplete(uri: Uri) {
-        val request = ImageRequest.Builder(context)
-            .data(uri)
-            .memoryCachePolicy(CachePolicy.DISABLED)
-            .size(720, 1280)
-            .target(
-                onSuccess = { showCompleteNotification(uri, it.asDrawable(context.resources).getBitmapOrNull()) },
-                onError = { onError(null) },
-            )
-            .build()
+        val request =
+            ImageRequest
+                .Builder(context)
+                .data(uri)
+                .memoryCachePolicy(CachePolicy.DISABLED)
+                .size(720, 1280)
+                .target(
+                    onSuccess = { showCompleteNotification(uri, it.asDrawable(context.resources).getBitmapOrNull()) },
+                    onError = { onError(null) },
+                ).build()
         context.imageLoader.enqueue(request)
     }
 
@@ -66,7 +68,10 @@ class SaveImageNotifier(private val context: Context) {
         updateNotification()
     }
 
-    private fun showCompleteNotification(uri: Uri, image: Bitmap?) {
+    private fun showCompleteNotification(
+        uri: Uri,
+        image: Bitmap?,
+    ) {
         with(notificationBuilder) {
             setContentTitle(context.stringResource(MR.strings.picture_saved))
             setSmallIcon(R.drawable.ic_photo_24dp)
@@ -94,3 +99,4 @@ class SaveImageNotifier(private val context: Context) {
         context.notify(notificationId, notificationBuilder.build())
     }
 }
+

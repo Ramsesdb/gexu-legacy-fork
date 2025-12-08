@@ -63,47 +63,50 @@ internal class TrackerSearchPreviewProvider : PreviewParameterProvider<@Composab
             supportsPrivateTracking = true,
         )
     }
-    override val values: Sequence<@Composable () -> Unit> = sequenceOf(
-        fullPageWithSecondSelected,
-        fullPageWithoutSelected,
-        loading,
-        fullPageWithPrivateTracking,
-    )
+    override val values: Sequence<@Composable () -> Unit> =
+        sequenceOf(
+            fullPageWithSecondSelected,
+            fullPageWithoutSelected,
+            loading,
+            fullPageWithPrivateTracking,
+        )
 
-    private fun someTrackSearches(): Sequence<TrackSearch> = sequence {
-        while (true) {
-            yield(randTrackSearch())
+    private fun someTrackSearches(): Sequence<TrackSearch> =
+        sequence {
+            while (true) {
+                yield(randTrackSearch())
+            }
         }
-    }
 
     private val formatter: SimpleDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
 
-    private fun randTrackSearch() = TrackSearch().let {
-        it.id = Random.nextLong()
-        it.manga_id = Random.nextLong()
-        it.tracker_id = Random.nextLong()
-        it.remote_id = Random.nextLong()
-        it.library_id = Random.nextLong()
-        it.title = lorem((1..10).random()).joinToString()
-        it.last_chapter_read = (0..100).random().toDouble()
-        it.total_chapters = (100L..1000L).random()
-        it.score = (0..10).random().toDouble()
-        it.status = Random.nextLong()
-        it.started_reading_date = 0L
-        it.finished_reading_date = 0L
-        it.tracking_url = "https://example.com/tracker-example"
-        it.cover_url = "https://example.com/cover.png"
-        it.start_date = formatter.format(Date.from(Instant.now().minus((1L..365).random(), ChronoUnit.DAYS)))
-        it.summary = lorem((0..40).random()).joinToString()
-        it.publishing_status = if (Random.nextBoolean()) "Finished" else ""
-        it.publishing_type = if (Random.nextBoolean()) "Oneshot" else ""
-        it.artists = randomNames()
-        it.authors = randomNames()
-        it
-    }
+    private fun randTrackSearch() =
+        TrackSearch().let {
+            it.id = Random.nextLong()
+            it.manga_id = Random.nextLong()
+            it.tracker_id = Random.nextLong()
+            it.remote_id = Random.nextLong()
+            it.library_id = Random.nextLong()
+            it.title = lorem((1..10).random()).joinToString()
+            it.last_chapter_read = (0..100).random().toDouble()
+            it.total_chapters = (100L..1000L).random()
+            it.score = (0..10).random().toDouble()
+            it.status = Random.nextLong()
+            it.started_reading_date = 0L
+            it.finished_reading_date = 0L
+            it.tracking_url = "https://example.com/tracker-example"
+            it.cover_url = "https://example.com/cover.png"
+            it.start_date = formatter.format(Date.from(Instant.now().minus((1L..365).random(), ChronoUnit.DAYS)))
+            it.summary = lorem((0..40).random()).joinToString()
+            it.publishing_status = if (Random.nextBoolean()) "Finished" else ""
+            it.publishing_type = if (Random.nextBoolean()) "Oneshot" else ""
+            it.artists = randomNames()
+            it.authors = randomNames()
+            it
+        }
 
     private fun randomNames(): List<String> = (0..(0..3).random()).map { lorem((3..5).random()).joinToString() }
 
-    private fun lorem(words: Int): Sequence<String> =
-        LoremIpsum(words).values
+    private fun lorem(words: Int): Sequence<String> = LoremIpsum(words).values
 }
+

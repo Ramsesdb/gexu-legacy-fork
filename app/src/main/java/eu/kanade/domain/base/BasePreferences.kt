@@ -11,11 +11,11 @@ class BasePreferences(
     val context: Context,
     private val preferenceStore: PreferenceStore,
 ) {
-
-    fun downloadedOnly() = preferenceStore.getBoolean(
-        Preference.appStateKey("pref_downloaded_only"),
-        false,
-    )
+    fun downloadedOnly() =
+        preferenceStore.getBoolean(
+            Preference.appStateKey("pref_downloaded_only"),
+            false,
+        )
 
     fun incognitoMode() = preferenceStore.getBoolean(Preference.appStateKey("incognito_mode"), false)
 
@@ -23,7 +23,10 @@ class BasePreferences(
 
     fun shownOnboardingFlow() = preferenceStore.getBoolean(Preference.appStateKey("onboarding_complete"), false)
 
-    enum class ExtensionInstaller(val titleRes: StringResource, val requiresSystemPermission: Boolean) {
+    enum class ExtensionInstaller(
+        val titleRes: StringResource,
+        val requiresSystemPermission: Boolean,
+    ) {
         LEGACY(MR.strings.ext_installer_legacy, true),
         PACKAGEINSTALLER(MR.strings.ext_installer_packageinstaller, true),
         SHIZUKU(MR.strings.ext_installer_shizuku, false),
@@ -36,3 +39,4 @@ class BasePreferences(
 
     fun alwaysDecodeLongStripWithSSIV() = preferenceStore.getBoolean("pref_always_decode_long_strip_with_ssiv", false)
 }
+

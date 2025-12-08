@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.collectLatest
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class CategoryScreen : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -80,3 +79,4 @@ class CategoryScreen : Screen() {
         }
     }
 }
+

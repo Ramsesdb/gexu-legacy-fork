@@ -17,45 +17,52 @@ import eu.kanade.tachiyomi.util.system.getUriSize
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 
-class PackageInstallerInstaller(private val service: Service) : Installer(service) {
-
+class PackageInstallerInstaller(
+    private val service: Service,
+) : Installer(service) {
     private val packageInstaller = service.packageManager.packageInstaller
 
-    private val packageActionReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
-                PackageInstaller.STATUS_PENDING_USER_ACTION -> {
-                    val userAction = intent.getParcelableExtraCompat<Intent>(Intent.EXTRA_INTENT)
-                        ?.run {
-                            // Doesn't actually needed as the receiver is actually not exported
-                            // But the warnings can't be suppressed without this
-                            IntentSanitizer.Builder()
-                                .allowAction(this.action!!)
-                                .allowExtra(PackageInstaller.EXTRA_SESSION_ID) { id -> id == activeSession?.second }
-                                .allowAnyComponent()
-                                .allowPackage {
-                                    // There is no way to check the actual installer name so allow all.
-                                    true
+    private val packageActionReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                when (intent.getIntExtra(PackageInstaller.EXTRA_STATUS, PackageInstaller.STATUS_FAILURE)) {
+                    PackageInstaller.STATUS_PENDING_USER_ACTION -> {
+                        val userAction =
+                            intent
+                                .getParcelableExtraCompat<Intent>(Intent.EXTRA_INTENT)
+                                ?.run {
+                                    // Doesn't actually needed as the receiver is actually not exported
+                                    // But the warnings can't be suppressed without this
+                                    IntentSanitizer
+                                        .Builder()
+                                        .allowAction(this.action!!)
+                                        .allowExtra(PackageInstaller.EXTRA_SESSION_ID) { id -> id == activeSession?.second }
+                                        .allowAnyComponent()
+                                        .allowPackage {
+                                            // There is no way to check the actual installer name so allow all.
+                                            true
+                                        }.build()
+                                        .sanitizeByFiltering(this)
                                 }
-                                .build()
-                                .sanitizeByFiltering(this)
+                        if (userAction == null) {
+                            logcat(LogPriority.ERROR) { "Fatal error for $intent" }
+                            continueQueue(InstallStep.Error)
+                            return
                         }
-                    if (userAction == null) {
-                        logcat(LogPriority.ERROR) { "Fatal error for $intent" }
-                        continueQueue(InstallStep.Error)
-                        return
+                        userAction.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                        service.startActivity(userAction)
                     }
-                    userAction.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                    service.startActivity(userAction)
+                    PackageInstaller.STATUS_FAILURE_ABORTED -> {
+                        continueQueue(InstallStep.Idle)
+                    }
+                    PackageInstaller.STATUS_SUCCESS -> continueQueue(InstallStep.Installed)
+                    else -> continueQueue(InstallStep.Error)
                 }
-                PackageInstaller.STATUS_FAILURE_ABORTED -> {
-                    continueQueue(InstallStep.Idle)
-                }
-                PackageInstaller.STATUS_SUCCESS -> continueQueue(InstallStep.Installed)
-                else -> continueQueue(InstallStep.Error)
             }
         }
-    }
 
     private var activeSession: Pair<Entry, Int>? = null
 
@@ -83,12 +90,14 @@ class PackageInstallerInstaller(private val service: Service) : Installer(servic
                     session.fsync(outputStream)
                 }
 
-                val intentSender = PendingIntent.getBroadcast(
-                    service,
-                    activeSession!!.second,
-                    Intent(INSTALL_ACTION).setPackage(service.packageName),
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0,
-                ).intentSender
+                val intentSender =
+                    PendingIntent
+                        .getBroadcast(
+                            service,
+                            activeSession!!.second,
+                            Intent(INSTALL_ACTION).setPackage(service.packageName),
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) PendingIntent.FLAG_MUTABLE else 0,
+                        ).intentSender
                 session.commit(intentSender)
             }
         } catch (e: Exception) {
@@ -126,3 +135,4 @@ class PackageInstallerInstaller(private val service: Service) : Installer(servic
 }
 
 private const val INSTALL_ACTION = "PackageInstallerInstaller.INSTALL_ACTION"
+

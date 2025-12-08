@@ -19,13 +19,15 @@ inline fun <T : Closeable?> Array<T>.use(block: () -> Unit) {
     } finally {
         when (blockException) {
             null -> forEach { it?.close() }
-            else -> forEach {
-                try {
-                    it?.close()
-                } catch (closeException: Throwable) {
-                    blockException.addSuppressed(closeException)
+            else ->
+                forEach {
+                    try {
+                        it?.close()
+                    } catch (closeException: Throwable) {
+                        blockException.addSuppressed(closeException)
+                    }
                 }
-            }
         }
     }
 }
+

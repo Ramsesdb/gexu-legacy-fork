@@ -14,8 +14,9 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
-
+class Bangumi(
+    id: Long,
+) : BaseTracker(id, "Bangumi") {
     private val json: Json by injectLazy()
 
     private val interceptor by lazy { BangumiInterceptor(this) }
@@ -26,15 +27,14 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
 
     override fun getScoreList(): ImmutableList<String> = SCORE_LIST
 
-    override fun displayScore(track: DomainTrack): String {
-        return track.score.toInt().toString()
-    }
+    override fun displayScore(track: DomainTrack): String = track.score.toInt().toString()
 
-    private suspend fun add(track: Track): Track {
-        return api.addLibManga(track)
-    }
+    private suspend fun add(track: Track): Track = api.addLibManga(track)
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -48,7 +48,10 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
         return api.updateLibManga(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track {
         val statusTrack = api.statusLibManga(track, getUsername())
         return if (statusTrack != null) {
             track.copyPersonalFrom(statusTrack, copyRemotePrivate = false)
@@ -69,9 +72,7 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
         }
     }
 
-    override suspend fun search(query: String): List<TrackSearch> {
-        return api.search(query)
-    }
+    override suspend fun search(query: String): List<TrackSearch> = api.search(query)
 
     override suspend fun refresh(track: Track): Track {
         val remoteStatusTrack = api.statusLibManga(track, getUsername()) ?: throw Exception("Could not find manga")
@@ -83,18 +84,17 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
 
     override fun getLogoColor() = Color.rgb(240, 145, 153)
 
-    override fun getStatusList(): List<Long> {
-        return listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
-    }
+    override fun getStatusList(): List<Long> = listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        COMPLETED -> MR.strings.completed
-        ON_HOLD -> MR.strings.on_hold
-        DROPPED -> MR.strings.dropped
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            READING -> MR.strings.reading
+            PLAN_TO_READ -> MR.strings.plan_to_read
+            COMPLETED -> MR.strings.completed
+            ON_HOLD -> MR.strings.on_hold
+            DROPPED -> MR.strings.dropped
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -102,7 +102,10 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
 
     override fun getCompletionStatus(): Long = COMPLETED
 
-    override suspend fun login(username: String, password: String) = login(password)
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) = login(password)
 
     suspend fun login(code: String) {
         try {
@@ -122,13 +125,12 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
         trackPreferences.trackToken(this).set(json.encodeToString(oauth))
     }
 
-    fun restoreToken(): BGMOAuth? {
-        return try {
+    fun restoreToken(): BGMOAuth? =
+        try {
             json.decodeFromString<BGMOAuth>(trackPreferences.trackToken(this).get())
         } catch (_: Exception) {
             null
         }
-    }
 
     override fun logout() {
         super.logout()
@@ -143,8 +145,10 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
         const val ON_HOLD = 4L
         const val DROPPED = 5L
 
-        private val SCORE_LIST = IntRange(0, 10)
-            .map(Int::toString)
-            .toImmutableList()
+        private val SCORE_LIST =
+            IntRange(0, 10)
+                .map(Int::toString)
+                .toImmutableList()
     }
 }
+

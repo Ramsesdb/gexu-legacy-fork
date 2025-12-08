@@ -44,8 +44,8 @@ data class BackupManga(
     @ProtoNumber(110) var notes: String = "",
     @ProtoNumber(111) var initialized: Boolean = false,
 ) {
-    fun getMangaImpl(): Manga {
-        return Manga.create().copy(
+    fun getMangaImpl(): Manga =
+        Manga.create().copy(
             url = this@BackupManga.url,
             title = this@BackupManga.title,
             artist = this@BackupManga.artist,
@@ -66,5 +66,5 @@ data class BackupManga(
             notes = this@BackupManga.notes,
             initialized = this@BackupManga.initialized,
         )
-    }
 }
+

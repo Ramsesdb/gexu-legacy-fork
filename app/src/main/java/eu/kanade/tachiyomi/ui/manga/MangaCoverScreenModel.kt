@@ -37,13 +37,12 @@ class MangaCoverScreenModel(
     private val imageSaver: ImageSaver = Injekt.get(),
     private val coverCache: CoverCache = Injekt.get(),
     private val updateManga: UpdateManga = Injekt.get(),
-
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<Manga?>(null) {
-
     init {
         screenModelScope.launchIO {
-            getManga.subscribe(mangaId)
+            getManga
+                .subscribe(mangaId)
                 .collect { newManga -> mutableState.update { newManga } }
         }
     }
@@ -89,15 +88,24 @@ class MangaCoverScreenModel(
      * @param context The context for building and executing the ImageRequest
      * @return the uri to saved file
      */
-    private suspend fun saveCoverInternal(context: Context, temp: Boolean): Uri? {
+    private suspend fun saveCoverInternal(
+        context: Context,
+        temp: Boolean,
+    ): Uri? {
         val manga = state.value ?: return null
-        val req = ImageRequest.Builder(context)
-            .data(manga)
-            .size(Size.ORIGINAL)
-            .build()
+        val req =
+            ImageRequest
+                .Builder(context)
+                .data(manga)
+                .size(Size.ORIGINAL)
+                .build()
 
         return withIOContext {
-            val result = context.imageLoader.execute(req).image?.asDrawable(context.resources)
+            val result =
+                context.imageLoader
+                    .execute(req)
+                    .image
+                    ?.asDrawable(context.resources)
 
             // TODO: Handle animated cover
             val bitmap = result?.getBitmapOrNull() ?: return@withIOContext null
@@ -117,7 +125,10 @@ class MangaCoverScreenModel(
      * @param context Context.
      * @param data uri of the cover resource.
      */
-    fun editCover(context: Context, data: Uri) {
+    fun editCover(
+        context: Context,
+        data: Uri,
+    ) {
         val manga = state.value ?: return
         screenModelScope.launchIO {
             context.contentResolver.openInputStream(data)?.use {
@@ -153,7 +164,10 @@ class MangaCoverScreenModel(
         }
     }
 
-    private fun notifyFailedCoverUpdate(context: Context, e: Throwable) {
+    private fun notifyFailedCoverUpdate(
+        context: Context,
+        e: Throwable,
+    ) {
         screenModelScope.launch {
             snackbarHostState.showSnackbar(
                 context.stringResource(MR.strings.notification_cover_update_failed),
@@ -163,3 +177,4 @@ class MangaCoverScreenModel(
         }
     }
 }
+

@@ -23,7 +23,6 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 class ExtensionReposScreen(
     private val url: String? = null,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -94,3 +93,4 @@ class ExtensionReposScreen(
         }
     }
 }
+

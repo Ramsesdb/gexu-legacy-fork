@@ -27,13 +27,14 @@ class LibrarySettingsScreenModel(
     private val setSortModeForCategory: SetSortModeForCategory = Injekt.get(),
     trackerManager: TrackerManager = Injekt.get(),
 ) : ScreenModel {
-
-    val trackersFlow = trackerManager.loggedInTrackersFlow()
-        .stateIn(
-            scope = screenModelScope,
-            started = SharingStarted.WhileSubscribed(5.seconds.inWholeMilliseconds),
-            initialValue = trackerManager.loggedInTrackers(),
-        )
+    val trackersFlow =
+        trackerManager
+            .loggedInTrackersFlow()
+            .stateIn(
+                scope = screenModelScope,
+                started = SharingStarted.WhileSubscribed(5.seconds.inWholeMilliseconds),
+                initialValue = trackerManager.loggedInTrackers(),
+            )
 
     fun toggleFilter(preference: (LibraryPreferences) -> Preference<TriState>) {
         preference(libraryPreferences).getAndSet {
@@ -49,9 +50,14 @@ class LibrarySettingsScreenModel(
         setDisplayMode.await(mode)
     }
 
-    fun setSort(category: Category?, mode: LibrarySort.Type, direction: LibrarySort.Direction) {
+    fun setSort(
+        category: Category?,
+        mode: LibrarySort.Type,
+        direction: LibrarySort.Direction,
+    ) {
         screenModelScope.launchIO {
             setSortModeForCategory.await(category, mode, direction)
         }
     }
 }
+

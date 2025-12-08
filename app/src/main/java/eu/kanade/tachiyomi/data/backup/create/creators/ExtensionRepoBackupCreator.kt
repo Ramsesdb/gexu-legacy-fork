@@ -9,9 +9,9 @@ import uy.kohesive.injekt.api.get
 class ExtensionRepoBackupCreator(
     private val getExtensionRepos: GetExtensionRepo = Injekt.get(),
 ) {
-
-    suspend operator fun invoke(): List<BackupExtensionRepos> {
-        return getExtensionRepos.getAll()
+    suspend operator fun invoke(): List<BackupExtensionRepos> =
+        getExtensionRepos
+            .getAll()
             .map(backupExtensionReposMapper)
-    }
 }
+

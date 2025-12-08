@@ -23,41 +23,46 @@ import uy.kohesive.injekt.api.get
  *
  * @see setIncognito
  */
-class TachiyomiTextInputEditText @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = R.attr.editTextStyle,
-) : TextInputEditText(context, attrs, defStyleAttr) {
+class TachiyomiTextInputEditText
+    @JvmOverloads
+    constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+        defStyleAttr: Int = R.attr.editTextStyle,
+    ) : TextInputEditText(context, attrs, defStyleAttr) {
+        private var scope: CoroutineScope? = null
 
-    private var scope: CoroutineScope? = null
+        override fun onAttachedToWindow() {
+            super.onAttachedToWindow()
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
+            setIncognito(scope!!)
+        }
 
-    override fun onAttachedToWindow() {
-        super.onAttachedToWindow()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-        setIncognito(scope!!)
-    }
+        override fun onDetachedFromWindow() {
+            super.onDetachedFromWindow()
+            scope?.cancel()
+            scope = null
+        }
 
-    override fun onDetachedFromWindow() {
-        super.onDetachedFromWindow()
-        scope?.cancel()
-        scope = null
-    }
-
-    companion object {
-        /**
-         * Sets Flow to this [EditText] that sets [EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING] to imeOptions
-         * if [BasePreferences.incognitoMode] is true. Some IMEs may not respect this flag.
-         */
-        fun EditText.setIncognito(viewScope: CoroutineScope) {
-            Injekt.get<BasePreferences>().incognitoMode().changes()
-                .onEach {
-                    imeOptions = if (it) {
-                        imeOptions or EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING
-                    } else {
-                        imeOptions and EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
-                    }
-                }
-                .launchIn(viewScope)
+        companion object {
+            /**
+             * Sets Flow to this [EditText] that sets [EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING] to imeOptions
+             * if [BasePreferences.incognitoMode] is true. Some IMEs may not respect this flag.
+             */
+            fun EditText.setIncognito(viewScope: CoroutineScope) {
+                Injekt
+                    .get<BasePreferences>()
+                    .incognitoMode()
+                    .changes()
+                    .onEach {
+                        imeOptions =
+                            if (it) {
+                                imeOptions or EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING
+                            } else {
+                                imeOptions and EditorInfoCompat.IME_FLAG_NO_PERSONALIZED_LEARNING.inv()
+                            }
+                    }.launchIn(viewScope)
+            }
         }
     }
-}
+

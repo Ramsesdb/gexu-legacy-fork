@@ -37,7 +37,6 @@ class SyncChaptersWithSource(
     private val getExcludedScanlators: GetExcludedScanlators,
     private val libraryPreferences: LibraryPreferences,
 ) {
-
     /**
      * Method to synchronize db chapters with source ones
      *
@@ -60,24 +59,27 @@ class SyncChaptersWithSource(
         val now = ZonedDateTime.now()
         val nowMillis = now.toInstant().toEpochMilli()
 
-        val sourceChapters = rawSourceChapters
-            .distinctBy { it.url }
-            .mapIndexed { i, sChapter ->
-                Chapter.create()
-                    .copyFromSChapter(sChapter)
-                    .copy(name = with(ChapterSanitizer) { sChapter.name.sanitize(manga.title) })
-                    .copy(mangaId = manga.id, sourceOrder = i.toLong())
-            }
+        val sourceChapters =
+            rawSourceChapters
+                .distinctBy { it.url }
+                .mapIndexed { i, sChapter ->
+                    Chapter
+                        .create()
+                        .copyFromSChapter(sChapter)
+                        .copy(name = with(ChapterSanitizer) { sChapter.name.sanitize(manga.title) })
+                        .copy(mangaId = manga.id, sourceOrder = i.toLong())
+                }
 
         val dbChapters = getChaptersByMangaId.await(manga.id)
 
         val newChapters = mutableListOf<Chapter>()
         val updatedChapters = mutableListOf<Chapter>()
-        val removedChapters = dbChapters.filterNot { dbChapter ->
-            sourceChapters.any { sourceChapter ->
-                dbChapter.url == sourceChapter.url
+        val removedChapters =
+            dbChapters.filterNot { dbChapter ->
+                sourceChapters.any { sourceChapter ->
+                    dbChapter.url == sourceChapter.url
+                }
             }
-        }
 
         // Used to not set upload date of older chapters
         // to a higher value than newer chapters
@@ -100,35 +102,38 @@ class SyncChaptersWithSource(
             val dbChapter = dbChapters.find { it.url == chapter.url }
 
             if (dbChapter == null) {
-                val toAddChapter = if (chapter.dateUpload == 0L) {
-                    val altDateUpload = if (maxSeenUploadDate == 0L) nowMillis else maxSeenUploadDate
-                    chapter.copy(dateUpload = altDateUpload)
-                } else {
-                    maxSeenUploadDate = max(maxSeenUploadDate, sourceChapter.dateUpload)
-                    chapter
-                }
+                val toAddChapter =
+                    if (chapter.dateUpload == 0L) {
+                        val altDateUpload = if (maxSeenUploadDate == 0L) nowMillis else maxSeenUploadDate
+                        chapter.copy(dateUpload = altDateUpload)
+                    } else {
+                        maxSeenUploadDate = max(maxSeenUploadDate, sourceChapter.dateUpload)
+                        chapter
+                    }
                 newChapters.add(toAddChapter)
             } else {
                 if (shouldUpdateDbChapter.await(dbChapter, chapter)) {
-                    val shouldRenameChapter = downloadProvider.isChapterDirNameChanged(dbChapter, chapter) &&
-                        downloadManager.isChapterDownloaded(
-                            dbChapter.name,
-                            dbChapter.scanlator,
-                            dbChapter.url,
-                            manga.title,
-                            manga.source,
-                        )
+                    val shouldRenameChapter =
+                        downloadProvider.isChapterDirNameChanged(dbChapter, chapter) &&
+                            downloadManager.isChapterDownloaded(
+                                dbChapter.name,
+                                dbChapter.scanlator,
+                                dbChapter.url,
+                                manga.title,
+                                manga.source,
+                            )
 
                     if (shouldRenameChapter) {
                         downloadManager.renameChapter(source, manga, dbChapter, chapter)
                     }
 
-                    var toChangeChapter = dbChapter.copy(
-                        name = chapter.name,
-                        chapterNumber = chapter.chapterNumber,
-                        scanlator = chapter.scanlator,
-                        sourceOrder = chapter.sourceOrder,
-                    )
+                    var toChangeChapter =
+                        dbChapter.copy(
+                            name = chapter.name,
+                            chapterNumber = chapter.chapterNumber,
+                            scanlator = chapter.scanlator,
+                            sourceOrder = chapter.sourceOrder,
+                        )
 
                     if (chapter.dateUpload != 0L) {
                         toChangeChapter = toChangeChapter.copy(dateUpload = chapter.dateUpload)
@@ -156,11 +161,12 @@ class SyncChaptersWithSource(
         val deletedReadChapterNumbers = TreeSet<Double>()
         val deletedBookmarkedChapterNumbers = TreeSet<Double>()
 
-        val readChapterNumbers = dbChapters
-            .asSequence()
-            .filter { it.read && it.isRecognizedNumber }
-            .map { it.chapterNumber }
-            .toSet()
+        val readChapterNumbers =
+            dbChapters
+                .asSequence()
+                .filter { it.read && it.isRecognizedNumber }
+                .map { it.chapterNumber }
+                .toSet()
 
         removedChapters.forEach { chapter ->
             if (chapter.read) deletedReadChapterNumbers.add(chapter.chapterNumber)
@@ -168,39 +174,46 @@ class SyncChaptersWithSource(
             deletedChapterNumbers.add(chapter.chapterNumber)
         }
 
-        val deletedChapterNumberDateFetchMap = removedChapters.sortedByDescending { it.dateFetch }
-            .associate { it.chapterNumber to it.dateFetch }
+        val deletedChapterNumberDateFetchMap =
+            removedChapters
+                .sortedByDescending { it.dateFetch }
+                .associate { it.chapterNumber to it.dateFetch }
 
-        val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead().get()
-            .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
+        val markDuplicateAsRead =
+            libraryPreferences
+                .markDuplicateReadChapterAsRead()
+                .get()
+                .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
 
         // Date fetch is set in such a way that the upper ones will have bigger value than the lower ones
         // Sources MUST return the chapters from most to less recent, which is common.
         var itemCount = newChapters.size
-        var updatedToAdd = newChapters.map { toAddItem ->
-            var chapter = toAddItem.copy(dateFetch = nowMillis + itemCount--)
+        var updatedToAdd =
+            newChapters.map { toAddItem ->
+                var chapter = toAddItem.copy(dateFetch = nowMillis + itemCount--)
 
-            if (chapter.chapterNumber in readChapterNumbers && markDuplicateAsRead) {
+                if (chapter.chapterNumber in readChapterNumbers && markDuplicateAsRead) {
+                    changedOrDuplicateReadUrls.add(chapter.url)
+                    chapter = chapter.copy(read = true)
+                }
+
+                if (!chapter.isRecognizedNumber || chapter.chapterNumber !in deletedChapterNumbers) return@map chapter
+
+                chapter =
+                    chapter.copy(
+                        read = chapter.chapterNumber in deletedReadChapterNumbers,
+                        bookmark = chapter.chapterNumber in deletedBookmarkedChapterNumbers,
+                    )
+
+                // Try to to use the fetch date of the original entry to not pollute 'Updates' tab
+                deletedChapterNumberDateFetchMap[chapter.chapterNumber]?.let {
+                    chapter = chapter.copy(dateFetch = it)
+                }
+
                 changedOrDuplicateReadUrls.add(chapter.url)
-                chapter = chapter.copy(read = true)
+
+                chapter
             }
-
-            if (!chapter.isRecognizedNumber || chapter.chapterNumber !in deletedChapterNumbers) return@map chapter
-
-            chapter = chapter.copy(
-                read = chapter.chapterNumber in deletedReadChapterNumbers,
-                bookmark = chapter.chapterNumber in deletedBookmarkedChapterNumbers,
-            )
-
-            // Try to to use the fetch date of the original entry to not pollute 'Updates' tab
-            deletedChapterNumberDateFetchMap[chapter.chapterNumber]?.let {
-                chapter = chapter.copy(dateFetch = it)
-            }
-
-            changedOrDuplicateReadUrls.add(chapter.url)
-
-            chapter
-        }
 
         if (removedChapters.isNotEmpty()) {
             val toDeleteIds = removedChapters.map { it.id }
@@ -226,3 +239,4 @@ class SyncChaptersWithSource(
         return updatedToAdd.filterNot { it.url in changedOrDuplicateReadUrls || it.scanlator in excludedScanlators }
     }
 }
+

@@ -6,7 +6,6 @@ import android.os.Bundle
 import eu.kanade.tachiyomi.ui.main.MainActivity
 
 class DeepLinkActivity : Activity() {
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
@@ -18,3 +17,4 @@ class DeepLinkActivity : Activity() {
         finish()
     }
 }
+

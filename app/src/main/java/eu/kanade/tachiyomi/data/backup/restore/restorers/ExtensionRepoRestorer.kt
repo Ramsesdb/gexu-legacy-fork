@@ -10,10 +10,7 @@ class ExtensionRepoRestorer(
     private val handler: DatabaseHandler = Injekt.get(),
     private val getExtensionRepos: GetExtensionRepo = Injekt.get(),
 ) {
-
-    suspend operator fun invoke(
-        backupRepo: BackupExtensionRepos,
-    ) {
+    suspend operator fun invoke(backupRepo: BackupExtensionRepos) {
         val dbRepos = getExtensionRepos.getAll()
         val existingReposBySHA = dbRepos.associateBy { it.signingKeyFingerprint }
         val existingReposByUrl = dbRepos.associateBy { it.baseUrl }
@@ -38,3 +35,4 @@ class ExtensionRepoRestorer(
         }
     }
 }
+

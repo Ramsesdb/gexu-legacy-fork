@@ -18,28 +18,34 @@ import tachiyomi.i18n.MR
 import java.io.BufferedReader
 import java.io.InputStream
 
-class ShizukuInstaller(private val service: Service) : Installer(service) {
-
+class ShizukuInstaller(
+    private val service: Service,
+) : Installer(service) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
-    private val shizukuDeadListener = Shizuku.OnBinderDeadListener {
-        logcat { "Shizuku was killed prematurely" }
-        service.stopSelf()
-    }
+    private val shizukuDeadListener =
+        Shizuku.OnBinderDeadListener {
+            logcat { "Shizuku was killed prematurely" }
+            service.stopSelf()
+        }
 
-    private val shizukuPermissionListener = object : Shizuku.OnRequestPermissionResultListener {
-        override fun onRequestPermissionResult(requestCode: Int, grantResult: Int) {
-            if (requestCode == SHIZUKU_PERMISSION_REQUEST_CODE) {
-                if (grantResult == PackageManager.PERMISSION_GRANTED) {
-                    ready = true
-                    checkQueue()
-                } else {
-                    service.stopSelf()
+    private val shizukuPermissionListener =
+        object : Shizuku.OnRequestPermissionResultListener {
+            override fun onRequestPermissionResult(
+                requestCode: Int,
+                grantResult: Int,
+            ) {
+                if (requestCode == SHIZUKU_PERMISSION_REQUEST_CODE) {
+                    if (grantResult == PackageManager.PERMISSION_GRANTED) {
+                        ready = true
+                        checkQueue()
+                    } else {
+                        service.stopSelf()
+                    }
+                    Shizuku.removeRequestPermissionResultListener(this)
                 }
-                Shizuku.removeRequestPermissionResultListener(this)
             }
         }
-    }
 
     override var ready = false
 
@@ -88,7 +94,10 @@ class ShizukuInstaller(private val service: Service) : Installer(service) {
         super.onDestroy()
     }
 
-    private fun exec(command: String, stdin: InputStream? = null): ShellResult {
+    private fun exec(
+        command: String,
+        stdin: InputStream? = null,
+    ): ShellResult {
         @Suppress("DEPRECATION")
         val process = Shizuku.newProcess(arrayOf("sh", "-c", command), null, null)
         if (stdin != null) {
@@ -99,26 +108,31 @@ class ShizukuInstaller(private val service: Service) : Installer(service) {
         return ShellResult(resultCode, output)
     }
 
-    private data class ShellResult(val resultCode: Int, val out: String)
+    private data class ShellResult(
+        val resultCode: Int,
+        val out: String,
+    )
 
     init {
         Shizuku.addBinderDeadListener(shizukuDeadListener)
-        ready = if (Shizuku.pingBinder()) {
-            if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
-                true
+        ready =
+            if (Shizuku.pingBinder()) {
+                if (Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED) {
+                    true
+                } else {
+                    Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
+                    Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
+                    false
+                }
             } else {
-                Shizuku.addRequestPermissionResultListener(shizukuPermissionListener)
-                Shizuku.requestPermission(SHIZUKU_PERMISSION_REQUEST_CODE)
+                logcat(LogPriority.ERROR) { "Shizuku is not ready to use" }
+                service.toast(MR.strings.ext_installer_shizuku_stopped)
+                service.stopSelf()
                 false
             }
-        } else {
-            logcat(LogPriority.ERROR) { "Shizuku is not ready to use" }
-            service.toast(MR.strings.ext_installer_shizuku_stopped)
-            service.stopSelf()
-            false
-        }
     }
 }
 
 private const val SHIZUKU_PERMISSION_REQUEST_CODE = 14045
 private val SESSION_ID_REGEX = Regex("(?<=\\[).+?(?=])")
+

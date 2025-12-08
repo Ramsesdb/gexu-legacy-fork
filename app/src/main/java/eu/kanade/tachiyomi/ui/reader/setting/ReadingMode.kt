@@ -66,8 +66,11 @@ enum class ReadingMode(
             return mode.type is ViewerType.Pager
         }
 
-        fun toViewer(preference: Int?, activity: ReaderActivity): Viewer {
-            return when (fromPreference(preference)) {
+        fun toViewer(
+            preference: Int?,
+            activity: ReaderActivity,
+        ): Viewer =
+            when (fromPreference(preference)) {
                 LEFT_TO_RIGHT -> L2RPagerViewer(activity)
                 RIGHT_TO_LEFT -> R2LPagerViewer(activity)
                 VERTICAL -> VerticalPagerViewer(activity)
@@ -75,16 +78,18 @@ enum class ReadingMode(
                 CONTINUOUS_VERTICAL -> WebtoonViewer(activity, isContinuous = false)
                 DEFAULT -> throw IllegalStateException("Preference value must be resolved: $preference")
             }
-        }
     }
 
     sealed interface Direction {
         data object Horizontal : Direction
+
         data object Vertical : Direction
     }
 
     sealed interface ViewerType {
         data object Pager : ViewerType
+
         data object Webtoon : ViewerType
     }
 }
+

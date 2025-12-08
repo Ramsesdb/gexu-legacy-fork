@@ -33,7 +33,6 @@ internal class HttpPageLoader(
     private val source: HttpSource,
     private val chapterCache: ChapterCache = Injekt.get(),
 ) : PageLoader() {
-
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
@@ -49,8 +48,7 @@ internal class HttpPageLoader(
                 while (true) {
                     emit(runInterruptible { queue.take() }.page)
                 }
-            }
-                .filter { it.status == Page.State.Queue }
+            }.filter { it.status == Page.State.Queue }
                 .collect(::internalLoadPage)
         }
     }
@@ -62,14 +60,15 @@ internal class HttpPageLoader(
      * otherwise fallbacks to network.
      */
     override suspend fun getPages(): List<ReaderPage> {
-        val pages = try {
-            chapterCache.getPageListFromCache(chapter.chapter.toDomainChapter()!!)
-        } catch (e: Throwable) {
-            if (e is CancellationException) {
-                throw e
+        val pages =
+            try {
+                chapterCache.getPageListFromCache(chapter.chapter.toDomainChapter()!!)
+            } catch (e: Throwable) {
+                if (e is CancellationException) {
+                    throw e
+                }
+                source.getPageList(chapter.chapter)
             }
-            source.getPageList(chapter.chapter)
-        }
         return pages.mapIndexed { index, page ->
             // Don't trust sources and use our own indexing
             ReaderPage(index, page.url, page.imageUrl)
@@ -79,35 +78,36 @@ internal class HttpPageLoader(
     /**
      * Loads a page through the queue. Handles re-enqueueing pages if they were evicted from the cache.
      */
-    override suspend fun loadPage(page: ReaderPage) = withIOContext {
-        val imageUrl = page.imageUrl
+    override suspend fun loadPage(page: ReaderPage) =
+        withIOContext {
+            val imageUrl = page.imageUrl
 
-        // Check if the image has been deleted
-        if (page.status == Page.State.Ready && imageUrl != null && !chapterCache.isImageInCache(imageUrl)) {
-            page.status = Page.State.Queue
-        }
+            // Check if the image has been deleted
+            if (page.status == Page.State.Ready && imageUrl != null && !chapterCache.isImageInCache(imageUrl)) {
+                page.status = Page.State.Queue
+            }
 
-        // Automatically retry failed pages when subscribed to this page
-        if (page.status is Page.State.Error) {
-            page.status = Page.State.Queue
-        }
+            // Automatically retry failed pages when subscribed to this page
+            if (page.status is Page.State.Error) {
+                page.status = Page.State.Queue
+            }
 
-        val queuedPages = mutableListOf<PriorityPage>()
-        if (page.status == Page.State.Queue) {
-            queuedPages += PriorityPage(page, 1).also { queue.offer(it) }
-        }
-        queuedPages += preloadNextPages(page, preloadSize)
+            val queuedPages = mutableListOf<PriorityPage>()
+            if (page.status == Page.State.Queue) {
+                queuedPages += PriorityPage(page, 1).also { queue.offer(it) }
+            }
+            queuedPages += preloadNextPages(page, preloadSize)
 
-        suspendCancellableCoroutine<Nothing> { continuation ->
-            continuation.invokeOnCancellation {
-                queuedPages.forEach {
-                    if (it.page.status == Page.State.Queue) {
-                        queue.remove(it)
+            suspendCancellableCoroutine<Nothing> { continuation ->
+                continuation.invokeOnCancellation {
+                    queuedPages.forEach {
+                        if (it.page.status == Page.State.Queue) {
+                            queue.remove(it)
+                        }
                     }
                 }
             }
         }
-    }
 
     /**
      * Retries a page. This method is only called from user interaction on the viewer.
@@ -145,7 +145,10 @@ internal class HttpPageLoader(
      *
      * @return a list of [PriorityPage] that were added to the [queue]
      */
-    private fun preloadNextPages(currentPage: ReaderPage, amount: Int): List<PriorityPage> {
+    private fun preloadNextPages(
+        currentPage: ReaderPage,
+        amount: Int,
+    ): List<PriorityPage> {
         val pageIndex = currentPage.index
         val pages = currentPage.chapter.pages ?: return emptyList()
         if (pageIndex == pages.lastIndex) return emptyList()
@@ -211,3 +214,4 @@ private class PriorityPage(
         return if (p != 0) p else identifier.compareTo(other.identifier)
     }
 }
+

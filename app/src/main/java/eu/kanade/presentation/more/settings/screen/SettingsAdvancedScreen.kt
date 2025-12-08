@@ -73,7 +73,6 @@ import uy.kohesive.injekt.api.get
 import java.io.File
 
 object SettingsAdvancedScreen : SearchableSettings {
-
     @ReadOnlyComposable
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_advanced
@@ -118,9 +117,10 @@ object SettingsAdvancedScreen : SearchableSettings {
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_manage_notifications),
                 onClick = {
-                    val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-                        putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
-                    }
+                    val intent =
+                        Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+                        }
                     context.startActivity(intent)
                 },
             ),
@@ -140,35 +140,37 @@ object SettingsAdvancedScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_background_activity),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_disable_battery_optimization),
-                    subtitle = stringResource(MR.strings.pref_disable_battery_optimization_summary),
-                    onClick = {
-                        val packageName: String = context.packageName
-                        if (!context.powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                            try {
-                                @SuppressLint("BatteryLife")
-                                val intent = Intent().apply {
-                                    action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
-                                    data = "package:$packageName".toUri()
-                                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_disable_battery_optimization),
+                        subtitle = stringResource(MR.strings.pref_disable_battery_optimization_summary),
+                        onClick = {
+                            val packageName: String = context.packageName
+                            if (!context.powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                                try {
+                                    @SuppressLint("BatteryLife")
+                                    val intent =
+                                        Intent().apply {
+                                            action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                                            data = "package:$packageName".toUri()
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        }
+                                    context.startActivity(intent)
+                                } catch (e: ActivityNotFoundException) {
+                                    context.toast(MR.strings.battery_optimization_setting_activity_not_found)
                                 }
-                                context.startActivity(intent)
-                            } catch (e: ActivityNotFoundException) {
-                                context.toast(MR.strings.battery_optimization_setting_activity_not_found)
+                            } else {
+                                context.toast(MR.strings.battery_optimization_disabled)
                             }
-                        } else {
-                            context.toast(MR.strings.battery_optimization_disabled)
-                        }
-                    },
+                        },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = "Don't kill my app!",
+                        subtitle = stringResource(MR.strings.about_dont_kill_my_app),
+                        onClick = { uriHandler.openUri("https://dontkillmyapp.com/") },
+                    ),
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = "Don't kill my app!",
-                    subtitle = stringResource(MR.strings.about_dont_kill_my_app),
-                    onClick = { uriHandler.openUri("https://dontkillmyapp.com/") },
-                ),
-            ),
         )
     }
 
@@ -179,28 +181,27 @@ object SettingsAdvancedScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_data),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_invalidate_download_cache),
-                    subtitle = stringResource(MR.strings.pref_invalidate_download_cache_summary),
-                    onClick = {
-                        Injekt.get<DownloadCache>().invalidateCache()
-                        context.toast(MR.strings.download_cache_invalidated)
-                    },
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_invalidate_download_cache),
+                        subtitle = stringResource(MR.strings.pref_invalidate_download_cache_summary),
+                        onClick = {
+                            Injekt.get<DownloadCache>().invalidateCache()
+                            context.toast(MR.strings.download_cache_invalidated)
+                        },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_clear_database),
+                        subtitle = stringResource(MR.strings.pref_clear_database_summary),
+                        onClick = { navigator.push(ClearDatabaseScreen()) },
+                    ),
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_clear_database),
-                    subtitle = stringResource(MR.strings.pref_clear_database_summary),
-                    onClick = { navigator.push(ClearDatabaseScreen()) },
-                ),
-            ),
         )
     }
 
     @Composable
-    private fun getNetworkGroup(
-        networkPreferences: NetworkPreferences,
-    ): Preference.PreferenceGroup {
+    private fun getNetworkGroup(networkPreferences: NetworkPreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
         val networkHelper = remember { Injekt.get<NetworkHelper>() }
 
@@ -209,186 +210,188 @@ object SettingsAdvancedScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_network),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_clear_cookies),
-                    onClick = {
-                        networkHelper.cookieJar.removeAll()
-                        context.toast(MR.strings.cookies_cleared)
-                    },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_clear_webview_data),
-                    onClick = {
-                        try {
-                            WebView(context).run {
-                                setDefaultSettings()
-                                clearCache(true)
-                                clearFormData()
-                                clearHistory()
-                                clearSslPreferences()
-                            }
-                            WebStorage.getInstance().deleteAllData()
-                            context.applicationInfo?.dataDir?.let { File("$it/app_webview/").deleteRecursively() }
-                            context.toast(MR.strings.webview_data_deleted)
-                        } catch (e: Throwable) {
-                            logcat(LogPriority.ERROR, e)
-                            context.toast(MR.strings.cache_delete_error)
-                        }
-                    },
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = networkPreferences.dohProvider(),
-                    entries = persistentMapOf(
-                        -1 to stringResource(MR.strings.disabled),
-                        PREF_DOH_CLOUDFLARE to "Cloudflare",
-                        PREF_DOH_GOOGLE to "Google",
-                        PREF_DOH_ADGUARD to "AdGuard",
-                        PREF_DOH_QUAD9 to "Quad9",
-                        PREF_DOH_ALIDNS to "AliDNS",
-                        PREF_DOH_DNSPOD to "DNSPod",
-                        PREF_DOH_360 to "360",
-                        PREF_DOH_QUAD101 to "Quad 101",
-                        PREF_DOH_MULLVAD to "Mullvad",
-                        PREF_DOH_CONTROLD to "Control D",
-                        PREF_DOH_NJALLA to "Njalla",
-                        PREF_DOH_SHECAN to "Shecan",
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_clear_cookies),
+                        onClick = {
+                            networkHelper.cookieJar.removeAll()
+                            context.toast(MR.strings.cookies_cleared)
+                        },
                     ),
-                    title = stringResource(MR.strings.pref_dns_over_https),
-                    onValueChanged = {
-                        context.toast(MR.strings.requires_app_restart)
-                        true
-                    },
-                ),
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = userAgentPref,
-                    title = stringResource(MR.strings.pref_user_agent_string),
-                    onValueChanged = {
-                        try {
-                            // OkHttp checks for valid values internally
-                            Headers.Builder().add("User-Agent", it)
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_clear_webview_data),
+                        onClick = {
+                            try {
+                                WebView(context).run {
+                                    setDefaultSettings()
+                                    clearCache(true)
+                                    clearFormData()
+                                    clearHistory()
+                                    clearSslPreferences()
+                                }
+                                WebStorage.getInstance().deleteAllData()
+                                context.applicationInfo?.dataDir?.let { File("$it/app_webview/").deleteRecursively() }
+                                context.toast(MR.strings.webview_data_deleted)
+                            } catch (e: Throwable) {
+                                logcat(LogPriority.ERROR, e)
+                                context.toast(MR.strings.cache_delete_error)
+                            }
+                        },
+                    ),
+                    Preference.PreferenceItem.ListPreference(
+                        preference = networkPreferences.dohProvider(),
+                        entries =
+                            persistentMapOf(
+                                -1 to stringResource(MR.strings.disabled),
+                                PREF_DOH_CLOUDFLARE to "Cloudflare",
+                                PREF_DOH_GOOGLE to "Google",
+                                PREF_DOH_ADGUARD to "AdGuard",
+                                PREF_DOH_QUAD9 to "Quad9",
+                                PREF_DOH_ALIDNS to "AliDNS",
+                                PREF_DOH_DNSPOD to "DNSPod",
+                                PREF_DOH_360 to "360",
+                                PREF_DOH_QUAD101 to "Quad 101",
+                                PREF_DOH_MULLVAD to "Mullvad",
+                                PREF_DOH_CONTROLD to "Control D",
+                                PREF_DOH_NJALLA to "Njalla",
+                                PREF_DOH_SHECAN to "Shecan",
+                            ),
+                        title = stringResource(MR.strings.pref_dns_over_https),
+                        onValueChanged = {
                             context.toast(MR.strings.requires_app_restart)
-                        } catch (_: IllegalArgumentException) {
-                            context.toast(MR.strings.error_user_agent_string_invalid)
-                            return@EditTextPreference false
-                        }
-                        true
-                    },
+                            true
+                        },
+                    ),
+                    Preference.PreferenceItem.EditTextPreference(
+                        preference = userAgentPref,
+                        title = stringResource(MR.strings.pref_user_agent_string),
+                        onValueChanged = {
+                            try {
+                                // OkHttp checks for valid values internally
+                                Headers.Builder().add("User-Agent", it)
+                                context.toast(MR.strings.requires_app_restart)
+                            } catch (_: IllegalArgumentException) {
+                                context.toast(MR.strings.error_user_agent_string_invalid)
+                                return@EditTextPreference false
+                            }
+                            true
+                        },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_reset_user_agent_string),
+                        enabled = remember(userAgent) { userAgent != userAgentPref.defaultValue() },
+                        onClick = {
+                            userAgentPref.delete()
+                            context.toast(MR.strings.requires_app_restart)
+                        },
+                    ),
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_reset_user_agent_string),
-                    enabled = remember(userAgent) { userAgent != userAgentPref.defaultValue() },
-                    onClick = {
-                        userAgentPref.delete()
-                        context.toast(MR.strings.requires_app_restart)
-                    },
-                ),
-            ),
         )
     }
 
     @Composable
-    private fun getLibraryGroup(
-        libraryPreferences: LibraryPreferences,
-    ): Preference.PreferenceGroup {
+    private fun getLibraryGroup(libraryPreferences: LibraryPreferences): Preference.PreferenceGroup {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_library),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_refresh_library_covers),
-                    onClick = { MetadataUpdateJob.startNow(context) },
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_reset_viewer_flags),
-                    subtitle = stringResource(MR.strings.pref_reset_viewer_flags_summary),
-                    onClick = {
-                        scope.launchNonCancellable {
-                            val success = Injekt.get<ResetViewerFlags>().await()
-                            withUIContext {
-                                val message = if (success) {
-                                    MR.strings.pref_reset_viewer_flags_success
-                                } else {
-                                    MR.strings.pref_reset_viewer_flags_error
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_refresh_library_covers),
+                        onClick = { MetadataUpdateJob.startNow(context) },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_reset_viewer_flags),
+                        subtitle = stringResource(MR.strings.pref_reset_viewer_flags_summary),
+                        onClick = {
+                            scope.launchNonCancellable {
+                                val success = Injekt.get<ResetViewerFlags>().await()
+                                withUIContext {
+                                    val message =
+                                        if (success) {
+                                            MR.strings.pref_reset_viewer_flags_success
+                                        } else {
+                                            MR.strings.pref_reset_viewer_flags_error
+                                        }
+                                    context.toast(message)
                                 }
-                                context.toast(message)
                             }
-                        }
-                    },
+                        },
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = libraryPreferences.updateMangaTitles(),
+                        title = stringResource(MR.strings.pref_update_library_manga_titles),
+                        subtitle = stringResource(MR.strings.pref_update_library_manga_titles_summary),
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = libraryPreferences.disallowNonAsciiFilenames(),
+                        title = stringResource(MR.strings.pref_disallow_non_ascii_filenames),
+                        subtitle = stringResource(MR.strings.pref_disallow_non_ascii_filenames_details),
+                    ),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = libraryPreferences.updateMangaTitles(),
-                    title = stringResource(MR.strings.pref_update_library_manga_titles),
-                    subtitle = stringResource(MR.strings.pref_update_library_manga_titles_summary),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = libraryPreferences.disallowNonAsciiFilenames(),
-                    title = stringResource(MR.strings.pref_disallow_non_ascii_filenames),
-                    subtitle = stringResource(MR.strings.pref_disallow_non_ascii_filenames_details),
-                ),
-            ),
         )
     }
 
     @Composable
-    private fun getReaderGroup(
-        basePreferences: BasePreferences,
-    ): Preference.PreferenceGroup {
+    private fun getReaderGroup(basePreferences: BasePreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
-        val chooseColorProfile = rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.OpenDocument(),
-        ) { uri ->
-            uri?.let {
-                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
-                context.contentResolver.takePersistableUriPermission(uri, flags)
-                basePreferences.displayProfile().set(uri.toString())
+        val chooseColorProfile =
+            rememberLauncherForActivityResult(
+                contract = ActivityResultContracts.OpenDocument(),
+            ) { uri ->
+                uri?.let {
+                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    context.contentResolver.takePersistableUriPermission(uri, flags)
+                    basePreferences.displayProfile().set(uri.toString())
+                }
             }
-        }
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reader),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = basePreferences.hardwareBitmapThreshold(),
-                    entries = GLUtil.CUSTOM_TEXTURE_LIMIT_OPTIONS
-                        .mapIndexed { index, option ->
-                            val display = if (index == 0) {
-                                stringResource(MR.strings.pref_hardware_bitmap_threshold_default, option)
-                            } else {
-                                option.toString()
-                            }
-                            option to display
-                        }
-                        .toMap()
-                        .toImmutableMap(),
-                    title = stringResource(MR.strings.pref_hardware_bitmap_threshold),
-                    subtitleProvider = { value, options ->
-                        stringResource(MR.strings.pref_hardware_bitmap_threshold_summary, options[value].orEmpty())
-                    },
-                    enabled = !ImageUtil.HARDWARE_BITMAP_UNSUPPORTED &&
-                        GLUtil.DEVICE_TEXTURE_LIMIT > GLUtil.SAFE_TEXTURE_LIMIT,
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.ListPreference(
+                        preference = basePreferences.hardwareBitmapThreshold(),
+                        entries =
+                            GLUtil.CUSTOM_TEXTURE_LIMIT_OPTIONS
+                                .mapIndexed { index, option ->
+                                    val display =
+                                        if (index == 0) {
+                                            stringResource(MR.strings.pref_hardware_bitmap_threshold_default, option)
+                                        } else {
+                                            option.toString()
+                                        }
+                                    option to display
+                                }.toMap()
+                                .toImmutableMap(),
+                        title = stringResource(MR.strings.pref_hardware_bitmap_threshold),
+                        subtitleProvider = { value, options ->
+                            stringResource(MR.strings.pref_hardware_bitmap_threshold_summary, options[value].orEmpty())
+                        },
+                        enabled =
+                            !ImageUtil.HARDWARE_BITMAP_UNSUPPORTED &&
+                                GLUtil.DEVICE_TEXTURE_LIMIT > GLUtil.SAFE_TEXTURE_LIMIT,
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = basePreferences.alwaysDecodeLongStripWithSSIV(),
+                        title = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_2),
+                        subtitle = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_summary),
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.pref_display_profile),
+                        subtitle = basePreferences.displayProfile().get(),
+                        onClick = {
+                            chooseColorProfile.launch(arrayOf("*/*"))
+                        },
+                    ),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = basePreferences.alwaysDecodeLongStripWithSSIV(),
-                    title = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_2),
-                    subtitle = stringResource(MR.strings.pref_always_decode_long_strip_with_ssiv_summary),
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.pref_display_profile),
-                    subtitle = basePreferences.displayProfile().get(),
-                    onClick = {
-                        chooseColorProfile.launch(arrayOf("*/*"))
-                    },
-                ),
-            ),
         )
     }
 
     @Composable
-    private fun getExtensionsGroup(
-        basePreferences: BasePreferences,
-    ): Preference.PreferenceGroup {
+    private fun getExtensionsGroup(basePreferences: BasePreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
         val uriHandler = LocalUriHandler.current
         val extensionInstallerPref = basePreferences.extensionInstaller()
@@ -420,40 +423,42 @@ object SettingsAdvancedScreen : SearchableSettings {
         }
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.label_extensions),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = extensionInstallerPref,
-                    entries = extensionInstallerPref.entries
-                        .filter {
-                            // TODO: allow private option in stable versions once URL handling is more fleshed out
-                            if (isReleaseBuildType) {
-                                it != BasePreferences.ExtensionInstaller.PRIVATE
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.ListPreference(
+                        preference = extensionInstallerPref,
+                        entries =
+                            extensionInstallerPref.entries
+                                .filter {
+                                    // TODO: allow private option in stable versions once URL handling is more fleshed out
+                                    if (isReleaseBuildType) {
+                                        it != BasePreferences.ExtensionInstaller.PRIVATE
+                                    } else {
+                                        true
+                                    }
+                                }.associateWith { stringResource(it.titleRes) }
+                                .toImmutableMap(),
+                        title = stringResource(MR.strings.ext_installer_pref),
+                        onValueChanged = {
+                            if (it == BasePreferences.ExtensionInstaller.SHIZUKU &&
+                                !context.isShizukuInstalled
+                            ) {
+                                shizukuMissing = true
+                                false
                             } else {
                                 true
                             }
-                        }
-                        .associateWith { stringResource(it.titleRes) }
-                        .toImmutableMap(),
-                    title = stringResource(MR.strings.ext_installer_pref),
-                    onValueChanged = {
-                        if (it == BasePreferences.ExtensionInstaller.SHIZUKU &&
-                            !context.isShizukuInstalled
-                        ) {
-                            shizukuMissing = true
-                            false
-                        } else {
-                            true
-                        }
-                    },
+                        },
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.ext_revoke_trust),
+                        onClick = {
+                            trustExtension.revokeAll()
+                            context.toast(MR.strings.requires_app_restart)
+                        },
+                    ),
                 ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.ext_revoke_trust),
-                    onClick = {
-                        trustExtension.revokeAll()
-                        context.toast(MR.strings.requires_app_restart)
-                    },
-                ),
-            ),
         )
     }
 }
+

@@ -20,7 +20,9 @@ class MigratingManga(
 
     sealed interface SearchResult {
         data object Searching : SearchResult
+
         data object NotFound : SearchResult
+
         data class Success(
             val manga: Manga,
             val chapterCount: Int,
@@ -29,3 +31,4 @@ class MigratingManga(
         ) : SearchResult
     }
 }
+

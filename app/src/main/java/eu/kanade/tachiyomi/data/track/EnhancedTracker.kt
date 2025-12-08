@@ -10,13 +10,10 @@ import tachiyomi.domain.track.model.Track
  * It is expected that such tracker can only work with specific sources and unique IDs.
  */
 interface EnhancedTracker {
-
     /**
      * This tracker will only work with the sources that are accepted by this filter function.
      */
-    fun accept(source: Source): Boolean {
-        return source::class.qualifiedName in getAcceptedSources()
-    }
+    fun accept(source: Source): Boolean = source::class.qualifiedName in getAcceptedSources()
 
     /**
      * Fully qualified source classes that this tracker is compatible with.
@@ -33,10 +30,19 @@ interface EnhancedTracker {
     /**
      * Checks whether the provided source/track/manga triplet is from this [Tracker]
      */
-    fun isTrackFrom(track: Track, manga: Manga, source: Source?): Boolean
+    fun isTrackFrom(
+        track: Track,
+        manga: Manga,
+        source: Source?,
+    ): Boolean
 
     /**
      * Migrates the given track for the manga to the newSource, if possible
      */
-    fun migrateTrack(track: Track, manga: Manga, newSource: Source): Track?
+    fun migrateTrack(
+        track: Track,
+        manga: Manga,
+        newSource: Source,
+    ): Track?
 }
+

@@ -28,19 +28,20 @@ class CategoryScreenModel(
     private val reorderCategory: ReorderCategory = Injekt.get(),
     private val renameCategory: RenameCategory = Injekt.get(),
 ) : StateScreenModel<CategoryScreenState>(CategoryScreenState.Loading) {
-
     private val _events: Channel<CategoryEvent> = Channel()
     val events = _events.receiveAsFlow()
 
     init {
         screenModelScope.launch {
-            getCategories.subscribe()
+            getCategories
+                .subscribe()
                 .collectLatest { categories ->
                     mutableState.update {
                         CategoryScreenState.Success(
-                            categories = categories
-                                .filterNot(Category::isSystemCategory)
-                                .toImmutableList(),
+                            categories =
+                                categories
+                                    .filterNot(Category::isSystemCategory)
+                                    .toImmutableList(),
                         )
                     }
                 }
@@ -65,7 +66,10 @@ class CategoryScreenModel(
         }
     }
 
-    fun changeOrder(category: Category, newIndex: Int) {
+    fun changeOrder(
+        category: Category,
+        newIndex: Int,
+    ) {
         screenModelScope.launch {
             when (reorderCategory.await(category, newIndex)) {
                 is ReorderCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
@@ -74,7 +78,10 @@ class CategoryScreenModel(
         }
     }
 
-    fun renameCategory(category: Category, name: String) {
+    fun renameCategory(
+        category: Category,
+        name: String,
+    ) {
         screenModelScope.launch {
             when (renameCategory.await(category, name)) {
                 is RenameCategory.Result.InternalError -> _events.send(CategoryEvent.InternalError)
@@ -104,17 +111,25 @@ class CategoryScreenModel(
 
 sealed interface CategoryDialog {
     data object Create : CategoryDialog
-    data class Rename(val category: Category) : CategoryDialog
-    data class Delete(val category: Category) : CategoryDialog
+
+    data class Rename(
+        val category: Category,
+    ) : CategoryDialog
+
+    data class Delete(
+        val category: Category,
+    ) : CategoryDialog
 }
 
 sealed interface CategoryEvent {
-    sealed class LocalizedMessage(val stringRes: StringResource) : CategoryEvent
+    sealed class LocalizedMessage(
+        val stringRes: StringResource,
+    ) : CategoryEvent
+
     data object InternalError : LocalizedMessage(MR.strings.internal_error)
 }
 
 sealed interface CategoryScreenState {
-
     @Immutable
     data object Loading : CategoryScreenState
 
@@ -123,8 +138,8 @@ sealed interface CategoryScreenState {
         val categories: ImmutableList<Category>,
         val dialog: CategoryDialog? = null,
     ) : CategoryScreenState {
-
         val isEmpty: Boolean
             get() = categories.isEmpty()
     }
 }
+

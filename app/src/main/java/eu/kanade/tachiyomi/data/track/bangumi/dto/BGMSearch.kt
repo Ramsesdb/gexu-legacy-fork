@@ -27,20 +27,22 @@ data class BGMSubject(
     val rating: BGMSubjectRating?,
     val platform: String?,
 ) {
-    fun toTrackSearch(trackId: Long): TrackSearch = TrackSearch.create(trackId).apply {
-        remote_id = this@BGMSubject.id
-        title = nameCn.ifBlank { name }
-        cover_url = images?.common.orEmpty()
-        summary = if (nameCn.isNotBlank()) {
-            "作品原名：$name" + this@BGMSubject.summary?.let { "\n${it.trim()}" }.orEmpty()
-        } else {
-            this@BGMSubject.summary?.trim().orEmpty()
+    fun toTrackSearch(trackId: Long): TrackSearch =
+        TrackSearch.create(trackId).apply {
+            remote_id = this@BGMSubject.id
+            title = nameCn.ifBlank { name }
+            cover_url = images?.common.orEmpty()
+            summary =
+                if (nameCn.isNotBlank()) {
+                    "作品原名：$name" + this@BGMSubject.summary?.let { "\n${it.trim()}" }.orEmpty()
+                } else {
+                    this@BGMSubject.summary?.trim().orEmpty()
+                }
+            score = rating?.score ?: -1.0
+            tracking_url = "https://bangumi.tv/subject/${this@BGMSubject.id}"
+            total_chapters = eps
+            start_date = date ?: ""
         }
-        score = rating?.score ?: -1.0
-        tracking_url = "https://bangumi.tv/subject/${this@BGMSubject.id}"
-        total_chapters = eps
-        start_date = date ?: ""
-    }
 }
 
 @Serializable
@@ -54,3 +56,4 @@ data class BGMSubjectImages(
 data class BGMSubjectRating(
     val score: Double?,
 )
+

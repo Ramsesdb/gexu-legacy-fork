@@ -39,9 +39,7 @@ inline fun ComponentActivity.setComposeContent(
     }
 }
 
-fun ComposeView.setComposeContent(
-    content: @Composable () -> Unit,
-) {
+fun ComposeView.setComposeContent(content: @Composable () -> Unit) {
     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
     setContent {
         TachiyomiTheme {
@@ -95,3 +93,4 @@ fun View?.isVisibleOnScreen(): Boolean {
         Rect(0, 0, Resources.getSystem().displayMetrics.widthPixels, Resources.getSystem().displayMetrics.heightPixels)
     return actualPosition.intersect(screen)
 }
+

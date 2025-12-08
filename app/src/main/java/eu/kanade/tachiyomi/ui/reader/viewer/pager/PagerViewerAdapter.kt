@@ -15,8 +15,9 @@ import tachiyomi.core.common.util.system.logcat
 /**
  * Pager adapter used by this [viewer] to where [ViewerChapters] updates are posted.
  */
-class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
-
+class PagerViewerAdapter(
+    private val viewer: PagerViewer,
+) : ViewPagerAdapter() {
     /**
      * List of currently set items.
      */
@@ -44,7 +45,10 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
      * next/previous chapter to allow seamless transitions and inverting the pages if the viewer
      * has R2L direction.
      */
-    fun setChapters(chapters: ViewerChapters, forceTransition: Boolean) {
+    fun setChapters(
+        chapters: ViewerChapters,
+        forceTransition: Boolean,
+    ) {
         val newItems = mutableListOf<Any>()
 
         // Forces chapter transition if there is missing chapters
@@ -76,7 +80,8 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
             val lastPage = pages.last()
 
             // Insert preprocessed pages into current page list
-            preprocessed.keys.sortedDescending()
+            preprocessed.keys
+                .sortedDescending()
                 .forEach { key ->
                     if (lastPage.index == key) {
                         insertPageLastPage = preprocessed[key]
@@ -90,16 +95,18 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
         currentChapter = chapters.currChapter
 
         // Add next chapter transition and pages.
-        nextTransition = ChapterTransition.Next(chapters.currChapter, chapters.nextChapter)
-            .also {
-                if (
-                    nextHasMissingChapters ||
-                    forceTransition ||
-                    chapters.nextChapter?.state !is ReaderChapter.State.Loaded
-                ) {
-                    newItems.add(it)
+        nextTransition =
+            ChapterTransition
+                .Next(chapters.currChapter, chapters.nextChapter)
+                .also {
+                    if (
+                        nextHasMissingChapters ||
+                        forceTransition ||
+                        chapters.nextChapter?.state !is ReaderChapter.State.Loaded
+                    ) {
+                        newItems.add(it)
+                    }
                 }
-            }
 
         if (chapters.nextChapter != null) {
             // Add at most two pages, because this chapter will be selected before the user can
@@ -130,20 +137,20 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
     /**
      * Returns the amount of items of the adapter.
      */
-    override fun getCount(): Int {
-        return items.size
-    }
+    override fun getCount(): Int = items.size
 
     /**
      * Creates a new view for the item at the given [position].
      */
-    override fun createView(container: ViewGroup, position: Int): View {
-        return when (val item = items[position]) {
+    override fun createView(
+        container: ViewGroup,
+        position: Int,
+    ): View =
+        when (val item = items[position]) {
             is ReaderPage -> PagerPageHolder(readerThemedContext, viewer, item)
             is ChapterTransition -> PagerTransitionHolder(readerThemedContext, viewer, item)
             else -> throw NotImplementedError("Holder for ${item.javaClass} not implemented")
         }
-    }
 
     /**
      * Returns the current position of the given [view] on the adapter.
@@ -160,7 +167,10 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
         return POSITION_NONE
     }
 
-    fun onPageSplit(currentPage: Any?, newPage: InsertPage) {
+    fun onPageSplit(
+        currentPage: Any?,
+        newPage: InsertPage,
+    ) {
         if (currentPage !is ReaderPage) return
 
         val currentIndex = items.indexOf(currentPage)
@@ -171,12 +181,13 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
             return
         }
 
-        val placeAtIndex = when (viewer) {
-            is L2RPagerViewer,
-            is VerticalPagerViewer,
-            -> currentIndex + 1
-            else -> currentIndex
-        }
+        val placeAtIndex =
+            when (viewer) {
+                is L2RPagerViewer,
+                is VerticalPagerViewer,
+                -> currentIndex + 1
+                else -> currentIndex
+            }
 
         // It will enter a endless cycle of insert pages
         if (viewer is R2LPagerViewer && placeAtIndex - 1 >= 0 && items[placeAtIndex - 1] is InsertPage) {
@@ -203,3 +214,4 @@ class PagerViewerAdapter(private val viewer: PagerViewer) : ViewPagerAdapter() {
         readerThemedContext = viewer.activity.createReaderThemeContext()
     }
 }
+

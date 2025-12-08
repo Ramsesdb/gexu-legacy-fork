@@ -13,26 +13,23 @@ class BufferedSourceFetcher(
     private val data: BufferedSource,
     private val options: Options,
 ) : Fetcher {
-
-    override suspend fun fetch(): FetchResult {
-        return SourceFetchResult(
-            source = ImageSource(
-                source = data,
-                fileSystem = options.fileSystem,
-            ),
+    override suspend fun fetch(): FetchResult =
+        SourceFetchResult(
+            source =
+                ImageSource(
+                    source = data,
+                    fileSystem = options.fileSystem,
+                ),
             mimeType = null,
             dataSource = DataSource.MEMORY,
         )
-    }
 
     class Factory : Fetcher.Factory<BufferedSource> {
-
         override fun create(
             data: BufferedSource,
             options: Options,
             imageLoader: ImageLoader,
-        ): Fetcher {
-            return BufferedSourceFetcher(data, options)
-        }
+        ): Fetcher = BufferedSourceFetcher(data, options)
     }
 }
+

@@ -13,9 +13,8 @@ class GetSourcesWithFavoriteCount(
     private val repository: SourceRepository,
     private val preferences: SourcePreferences,
 ) {
-
-    fun subscribe(): Flow<List<Pair<Source, Long>>> {
-        return combine(
+    fun subscribe(): Flow<List<Pair<Source, Long>>> =
+        combine(
             preferences.migrationSortingDirection().changes(),
             preferences.migrationSortingMode().changes(),
             repository.getSourcesWithFavoriteCount(),
@@ -24,7 +23,6 @@ class GetSourcesWithFavoriteCount(
                 .filterNot { it.first.isLocal() }
                 .sortedWith(sortFn(direction, mode))
         }
-    }
 
     private fun sortFn(
         direction: SetMigrateSorting.Direction,
@@ -36,7 +34,10 @@ class GetSourcesWithFavoriteCount(
                     when {
                         a.first.isStub && !b.first.isStub -> -1
                         b.first.isStub && !a.first.isStub -> 1
-                        else -> a.first.name.lowercase().compareToWithCollator(b.first.name.lowercase())
+                        else ->
+                            a.first.name
+                                .lowercase()
+                                .compareToWithCollator(b.first.name.lowercase())
                     }
                 }
                 SetMigrateSorting.Mode.TOTAL -> {
@@ -55,3 +56,4 @@ class GetSourcesWithFavoriteCount(
         }
     }
 }
+

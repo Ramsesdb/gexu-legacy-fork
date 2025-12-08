@@ -29,7 +29,6 @@ class AndroidSourceManager(
     private val extensionManager: ExtensionManager,
     private val sourceRepository: StubSourceRepository,
 ) : SourceManager {
-
     private val _isInitialized = MutableStateFlow(false)
     override val isInitialized: StateFlow<Boolean> = _isInitialized.asStateFlow()
 
@@ -41,23 +40,26 @@ class AndroidSourceManager(
 
     private val stubSourcesMap = ConcurrentHashMap<Long, StubSource>()
 
-    override val catalogueSources: Flow<List<CatalogueSource>> = sourcesMapFlow.map {
-        it.values.filterIsInstance<CatalogueSource>()
-    }
+    override val catalogueSources: Flow<List<CatalogueSource>> =
+        sourcesMapFlow.map {
+            it.values.filterIsInstance<CatalogueSource>()
+        }
 
     init {
         scope.launch {
             extensionManager.installedExtensionsFlow
                 .collectLatest { extensions ->
-                    val mutableMap = ConcurrentHashMap<Long, Source>(
-                        mapOf(
-                            LocalSource.ID to LocalSource(
-                                context,
-                                Injekt.get(),
-                                Injekt.get(),
+                    val mutableMap =
+                        ConcurrentHashMap<Long, Source>(
+                            mapOf(
+                                LocalSource.ID to
+                                    LocalSource(
+                                        context,
+                                        Injekt.get(),
+                                        Injekt.get(),
+                                    ),
                             ),
-                        ),
-                    )
+                        )
                     extensions.forEach { extension ->
                         extension.sources.forEach {
                             mutableMap[it.id] = it
@@ -70,7 +72,8 @@ class AndroidSourceManager(
         }
 
         scope.launch {
-            sourceRepository.subscribeAll()
+            sourceRepository
+                .subscribeAll()
                 .collectLatest { sources ->
                     val mutableMap = stubSourcesMap.toMutableMap()
                     sources.forEach {
@@ -80,15 +83,12 @@ class AndroidSourceManager(
         }
     }
 
-    override fun get(sourceKey: Long): Source? {
-        return sourcesMapFlow.value[sourceKey]
-    }
+    override fun get(sourceKey: Long): Source? = sourcesMapFlow.value[sourceKey]
 
-    override fun getOrStub(sourceKey: Long): Source {
-        return sourcesMapFlow.value[sourceKey] ?: stubSourcesMap.getOrPut(sourceKey) {
+    override fun getOrStub(sourceKey: Long): Source =
+        sourcesMapFlow.value[sourceKey] ?: stubSourcesMap.getOrPut(sourceKey) {
             runBlocking { createStubSource(sourceKey) }
         }
-    }
 
     override fun getOnlineSources() = sourcesMapFlow.value.values.filterIsInstance<HttpSource>()
 
@@ -121,3 +121,4 @@ class AndroidSourceManager(
         return StubSource(id = id, lang = "", name = "")
     }
 }
+

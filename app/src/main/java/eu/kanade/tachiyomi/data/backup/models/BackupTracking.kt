@@ -28,18 +28,18 @@ data class BackupTracking(
     @ProtoNumber(12) var private: Boolean = false,
     @ProtoNumber(100) var mediaId: Long = 0,
 ) {
-
     @Suppress("DEPRECATION")
-    fun getTrackImpl(): Track {
-        return Track(
+    fun getTrackImpl(): Track =
+        Track(
             id = -1,
             mangaId = -1,
             trackerId = this@BackupTracking.syncId.toLong(),
-            remoteId = if (this@BackupTracking.mediaIdInt != 0) {
-                this@BackupTracking.mediaIdInt.toLong()
-            } else {
-                this@BackupTracking.mediaId
-            },
+            remoteId =
+                if (this@BackupTracking.mediaIdInt != 0) {
+                    this@BackupTracking.mediaIdInt.toLong()
+                } else {
+                    this@BackupTracking.mediaId
+                },
             libraryId = this@BackupTracking.libraryId,
             title = this@BackupTracking.title,
             lastChapterRead = this@BackupTracking.lastChapterRead.toDouble(),
@@ -51,24 +51,23 @@ data class BackupTracking(
             remoteUrl = this@BackupTracking.trackingUrl,
             private = this@BackupTracking.private,
         )
-    }
 }
 
 val backupTrackMapper = {
-        _: Long,
-        _: Long,
-        syncId: Long,
-        mediaId: Long,
-        libraryId: Long?,
-        title: String,
-        lastChapterRead: Double,
-        totalChapters: Long,
-        status: Long,
-        score: Double,
-        remoteUrl: String,
-        startDate: Long,
-        finishDate: Long,
-        private: Boolean,
+    _: Long,
+    _: Long,
+    syncId: Long,
+    mediaId: Long,
+    libraryId: Long?,
+    title: String,
+    lastChapterRead: Double,
+    totalChapters: Long,
+    status: Long,
+    score: Double,
+    remoteUrl: String,
+    startDate: Long,
+    finishDate: Long,
+    private: Boolean,
     ->
     BackupTracking(
         syncId = syncId.toInt(),
@@ -86,3 +85,4 @@ val backupTrackMapper = {
         private = private,
     )
 }
+

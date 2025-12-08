@@ -26,7 +26,6 @@ import java.time.Instant
 import kotlin.time.Duration.Companion.days
 
 internal class ExtensionApi {
-
     private val networkService: NetworkHelper by injectLazy()
     private val preferenceStore: PreferenceStore by injectLazy()
     private val getExtensionRepo: GetExtensionRepo by injectLazy()
@@ -38,21 +37,22 @@ internal class ExtensionApi {
         preferenceStore.getLong(Preference.appStateKey("last_ext_check"), 0)
     }
 
-    suspend fun findExtensions(): List<Extension.Available> {
-        return withIOContext {
-            getExtensionRepo.getAll()
+    suspend fun findExtensions(): List<Extension.Available> =
+        withIOContext {
+            getExtensionRepo
+                .getAll()
                 .map { async { getExtensions(it) } }
                 .awaitAll()
                 .flatten()
         }
-    }
 
     private suspend fun getExtensions(extRepo: ExtensionRepo): List<Extension.Available> {
         val repoBaseUrl = extRepo.baseUrl
         return try {
-            val response = networkService.client
-                .newCall(GET("$repoBaseUrl/index.min.json"))
-                .awaitSuccess()
+            val response =
+                networkService.client
+                    .newCall(GET("$repoBaseUrl/index.min.json"))
+                    .awaitSuccess()
 
             with(json) {
                 response
@@ -79,15 +79,18 @@ internal class ExtensionApi {
         // Update extension repo details
         updateExtensionRepo.awaitAll()
 
-        val extensions = if (fromAvailableExtensionList) {
-            extensionManager.availableExtensionsFlow.value
-        } else {
-            findExtensions().also { lastExtCheck.set(Instant.now().toEpochMilli()) }
-        }
+        val extensions =
+            if (fromAvailableExtensionList) {
+                extensionManager.availableExtensionsFlow.value
+            } else {
+                findExtensions().also { lastExtCheck.set(Instant.now().toEpochMilli()) }
+            }
 
-        val installedExtensions = ExtensionLoader.loadExtensions(context)
-            .filterIsInstance<LoadResult.Success>()
-            .map { it.extension }
+        val installedExtensions =
+            ExtensionLoader
+                .loadExtensions(context)
+                .filterIsInstance<LoadResult.Success>()
+                .map { it.extension }
 
         val extensionsWithUpdate = mutableListOf<Extension.Installed>()
         for (installedExt in installedExtensions) {
@@ -108,13 +111,12 @@ internal class ExtensionApi {
         return extensionsWithUpdate
     }
 
-    private fun List<ExtensionJsonObject>.toExtensions(repoUrl: String): List<Extension.Available> {
-        return this
+    private fun List<ExtensionJsonObject>.toExtensions(repoUrl: String): List<Extension.Available> =
+        this
             .filter {
                 val libVersion = it.extractLibVersion()
                 libVersion >= ExtensionLoader.LIB_VERSION_MIN && libVersion <= ExtensionLoader.LIB_VERSION_MAX
-            }
-            .map {
+            }.map {
                 Extension.Available(
                     name = it.name.substringAfter("Tachiyomi: "),
                     pkgName = it.pkg,
@@ -129,15 +131,10 @@ internal class ExtensionApi {
                     repoUrl = repoUrl,
                 )
             }
-    }
 
-    fun getApkUrl(extension: Extension.Available): String {
-        return "${extension.repoUrl}/apk/${extension.apkName}"
-    }
+    fun getApkUrl(extension: Extension.Available): String = "${extension.repoUrl}/apk/${extension.apkName}"
 
-    private fun ExtensionJsonObject.extractLibVersion(): Double {
-        return version.substringBeforeLast('.').toDouble()
-    }
+    private fun ExtensionJsonObject.extractLibVersion(): Double = version.substringBeforeLast('.').toDouble()
 }
 
 @Serializable
@@ -168,3 +165,4 @@ private val extensionSourceMapper: (ExtensionSourceJsonObject) -> Extension.Avai
         baseUrl = it.baseUrl,
     )
 }
+

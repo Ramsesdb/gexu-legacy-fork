@@ -16,10 +16,11 @@ val Context.wifiManager: WifiManager
 fun Context.isOnline(): Boolean {
     val activeNetwork = connectivityManager.activeNetwork ?: return false
     val networkCapabilities = connectivityManager.getNetworkCapabilities(activeNetwork) ?: return false
-    val maxTransport = when {
-        Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 -> NetworkCapabilities.TRANSPORT_LOWPAN
-        else -> NetworkCapabilities.TRANSPORT_WIFI_AWARE
-    }
+    val maxTransport =
+        when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1 -> NetworkCapabilities.TRANSPORT_LOWPAN
+            else -> NetworkCapabilities.TRANSPORT_WIFI_AWARE
+        }
     return (NetworkCapabilities.TRANSPORT_CELLULAR..maxTransport).any(networkCapabilities::hasTransport)
 }
 
@@ -40,3 +41,4 @@ fun Context.isConnectedToWifi(): Boolean {
         wifiManager.connectionInfo.bssid != null
     }
 }
+

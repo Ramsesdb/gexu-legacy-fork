@@ -6,8 +6,9 @@ import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import kotlinx.coroutines.flow.MutableStateFlow
 import tachiyomi.core.common.util.system.logcat
 
-data class ReaderChapter(val chapter: Chapter) {
-
+data class ReaderChapter(
+    val chapter: Chapter,
+) {
     val stateFlow = MutableStateFlow<State>(State.Wait)
     var state: State
         get() = stateFlow.value
@@ -44,8 +45,16 @@ data class ReaderChapter(val chapter: Chapter) {
 
     sealed interface State {
         data object Wait : State
+
         data object Loading : State
-        data class Error(val error: Throwable) : State
-        data class Loaded(val pages: List<ReaderPage>) : State
+
+        data class Error(
+            val error: Throwable,
+        ) : State
+
+        data class Loaded(
+            val pages: List<ReaderPage>,
+        ) : State
     }
 }
+

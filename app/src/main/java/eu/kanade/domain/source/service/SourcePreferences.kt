@@ -12,13 +12,13 @@ import tachiyomi.domain.library.model.LibraryDisplayMode
 class SourcePreferences(
     private val preferenceStore: PreferenceStore,
 ) {
-
-    fun sourceDisplayMode() = preferenceStore.getObjectFromString(
-        "pref_display_mode_catalogue",
-        LibraryDisplayMode.default,
-        LibraryDisplayMode.Serializer::serialize,
-        LibraryDisplayMode.Serializer::deserialize,
-    )
+    fun sourceDisplayMode() =
+        preferenceStore.getObjectFromString(
+            "pref_display_mode_catalogue",
+            LibraryDisplayMode.default,
+            LibraryDisplayMode.Serializer::serialize,
+            LibraryDisplayMode.Serializer::deserialize,
+        )
 
     fun enabledLanguages() = preferenceStore.getStringSet("source_languages", LocaleHelper.getDefaultEnabledLanguages())
 
@@ -28,19 +28,21 @@ class SourcePreferences(
 
     fun pinnedSources() = preferenceStore.getStringSet("pinned_catalogues", emptySet())
 
-    fun lastUsedSource() = preferenceStore.getLong(
-        Preference.appStateKey("last_catalogue_source"),
-        -1,
-    )
+    fun lastUsedSource() =
+        preferenceStore.getLong(
+            Preference.appStateKey("last_catalogue_source"),
+            -1,
+        )
 
     fun showNsfwSource() = preferenceStore.getBoolean("show_nsfw_source", true)
 
     fun migrationSortingMode() = preferenceStore.getEnum("pref_migration_sorting", SetMigrateSorting.Mode.ALPHABETICAL)
 
-    fun migrationSortingDirection() = preferenceStore.getEnum(
-        "pref_migration_direction",
-        SetMigrateSorting.Direction.ASCENDING,
-    )
+    fun migrationSortingDirection() =
+        preferenceStore.getEnum(
+            "pref_migration_direction",
+            SetMigrateSorting.Direction.ASCENDING,
+        )
 
     fun hideInLibraryItems() = preferenceStore.getBoolean("browse_hide_in_library_items", false)
 
@@ -48,24 +50,27 @@ class SourcePreferences(
 
     fun extensionUpdatesCount() = preferenceStore.getInt("ext_updates_count", 0)
 
-    fun trustedExtensions() = preferenceStore.getStringSet(
-        Preference.appStateKey("trusted_extensions"),
-        emptySet(),
-    )
+    fun trustedExtensions() =
+        preferenceStore.getStringSet(
+            Preference.appStateKey("trusted_extensions"),
+            emptySet(),
+        )
 
-    fun globalSearchFilterState() = preferenceStore.getBoolean(
-        Preference.appStateKey("has_filters_toggle_state"),
-        false,
-    )
+    fun globalSearchFilterState() =
+        preferenceStore.getBoolean(
+            Preference.appStateKey("has_filters_toggle_state"),
+            false,
+        )
 
     fun migrationSources() = preferenceStore.getLongArray("migration_sources", emptyList())
 
-    fun migrationFlags() = preferenceStore.getObjectFromInt(
-        key = "migration_flags",
-        defaultValue = MigrationFlag.entries.toSet(),
-        serializer = { MigrationFlag.toBit(it) },
-        deserializer = { value: Int -> MigrationFlag.fromBit(value) },
-    )
+    fun migrationFlags() =
+        preferenceStore.getObjectFromInt(
+            key = "migration_flags",
+            defaultValue = MigrationFlag.entries.toSet(),
+            serializer = { MigrationFlag.toBit(it) },
+            deserializer = { value: Int -> MigrationFlag.fromBit(value) },
+        )
 
     fun migrationDeepSearchMode() = preferenceStore.getBoolean("migration_deep_search", false)
 
@@ -75,3 +80,4 @@ class SourcePreferences(
 
     fun migrationHideWithoutUpdates() = preferenceStore.getBoolean("migration_hide_without_updates", false)
 }
+

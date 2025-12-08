@@ -6,7 +6,6 @@ import tachiyomi.core.common.preference.getAndSet
 class ToggleLanguage(
     val preferences: SourcePreferences,
 ) {
-
     fun await(language: String) {
         val isEnabled = language in preferences.enabledLanguages().get()
         preferences.enabledLanguages().getAndSet { enabled ->
@@ -14,3 +13,4 @@ class ToggleLanguage(
         }
     }
 }
+

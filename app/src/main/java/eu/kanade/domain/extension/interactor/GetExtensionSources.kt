@@ -9,11 +9,13 @@ import kotlinx.coroutines.flow.map
 class GetExtensionSources(
     private val preferences: SourcePreferences,
 ) {
-
     fun subscribe(extension: Extension.Installed): Flow<List<ExtensionSourceItem>> {
         val isMultiSource = extension.sources.size > 1
         val isMultiLangSingleSource =
-            isMultiSource && extension.sources.map { it.name }.distinct().size == 1
+            isMultiSource && extension.sources
+                .map { it.name }
+                .distinct()
+                .size == 1
 
         return preferences.disabledSources().changes().map { disabledSources ->
             fun Source.isEnabled() = id.toString() !in disabledSources
@@ -35,3 +37,4 @@ data class ExtensionSourceItem(
     val enabled: Boolean,
     val labelAsName: Boolean,
 )
+

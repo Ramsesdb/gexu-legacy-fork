@@ -12,17 +12,12 @@ data class DownloadHeaderItem(
     val name: String,
     val size: Int,
 ) : AbstractExpandableHeaderItem<DownloadHeaderHolder, DownloadItem>() {
-
-    override fun getLayoutRes(): Int {
-        return R.layout.download_header
-    }
+    override fun getLayoutRes(): Int = R.layout.download_header
 
     override fun createViewHolder(
         view: View,
         adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>,
-    ): DownloadHeaderHolder {
-        return DownloadHeaderHolder(view, adapter)
-    }
+    ): DownloadHeaderHolder = DownloadHeaderHolder(view, adapter)
 
     override fun bindViewHolder(
         adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>,
@@ -62,3 +57,4 @@ data class DownloadHeaderItem(
         isSelectable = false
     }
 }
+

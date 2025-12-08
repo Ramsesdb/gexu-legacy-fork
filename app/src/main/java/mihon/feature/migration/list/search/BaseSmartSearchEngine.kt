@@ -16,13 +16,18 @@ abstract class BaseSmartSearchEngine<T>(
 
     protected abstract fun getTitle(result: T): String
 
-    protected suspend fun regularSearch(searchAction: SearchAction<T>, title: String): T? {
-        return baseSearch(searchAction, listOf(title)) {
+    protected suspend fun regularSearch(
+        searchAction: SearchAction<T>,
+        title: String,
+    ): T? =
+        baseSearch(searchAction, listOf(title)) {
             normalizedLevenshtein.similarity(title, getTitle(it))
         }
-    }
 
-    protected suspend fun deepSearch(searchAction: SearchAction<T>, title: String): T? {
+    protected suspend fun deepSearch(
+        searchAction: SearchAction<T>,
+        title: String,
+    ): T? {
         val cleanedTitle = cleanDeepSearchTitle(title)
 
         val queries = getDeepSearchQueries(cleanedTitle)
@@ -38,30 +43,32 @@ abstract class BaseSmartSearchEngine<T>(
         queries: List<String>,
         calculateDistance: (T) -> Double,
     ): T? {
-        val eligibleManga = supervisorScope {
-            queries.map { query ->
-                async(Dispatchers.Default) {
-                    val builtQuery = if (extraSearchParams != null) {
-                        "$query ${extraSearchParams.trim()}"
-                    } else {
-                        query
-                    }
+        val eligibleManga =
+            supervisorScope {
+                queries
+                    .map { query ->
+                        async(Dispatchers.Default) {
+                            val builtQuery =
+                                if (extraSearchParams != null) {
+                                    "$query ${extraSearchParams.trim()}"
+                                } else {
+                                    query
+                                }
 
-                    val candidates = searchAction(builtQuery)
-                    candidates
-                        .map {
-                            val distance = if (queries.size > 1 || candidates.size > 1) {
-                                calculateDistance(it)
-                            } else {
-                                1.0
-                            }
-                            SearchEntry(it, distance)
+                            val candidates = searchAction(builtQuery)
+                            candidates
+                                .map {
+                                    val distance =
+                                        if (queries.size > 1 || candidates.size > 1) {
+                                            calculateDistance(it)
+                                        } else {
+                                            1.0
+                                        }
+                                    SearchEntry(it, distance)
+                                }.filter { it.distance >= eligibleThreshold }
                         }
-                        .filter { it.distance >= eligibleThreshold }
-                }
+                    }.flatMap { it.await() }
             }
-                .flatMap { it.await() }
-        }
 
         return eligibleManga.maxByOrNull { it.distance }?.entry
     }
@@ -82,19 +89,28 @@ abstract class BaseSmartSearchEngine<T>(
         val cleanedTitleEng = cleanedTitle.replace(titleRegex, " ")
 
         // Do not strip foreign language letters if cleanedTitle is too short
-        cleanedTitle = if (cleanedTitleEng.length <= 5) {
-            cleanedTitle.replace(titleCyrillicRegex, " ")
-        } else {
-            cleanedTitleEng
-        }
+        cleanedTitle =
+            if (cleanedTitleEng.length <= 5) {
+                cleanedTitle.replace(titleCyrillicRegex, " ")
+            } else {
+                cleanedTitleEng
+            }
 
         // Strip splitters and consecutive spaces
-        cleanedTitle = cleanedTitle.trim().replace(" - ", " ").replace(consecutiveSpacesRegex, " ").trim()
+        cleanedTitle =
+            cleanedTitle
+                .trim()
+                .replace(" - ", " ")
+                .replace(consecutiveSpacesRegex, " ")
+                .trim()
 
         return cleanedTitle
     }
 
-    private fun removeTextInBrackets(text: String, readForward: Boolean): String {
+    private fun removeTextInBrackets(
+        text: String,
+        readForward: Boolean,
+    ): String {
         val openingChars = if (readForward) "([<{ " else ")]}>"
         val closingChars = if (readForward) ")]}>" else "([<{ "
         var depth = 0
@@ -104,10 +120,11 @@ abstract class BaseSmartSearchEngine<T>(
                 when (char) {
                     in openingChars -> depth++
                     in closingChars -> if (depth > 0) depth-- // Avoid depth going negative on mismatched closing
-                    else -> if (depth == 0) {
-                        // If reading backward, the result is reversed, so prepend
-                        if (readForward) append(char) else insert(0, char)
-                    }
+                    else ->
+                        if (depth == 0) {
+                            // If reading backward, the result is reversed, so prepend
+                            if (readForward) append(char) else insert(0, char)
+                        }
                 }
             }
         }
@@ -126,13 +143,14 @@ abstract class BaseSmartSearchEngine<T>(
         // Search largest word
         // Search first two words
         // Search first word
-        val searchQueries = listOf(
-            listOf(cleanedTitle),
-            splitSortedByLargest.take(2),
-            splitSortedByLargest.take(1),
-            splitCleanedTitle.take(2),
-            splitCleanedTitle.take(1),
-        )
+        val searchQueries =
+            listOf(
+                listOf(cleanedTitle),
+                splitSortedByLargest.take(2),
+                splitSortedByLargest.take(1),
+                splitCleanedTitle.take(2),
+                splitCleanedTitle.take(1),
+            )
 
         return searchQueries
             .map { it.joinToString(" ").trim() }
@@ -149,4 +167,8 @@ abstract class BaseSmartSearchEngine<T>(
     }
 }
 
-data class SearchEntry<T>(val entry: T, val distance: Double)
+data class SearchEntry<T>(
+    val entry: T,
+    val distance: Double,
+)
+

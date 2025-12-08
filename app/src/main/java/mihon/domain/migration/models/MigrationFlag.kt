@@ -1,6 +1,8 @@
 package mihon.domain.migration.models
 
-enum class MigrationFlag(val flag: Int) {
+enum class MigrationFlag(
+    val flag: Int,
+) {
     CHAPTER(0b00001),
     CATEGORY(0b00010),
 
@@ -11,18 +13,18 @@ enum class MigrationFlag(val flag: Int) {
     ;
 
     companion object {
-        fun fromBit(bit: Int): Set<MigrationFlag> {
-            return buildSet {
+        fun fromBit(bit: Int): Set<MigrationFlag> =
+            buildSet {
                 entries.forEach { entry ->
                     if (bit and entry.flag != 0) add(entry)
                 }
             }
-        }
 
-        fun toBit(flags: Set<MigrationFlag>): Int {
-            return flags.map { it.flag }
+        fun toBit(flags: Set<MigrationFlag>): Int =
+            flags
+                .map { it.flag }
                 .reduceOrNull { acc, mask -> acc or mask }
                 ?: 0
-        }
     }
 }
+

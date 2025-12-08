@@ -9,19 +9,28 @@ import eu.davidea.flexibleadapter.items.AbstractFlexibleItem
  *
  * @param downloadItemListener Listener called when an item of the list is released.
  */
-class DownloadAdapter(val downloadItemListener: DownloadItemListener) : FlexibleAdapter<AbstractFlexibleItem<*>>(
-    null,
-    downloadItemListener,
-    true,
-) {
-
-    override fun shouldMove(fromPosition: Int, toPosition: Int): Boolean {
+class DownloadAdapter(
+    val downloadItemListener: DownloadItemListener,
+) : FlexibleAdapter<AbstractFlexibleItem<*>>(
+        null,
+        downloadItemListener,
+        true,
+    ) {
+    override fun shouldMove(
+        fromPosition: Int,
+        toPosition: Int,
+    ): Boolean {
         // Don't let sub-items changing group
         return getHeaderOf(getItem(fromPosition)) == getHeaderOf(getItem(toPosition))
     }
 
     interface DownloadItemListener {
         fun onItemReleased(position: Int)
-        fun onMenuItemClick(position: Int, menuItem: MenuItem)
+
+        fun onMenuItemClick(
+            position: Int,
+            menuItem: MenuItem,
+        )
     }
 }
+

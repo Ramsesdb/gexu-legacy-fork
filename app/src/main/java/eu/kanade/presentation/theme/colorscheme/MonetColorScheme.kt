@@ -18,23 +18,27 @@ import com.google.android.material.color.utilities.QuantizerCelebi
 import com.google.android.material.color.utilities.SchemeContent
 import com.google.android.material.color.utilities.Score
 
-internal class MonetColorScheme(context: Context) : BaseColorScheme() {
-
-    private val monet = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        MonetSystemColorScheme(context)
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
-        val seed = WallpaperManager.getInstance(context)
-            .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
-            ?.primaryColor
-            ?.toArgb()
-        if (seed != null) {
-            MonetCompatColorScheme(context, seed)
+internal class MonetColorScheme(
+    context: Context,
+) : BaseColorScheme() {
+    private val monet =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            MonetSystemColorScheme(context)
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O_MR1) {
+            val seed =
+                WallpaperManager
+                    .getInstance(context)
+                    .getWallpaperColors(WallpaperManager.FLAG_SYSTEM)
+                    ?.primaryColor
+                    ?.toArgb()
+            if (seed != null) {
+                MonetCompatColorScheme(context, seed)
+            } else {
+                TachiyomiColorScheme
+            }
         } else {
             TachiyomiColorScheme
         }
-    } else {
-        TachiyomiColorScheme
-    }
 
     override val darkScheme
         get() = monet.darkScheme
@@ -50,20 +54,25 @@ internal class MonetColorScheme(context: Context) : BaseColorScheme() {
             val height = bitmap.height
             val bitmapPixels = IntArray(width * height)
             bitmap.getPixels(bitmapPixels, 0, width, 0, 0, width, height)
-            return Score.score(QuantizerCelebi.quantize(bitmapPixels, 128), 1, 0)[0]
+            return Score
+                .score(QuantizerCelebi.quantize(bitmapPixels, 128), 1, 0)[0]
                 .takeIf { it != 0 } // Don't take fallback color
         }
     }
 }
 
 @RequiresApi(Build.VERSION_CODES.S)
-private class MonetSystemColorScheme(context: Context) : BaseColorScheme() {
+private class MonetSystemColorScheme(
+    context: Context,
+) : BaseColorScheme() {
     override val lightScheme = dynamicLightColorScheme(context)
     override val darkScheme = dynamicDarkColorScheme(context)
 }
 
-private class MonetCompatColorScheme(context: Context, seed: Int) : BaseColorScheme() {
-
+private class MonetCompatColorScheme(
+    context: Context,
+    seed: Int,
+) : BaseColorScheme() {
     override val lightScheme = generateColorSchemeFromSeed(context = context, seed = seed, dark = false)
     override val darkScheme = generateColorSchemeFromSeed(context = context, seed = seed, dark = true)
 
@@ -71,16 +80,21 @@ private class MonetCompatColorScheme(context: Context, seed: Int) : BaseColorSch
         private fun Int.toComposeColor(): Color = Color(this)
 
         @SuppressLint("PrivateResource", "RestrictedApi")
-        private fun generateColorSchemeFromSeed(context: Context, seed: Int, dark: Boolean): ColorScheme {
-            val scheme = SchemeContent(
-                Hct.fromInt(seed),
-                dark,
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    context.getSystemService<UiModeManager>()?.contrast?.toDouble() ?: 0.0
-                } else {
-                    0.0
-                },
-            )
+        private fun generateColorSchemeFromSeed(
+            context: Context,
+            seed: Int,
+            dark: Boolean,
+        ): ColorScheme {
+            val scheme =
+                SchemeContent(
+                    Hct.fromInt(seed),
+                    dark,
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                        context.getSystemService<UiModeManager>()?.contrast?.toDouble() ?: 0.0
+                    } else {
+                        0.0
+                    },
+                )
             val dynamicColors = MaterialDynamicColors()
             return ColorScheme(
                 primary = dynamicColors.primary().getArgb(scheme).toComposeColor(),
@@ -123,3 +137,4 @@ private class MonetCompatColorScheme(context: Context, seed: Int) : BaseColorSch
         }
     }
 }
+

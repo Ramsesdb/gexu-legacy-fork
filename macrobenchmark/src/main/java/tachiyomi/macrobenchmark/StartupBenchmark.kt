@@ -51,7 +51,9 @@ class HotStartupBenchmark : AbstractStartupBenchmark(StartupMode.HOT)
  * Base class for benchmarks with different startup modes.
  * Enables app startups from various states of baseline profile or [CompilationMode]s.
  */
-abstract class AbstractStartupBenchmark(private val startupMode: StartupMode) {
+abstract class AbstractStartupBenchmark(
+    private val startupMode: StartupMode,
+) {
     @get:Rule
     val benchmarkRule = MacrobenchmarkRule()
 
@@ -59,31 +61,35 @@ abstract class AbstractStartupBenchmark(private val startupMode: StartupMode) {
     fun startupNoCompilation() = startup(CompilationMode.None())
 
     @Test
-    fun startupBaselineProfileDisabled() = startup(
-        CompilationMode.Partial(
-            baselineProfileMode = BaselineProfileMode.Disable,
-            warmupIterations = 1,
-        ),
-    )
+    fun startupBaselineProfileDisabled() =
+        startup(
+            CompilationMode.Partial(
+                baselineProfileMode = BaselineProfileMode.Disable,
+                warmupIterations = 1,
+            ),
+        )
 
     @Test
-    fun startupBaselineProfile() = startup(
-        CompilationMode.Partial(baselineProfileMode = BaselineProfileMode.Require),
-    )
+    fun startupBaselineProfile() =
+        startup(
+            CompilationMode.Partial(baselineProfileMode = BaselineProfileMode.Require),
+        )
 
     @Test
     fun startupFullCompilation() = startup(CompilationMode.Full())
 
-    private fun startup(compilationMode: CompilationMode) = benchmarkRule.measureRepeated(
-        packageName = "eu.kanade.tachiyomi.benchmark",
-        metrics = listOf(StartupTimingMetric()),
-        compilationMode = compilationMode,
-        iterations = 10,
-        startupMode = startupMode,
-        setupBlock = {
-            pressHome()
-        },
-    ) {
-        startActivityAndWait()
-    }
+    private fun startup(compilationMode: CompilationMode) =
+        benchmarkRule.measureRepeated(
+            packageName = "eu.kanade.tachiyomi.benchmark",
+            metrics = listOf(StartupTimingMetric()),
+            compilationMode = compilationMode,
+            iterations = 10,
+            startupMode = startupMode,
+            setupBlock = {
+                pressHome()
+            },
+        ) {
+            startActivityAndWait()
+        }
 }
+

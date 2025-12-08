@@ -25,7 +25,6 @@ import java.time.YearMonth
 class UpcomingScreenModel(
     private val getUpcomingManga: GetUpcomingManga = Injekt.get(),
 ) : StateScreenModel<UpcomingScreenModel.State>(State()) {
-
     init {
         screenModelScope.launch {
             getUpcomingManga.subscribe().collectLatest {
@@ -55,27 +54,23 @@ class UpcomingScreenModel(
                 } else {
                     null
                 }
-            }
-            .toImmutableList()
+            }.toImmutableList()
     }
 
-    private fun List<UpcomingUIModel>.toEvents(): ImmutableMap<LocalDate, Int> {
-        return filterIsInstance<UpcomingUIModel.Header>()
+    private fun List<UpcomingUIModel>.toEvents(): ImmutableMap<LocalDate, Int> =
+        filterIsInstance<UpcomingUIModel.Header>()
             .associate { it.date to it.mangaCount }
             .toImmutableMap()
-    }
 
-    private fun List<UpcomingUIModel>.getHeaderIndexes(): ImmutableMap<LocalDate, Int> {
-        return fastMapIndexedNotNull { index, upcomingUIModel ->
+    private fun List<UpcomingUIModel>.getHeaderIndexes(): ImmutableMap<LocalDate, Int> =
+        fastMapIndexedNotNull { index, upcomingUIModel ->
             if (upcomingUIModel is UpcomingUIModel.Header) {
                 upcomingUIModel.date to index
             } else {
                 null
             }
-        }
-            .toMap()
+        }.toMap()
             .toImmutableMap()
-    }
 
     fun setSelectedYearMonth(yearMonth: YearMonth) {
         mutableState.update { it.copy(selectedYearMonth = yearMonth) }
@@ -88,3 +83,4 @@ class UpcomingScreenModel(
         val headerIndexes: ImmutableMap<LocalDate, Int> = persistentMapOf(),
     )
 }
+

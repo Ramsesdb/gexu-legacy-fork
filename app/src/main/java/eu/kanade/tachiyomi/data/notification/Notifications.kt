@@ -14,7 +14,6 @@ import tachiyomi.i18n.MR
  * Class to manage the basic information of all the notifications used in the app.
  */
 object Notifications {
-
     /**
      * Common notification channel and ids used anywhere.
      */
@@ -76,17 +75,18 @@ object Notifications {
     const val ID_UPDATES_TO_EXTS = -401
     const val ID_EXTENSION_INSTALLER = -402
 
-    private val deprecatedChannels = listOf(
-        "downloader_channel",
-        "downloader_complete_channel",
-        "backup_restore_complete_channel",
-        "library_channel",
-        "library_progress_channel",
-        "updates_ext_channel",
-        "downloader_cache_renewal",
-        "crash_logs_channel",
-        "library_skipped_channel",
-    )
+    private val deprecatedChannels =
+        listOf(
+            "downloader_channel",
+            "downloader_complete_channel",
+            "backup_restore_complete_channel",
+            "library_channel",
+            "library_progress_channel",
+            "updates_ext_channel",
+            "downloader_cache_renewal",
+            "crash_logs_channel",
+            "library_skipped_channel",
+        )
 
     /**
      * Creates the notification channels introduced in Android Oreo.
@@ -171,3 +171,4 @@ object Notifications {
         )
     }
 }
+

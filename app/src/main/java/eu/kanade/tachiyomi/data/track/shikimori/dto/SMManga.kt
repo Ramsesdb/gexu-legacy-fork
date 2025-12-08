@@ -18,8 +18,8 @@ data class SMManga(
     @SerialName("aired_on")
     val airedOn: String?,
 ) {
-    fun toTrack(trackId: Long): TrackSearch {
-        return TrackSearch.create(trackId).apply {
+    fun toTrack(trackId: Long): TrackSearch =
+        TrackSearch.create(trackId).apply {
             remote_id = this@SMManga.id
             title = name
             total_chapters = chapters
@@ -31,10 +31,10 @@ data class SMManga(
             publishing_type = kind
             start_date = airedOn ?: ""
         }
-    }
 }
 
 @Serializable
 data class SUMangaCover(
     val preview: String,
 )
+

@@ -64,12 +64,13 @@ class PreferenceRestorer(
                 when (value) {
                     is IntPreferenceValue -> {
                         if (prefs[key] is Int?) {
-                            val newValue = if (key == LibraryPreferences.DEFAULT_CATEGORY_PREF_KEY) {
-                                backupCategoriesById[value.value.toString()]
-                                    ?.let { categoriesByName[it.name]?.id?.toInt() }
-                            } else {
-                                value.value
-                            }
+                            val newValue =
+                                if (key == LibraryPreferences.DEFAULT_CATEGORY_PREF_KEY) {
+                                    backupCategoriesById[value.value.toString()]
+                                        ?.let { categoriesByName[it.name]?.id?.toInt() }
+                                } else {
+                                    value.value
+                                }
 
                             newValue?.let { preferenceStore.getInt(key).set(it) }
                         }
@@ -96,13 +97,14 @@ class PreferenceRestorer(
                     }
                     is StringSetPreferenceValue -> {
                         if (prefs[key] is Set<*>?) {
-                            val restored = restoreCategoriesPreference(
-                                key,
-                                value.value,
-                                preferenceStore,
-                                backupCategoriesById,
-                                categoriesByName,
-                            )
+                            val restored =
+                                restoreCategoriesPreference(
+                                    key,
+                                    value.value,
+                                    preferenceStore,
+                                    backupCategoriesById,
+                                    categoriesByName,
+                                )
                             if (!restored) preferenceStore.getStringSet(key).set(value.value)
                         }
                     }
@@ -123,11 +125,12 @@ class PreferenceRestorer(
         val categoryPreferences = LibraryPreferences.categoryPreferenceKeys + DownloadPreferences.categoryPreferenceKeys
         if (key !in categoryPreferences) return false
 
-        val ids = value.mapNotNull {
-            backupCategoriesById[it]?.name?.let { name ->
-                categoriesByName[name]?.id?.toString()
+        val ids =
+            value.mapNotNull {
+                backupCategoriesById[it]?.name?.let { name ->
+                    categoriesByName[name]?.id?.toString()
+                }
             }
-        }
 
         if (ids.isNotEmpty()) {
             preferenceStore.getStringSet(key) += ids
@@ -135,3 +138,4 @@ class PreferenceRestorer(
         return true
     }
 }
+

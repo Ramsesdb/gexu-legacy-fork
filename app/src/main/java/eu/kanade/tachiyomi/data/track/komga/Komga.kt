@@ -16,8 +16,10 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
-
+class Komga(
+    id: Long,
+) : BaseTracker(id, "Komga"),
+    EnhancedTracker {
     companion object {
         const val UNREAD = 1L
         const val READING = 2L
@@ -25,7 +27,8 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
     }
 
     override val client: OkHttpClient =
-        networkService.client.newBuilder()
+        networkService.client
+            .newBuilder()
             .dns(Dns.SYSTEM) // don't use DNS over HTTPS as it breaks IP addressing
             .build()
 
@@ -37,12 +40,13 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
 
     override fun getStatusList(): List<Long> = listOf(UNREAD, READING, COMPLETED)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        UNREAD -> MR.strings.unread
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            UNREAD -> MR.strings.unread
+            READING -> MR.strings.reading
+            COMPLETED -> MR.strings.completed
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -54,7 +58,10 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
 
     override fun displayScore(track: DomainTrack): String = ""
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -68,9 +75,10 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
         return api.updateProgress(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        return track
-    }
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track = track
 
     override suspend fun search(query: String): List<TrackSearch> {
         TODO("Not yet implemented: search")
@@ -83,7 +91,10 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
         return track
     }
 
-    override suspend fun login(username: String, password: String) {
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) {
         saveCredentials("user", "pass")
     }
 
@@ -102,13 +113,21 @@ class Komga(id: Long) : BaseTracker(id, "Komga"), EnhancedTracker {
             null
         }
 
-    override fun isTrackFrom(track: DomainTrack, manga: Manga, source: Source?): Boolean =
-        track.remoteUrl == manga.url && source?.let { accept(it) } == true
+    override fun isTrackFrom(
+        track: DomainTrack,
+        manga: Manga,
+        source: Source?,
+    ): Boolean = track.remoteUrl == manga.url && source?.let { accept(it) } == true
 
-    override fun migrateTrack(track: DomainTrack, manga: Manga, newSource: Source): DomainTrack? =
+    override fun migrateTrack(
+        track: DomainTrack,
+        manga: Manga,
+        newSource: Source,
+    ): DomainTrack? =
         if (accept(newSource)) {
             track.copy(remoteUrl = manga.url)
         } else {
             null
         }
 }
+

@@ -14,7 +14,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 
 class OpenSourceLicensesScreen : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -28,15 +27,20 @@ class OpenSourceLicensesScreen : Screen() {
             },
         ) { contentPadding ->
             LibrariesContainer(
-                modifier = Modifier
-                    .fillMaxSize(),
+                modifier =
+                    Modifier
+                        .fillMaxSize(),
                 contentPadding = contentPadding,
                 onLibraryClick = {
                     navigator.push(
                         OpenSourceLibraryLicenseScreen(
                             name = it.name,
                             website = it.website,
-                            license = it.licenses.firstOrNull()?.htmlReadyLicenseContent.orEmpty(),
+                            license =
+                                it.licenses
+                                    .firstOrNull()
+                                    ?.htmlReadyLicenseContent
+                                    .orEmpty(),
                         ),
                     )
                 },
@@ -44,3 +48,4 @@ class OpenSourceLicensesScreen : Screen() {
         }
     }
 }
+

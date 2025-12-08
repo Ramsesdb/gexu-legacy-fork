@@ -4,7 +4,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.ui.graphics.Color
 
 internal abstract class BaseColorScheme {
-
     abstract val darkScheme: ColorScheme
     abstract val lightScheme: ColorScheme
 
@@ -14,7 +13,10 @@ internal abstract class BaseColorScheme {
     private val surfaceContainerHigh = Color(0xFF131313)
     private val surfaceContainerHighest = Color(0xFF1B1B1B)
 
-    fun getColorScheme(isDark: Boolean, isAmoled: Boolean): ColorScheme {
+    fun getColorScheme(
+        isDark: Boolean,
+        isAmoled: Boolean,
+    ): ColorScheme {
         if (!isDark) return lightScheme
 
         if (!isAmoled) return darkScheme
@@ -33,3 +35,4 @@ internal abstract class BaseColorScheme {
         )
     }
 }
+

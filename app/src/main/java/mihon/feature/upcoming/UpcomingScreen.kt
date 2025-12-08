@@ -10,7 +10,6 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 
 class UpcomingScreen : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -25,3 +24,4 @@ class UpcomingScreen : Screen() {
         )
     }
 }
+

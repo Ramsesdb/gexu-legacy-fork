@@ -7,7 +7,6 @@ import kotlinx.coroutines.withContext
 import tachiyomi.domain.manga.model.Manga
 
 object LibraryExporter {
-
     data class ExportOptions(
         val includeTitle: Boolean,
         val includeAuthor: Boolean,
@@ -32,24 +31,27 @@ object LibraryExporter {
 
     private val escapeRequired = listOf("\r", "\n", "\"", ",")
 
-    private fun generateCsvData(favorites: List<Manga>, options: ExportOptions): String {
-        val columnSize = listOf(
-            options.includeTitle,
-            options.includeAuthor,
-            options.includeArtist,
-        )
-            .count { it }
+    private fun generateCsvData(
+        favorites: List<Manga>,
+        options: ExportOptions,
+    ): String {
+        val columnSize =
+            listOf(
+                options.includeTitle,
+                options.includeAuthor,
+                options.includeArtist,
+            ).count { it }
 
-        val rows = buildList(favorites.size) {
-            favorites.forEach { manga ->
-                buildList(columnSize) {
-                    if (options.includeTitle) add(manga.title)
-                    if (options.includeAuthor) add(manga.author)
-                    if (options.includeArtist) add(manga.artist)
+        val rows =
+            buildList(favorites.size) {
+                favorites.forEach { manga ->
+                    buildList(columnSize) {
+                        if (options.includeTitle) add(manga.title)
+                        if (options.includeAuthor) add(manga.author)
+                        if (options.includeArtist) add(manga.artist)
+                    }.let(::add)
                 }
-                    .let(::add)
             }
-        }
         return rows.joinToString("\r\n") { columns ->
             columns.joinToString(",") columns@{ column ->
                 if (column.isNullOrBlank()) return@columns ""
@@ -62,3 +64,4 @@ object LibraryExporter {
         }
     }
 }
+

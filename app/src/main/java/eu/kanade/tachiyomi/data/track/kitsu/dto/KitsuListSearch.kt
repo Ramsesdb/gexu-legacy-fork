@@ -32,14 +32,15 @@ data class KitsuListSearchResult(
             start_date = userDataAttrs.startedAt ?: ""
             started_reading_date = KitsuDateHelper.parse(userDataAttrs.startedAt)
             finished_reading_date = KitsuDateHelper.parse(userDataAttrs.finishedAt)
-            status = when (userDataAttrs.status) {
-                "current" -> Kitsu.READING
-                "completed" -> Kitsu.COMPLETED
-                "on_hold" -> Kitsu.ON_HOLD
-                "dropped" -> Kitsu.DROPPED
-                "planned" -> Kitsu.PLAN_TO_READ
-                else -> throw Exception("Unknown status")
-            }
+            status =
+                when (userDataAttrs.status) {
+                    "current" -> Kitsu.READING
+                    "completed" -> Kitsu.COMPLETED
+                    "on_hold" -> Kitsu.ON_HOLD
+                    "dropped" -> Kitsu.DROPPED
+                    "planned" -> Kitsu.PLAN_TO_READ
+                    else -> throw Exception("Unknown status")
+                }
             score = userDataAttrs.ratingTwenty?.let { it / 2.0 } ?: 0.0
             last_chapter_read = userDataAttrs.progress.toDouble()
             private = userDataAttrs.private
@@ -79,3 +80,4 @@ data class KitsuListSearchItemIncludedAttributes(
     val startDate: String?,
     val status: String,
 )
+

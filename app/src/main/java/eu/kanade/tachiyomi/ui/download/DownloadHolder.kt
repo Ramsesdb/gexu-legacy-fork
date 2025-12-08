@@ -15,9 +15,10 @@ import eu.kanade.tachiyomi.util.view.popupMenu
  * @param view the inflated view for this holder.
  * @constructor creates a new download holder.
  */
-class DownloadHolder(private val view: View, val adapter: DownloadAdapter) :
-    FlexibleViewHolder(view, adapter) {
-
+class DownloadHolder(
+    private val view: View,
+    val adapter: DownloadAdapter,
+) : FlexibleViewHolder(view, adapter) {
     private val binding = DownloadItemBinding.bind(view)
 
     init {
@@ -78,7 +79,10 @@ class DownloadHolder(private val view: View, val adapter: DownloadAdapter) :
         binding.container.isDragged = false
     }
 
-    override fun onActionStateChanged(position: Int, actionState: Int) {
+    override fun onActionStateChanged(
+        position: Int,
+        actionState: Int,
+    ) {
         super.onActionStateChanged(position, actionState)
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
             binding.container.isDragged = true
@@ -99,3 +103,4 @@ class DownloadHolder(private val view: View, val adapter: DownloadAdapter) :
         )
     }
 }
+

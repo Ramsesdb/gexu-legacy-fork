@@ -30,9 +30,10 @@ import uy.kohesive.injekt.injectLazy
 import java.io.File
 import kotlin.coroutines.cancellation.CancellationException
 
-class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
-
+class AppUpdateDownloadJob(
+    private val context: Context,
+    workerParams: WorkerParameters,
+) : CoroutineWorker(context, workerParams) {
     private val notifier = AppUpdateNotifier(context)
     private val network: NetworkHelper by injectLazy()
 
@@ -53,8 +54,8 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
         return Result.success()
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        return ForegroundInfo(
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(
             Notifications.ID_APP_UPDATER,
             notifier.onDownloadStarted().build(),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -63,39 +64,48 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
                 0
             },
         )
-    }
 
     /**
      * Called to start downloading apk of new update
      *
      * @param url url location of file
      */
-    private suspend fun downloadApk(title: String, url: String) {
+    private suspend fun downloadApk(
+        title: String,
+        url: String,
+    ) {
         // Show notification download starting.
         notifier.onDownloadStarted(title)
 
-        val progressListener = object : ProgressListener {
-            // Progress of the download
-            var savedProgress = 0
+        val progressListener =
+            object : ProgressListener {
+                // Progress of the download
+                var savedProgress = 0
 
-            // Keep track of the last notification sent to avoid posting too many.
-            var lastTick = 0L
+                // Keep track of the last notification sent to avoid posting too many.
+                var lastTick = 0L
 
-            override fun update(bytesRead: Long, contentLength: Long, done: Boolean) {
-                val progress = (100 * (bytesRead.toFloat() / contentLength)).toInt()
-                val currentTime = System.currentTimeMillis()
-                if (progress > savedProgress && currentTime - 200 > lastTick) {
-                    savedProgress = progress
-                    lastTick = currentTime
-                    notifier.onProgressChange(progress)
+                override fun update(
+                    bytesRead: Long,
+                    contentLength: Long,
+                    done: Boolean,
+                ) {
+                    val progress = (100 * (bytesRead.toFloat() / contentLength)).toInt()
+                    val currentTime = System.currentTimeMillis()
+                    if (progress > savedProgress && currentTime - 200 > lastTick) {
+                        savedProgress = progress
+                        lastTick = currentTime
+                        notifier.onProgressChange(progress)
+                    }
                 }
             }
-        }
 
         try {
             // Download the new update.
-            val response = network.client.newCachelessCallWithProgress(GET(url), progressListener)
-                .await()
+            val response =
+                network.client
+                    .newCachelessCallWithProgress(GET(url), progressListener)
+                    .await()
 
             // File where the apk will be saved.
             val apkFile = File(context.externalCacheDir, "update.apk")
@@ -109,8 +119,9 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
             notifier.cancel()
             notifier.promptInstall(apkFile.getUriCompat(context))
         } catch (e: Exception) {
-            val shouldCancel = e is CancellationException ||
-                (e is StreamResetException && e.errorCode == ErrorCode.CANCEL)
+            val shouldCancel =
+                e is CancellationException ||
+                    (e is StreamResetException && e.errorCode == ErrorCode.CANCEL)
             if (shouldCancel) {
                 notifier.cancel()
             } else {
@@ -125,21 +136,26 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
         const val EXTRA_DOWNLOAD_URL = "DOWNLOAD_URL"
         const val EXTRA_DOWNLOAD_TITLE = "DOWNLOAD_TITLE"
 
-        fun start(context: Context, url: String, title: String? = null) {
-            val constraints = Constraints(
-                requiredNetworkType = NetworkType.CONNECTED,
-            )
-
-            val request = OneTimeWorkRequestBuilder<AppUpdateDownloadJob>()
-                .setConstraints(constraints)
-                .addTag(TAG)
-                .setInputData(
-                    workDataOf(
-                        EXTRA_DOWNLOAD_URL to url,
-                        EXTRA_DOWNLOAD_TITLE to title,
-                    ),
+        fun start(
+            context: Context,
+            url: String,
+            title: String? = null,
+        ) {
+            val constraints =
+                Constraints(
+                    requiredNetworkType = NetworkType.CONNECTED,
                 )
-                .build()
+
+            val request =
+                OneTimeWorkRequestBuilder<AppUpdateDownloadJob>()
+                    .setConstraints(constraints)
+                    .addTag(TAG)
+                    .setInputData(
+                        workDataOf(
+                            EXTRA_DOWNLOAD_URL to url,
+                            EXTRA_DOWNLOAD_TITLE to title,
+                        ),
+                    ).build()
 
             context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
         }
@@ -149,3 +165,4 @@ class AppUpdateDownloadJob(private val context: Context, workerParams: WorkerPar
         }
     }
 }
+

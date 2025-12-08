@@ -29,7 +29,7 @@ class GetIncognitoState(
             extensionManager.getExtensionPackageAsFlow(sourceId),
         ) { incognito, incognitoExtensions, extensionPackage ->
             incognito || (extensionPackage in incognitoExtensions)
-        }
-            .distinctUntilChanged()
+        }.distinctUntilChanged()
     }
 }
+

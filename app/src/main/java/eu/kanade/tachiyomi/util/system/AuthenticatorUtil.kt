@@ -16,7 +16,6 @@ import tachiyomi.i18n.MR
 import kotlin.coroutines.resume
 
 object AuthenticatorUtil {
-
     /**
      * A check to avoid double authentication on older APIs when confirming settings changes since
      * the biometric prompt is launched in a separate activity outside of the app.
@@ -50,36 +49,38 @@ object AuthenticatorUtil {
     suspend fun FragmentActivity.authenticate(
         title: String,
         subtitle: String? = stringResource(MR.strings.confirm_lock_change),
-    ): Boolean = suspendCancellableCoroutine { cont ->
-        if (!isAuthenticationSupported()) {
-            cont.resume(true)
-            return@suspendCancellableCoroutine
+    ): Boolean =
+        suspendCancellableCoroutine { cont ->
+            if (!isAuthenticationSupported()) {
+                cont.resume(true)
+                return@suspendCancellableCoroutine
+            }
+
+            startAuthentication(
+                title,
+                subtitle,
+                callback =
+                    object : AuthenticationCallback() {
+                        override fun onAuthenticationSucceeded(
+                            activity: FragmentActivity?,
+                            result: BiometricPrompt.AuthenticationResult,
+                        ) {
+                            super.onAuthenticationSucceeded(activity, result)
+                            cont.resume(true)
+                        }
+
+                        override fun onAuthenticationError(
+                            activity: FragmentActivity?,
+                            errorCode: Int,
+                            errString: CharSequence,
+                        ) {
+                            super.onAuthenticationError(activity, errorCode, errString)
+                            activity?.toast(errString.toString())
+                            cont.resume(false)
+                        }
+                    },
+            )
         }
-
-        startAuthentication(
-            title,
-            subtitle,
-            callback = object : AuthenticationCallback() {
-                override fun onAuthenticationSucceeded(
-                    activity: FragmentActivity?,
-                    result: BiometricPrompt.AuthenticationResult,
-                ) {
-                    super.onAuthenticationSucceeded(activity, result)
-                    cont.resume(true)
-                }
-
-                override fun onAuthenticationError(
-                    activity: FragmentActivity?,
-                    errorCode: Int,
-                    errString: CharSequence,
-                ) {
-                    super.onAuthenticationError(activity, errorCode, errString)
-                    activity?.toast(errString.toString())
-                    cont.resume(false)
-                }
-            },
-        )
-    }
 
     /**
      * Returns true if Class 2 biometric or credential lock is set and available to use
@@ -134,3 +135,4 @@ object AuthenticatorUtil {
         }
     }
 }
+

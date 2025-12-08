@@ -30,8 +30,8 @@ data class ALUserListItem(
     val media: ALSearchItem,
     val private: Boolean,
 ) {
-    fun toALUserManga(): ALUserManga {
-        return ALUserManga(
+    fun toALUserManga(): ALUserManga =
+        ALUserManga(
             libraryId = this@ALUserListItem.id,
             listStatus = status,
             scoreRaw = scoreRaw,
@@ -41,5 +41,5 @@ data class ALUserListItem(
             manga = media.toALManga(),
             private = private,
         )
-    }
 }
+

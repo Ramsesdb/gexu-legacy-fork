@@ -8,8 +8,9 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import uy.kohesive.injekt.injectLazy
 
-class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
-
+class BangumiInterceptor(
+    private val bangumi: Bangumi,
+) : Interceptor {
     private val json: Json by injectLazy()
 
     /**
@@ -32,32 +33,33 @@ class BangumiInterceptor(private val bangumi: Bangumi) : Interceptor {
             }
         }
 
-        return originalRequest.newBuilder()
+        return originalRequest
+            .newBuilder()
             .header(
                 "User-Agent",
                 "antsylich/Mihon/v${BuildConfig.VERSION_NAME} (Android) (http://github.com/mihonapp/mihon)",
-            )
-            .apply {
+            ).apply {
                 addHeader("Authorization", "Bearer ${currAuth.accessToken}")
-            }
-            .build()
+            }.build()
             .let(chain::proceed)
     }
 
     fun newAuth(oauth: BGMOAuth?) {
-        this.oauth = if (oauth == null) {
-            null
-        } else {
-            BGMOAuth(
-                oauth.accessToken,
-                oauth.tokenType,
-                System.currentTimeMillis() / 1000,
-                oauth.expiresIn,
-                oauth.refreshToken,
-                this.oauth?.userId,
-            )
-        }
+        this.oauth =
+            if (oauth == null) {
+                null
+            } else {
+                BGMOAuth(
+                    oauth.accessToken,
+                    oauth.tokenType,
+                    System.currentTimeMillis() / 1000,
+                    oauth.expiresIn,
+                    oauth.refreshToken,
+                    this.oauth?.userId,
+                )
+            }
 
         bangumi.saveToken(oauth)
     }
 }
+

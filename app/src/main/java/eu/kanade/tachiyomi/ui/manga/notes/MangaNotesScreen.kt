@@ -39,7 +39,6 @@ class MangaNotesScreen(
         private val manga: Manga,
         private val updateMangaNotes: UpdateMangaNotes = Injekt.get(),
     ) : StateScreenModel<State>(State(manga, manga.notes)) {
-
         fun updateNotes(content: String) {
             if (content == state.value.notes) return
 
@@ -59,3 +58,4 @@ class MangaNotesScreen(
         val notes: String,
     )
 }
+

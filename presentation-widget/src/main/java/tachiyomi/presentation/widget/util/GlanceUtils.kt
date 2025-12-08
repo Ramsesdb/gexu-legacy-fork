@@ -6,13 +6,9 @@ import androidx.glance.GlanceModifier
 import androidx.glance.appwidget.cornerRadius
 import tachiyomi.presentation.widget.R
 
-fun GlanceModifier.appWidgetBackgroundRadius(): GlanceModifier {
-    return this.cornerRadius(R.dimen.appwidget_background_radius)
-}
+fun GlanceModifier.appWidgetBackgroundRadius(): GlanceModifier = this.cornerRadius(R.dimen.appwidget_background_radius)
 
-fun GlanceModifier.appWidgetInnerRadius(): GlanceModifier {
-    return this.cornerRadius(R.dimen.appwidget_inner_radius)
-}
+fun GlanceModifier.appWidgetInnerRadius(): GlanceModifier = this.cornerRadius(R.dimen.appwidget_inner_radius)
 
 /**
  * Calculates row-column count.
@@ -38,3 +34,4 @@ fun DpSize.calculateRowAndColumnCount(
     val columnCount = (width.value / 64).toInt().coerceIn(1, 10)
     return Pair(rowCount, columnCount)
 }
+

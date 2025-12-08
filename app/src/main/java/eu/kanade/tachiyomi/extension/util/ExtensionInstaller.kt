@@ -39,8 +39,9 @@ import kotlin.time.Duration.Companion.seconds
  *
  * @param context The application context.
  */
-internal class ExtensionInstaller(private val context: Context) {
-
+internal class ExtensionInstaller(
+    private val context: Context,
+) {
     /**
      * The system's download manager
      */
@@ -68,7 +69,10 @@ internal class ExtensionInstaller(private val context: Context) {
      * @param url The url of the apk.
      * @param extension The extension to install.
      */
-    fun downloadAndInstall(url: String, extension: Extension): Flow<InstallStep> {
+    fun downloadAndInstall(
+        url: String,
+        extension: Extension,
+    ): Flow<InstallStep> {
         val pkgName = extension.pkgName
 
         val oldDownload = activeDownloads[pkgName]
@@ -80,11 +84,13 @@ internal class ExtensionInstaller(private val context: Context) {
         downloadReceiver.register()
 
         val downloadUri = url.toUri()
-        val request = DownloadManager.Request(downloadUri)
-            .setTitle(extension.name)
-            .setMimeType(APK_MIME)
-            .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, downloadUri.lastPathSegment)
-            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+        val request =
+            DownloadManager
+                .Request(downloadUri)
+                .setTitle(extension.name)
+                .setMimeType(APK_MIME)
+                .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, downloadUri.lastPathSegment)
+                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
 
         val id = downloadManager.enqueue(request)
         activeDownloads[pkgName] = id
@@ -93,26 +99,28 @@ internal class ExtensionInstaller(private val context: Context) {
         downloadsStateFlows[id] = downloadStateFlow
 
         // Poll download status
-        val pollStatusFlow = downloadStatusFlow(id).mapNotNull { downloadStatus ->
-            // Map to our model
-            when (downloadStatus) {
-                DownloadManager.STATUS_PENDING -> InstallStep.Pending
-                DownloadManager.STATUS_RUNNING -> InstallStep.Downloading
-                else -> null
+        val pollStatusFlow =
+            downloadStatusFlow(id).mapNotNull { downloadStatus ->
+                // Map to our model
+                when (downloadStatus) {
+                    DownloadManager.STATUS_PENDING -> InstallStep.Pending
+                    DownloadManager.STATUS_RUNNING -> InstallStep.Downloading
+                    else -> null
+                }
             }
-        }
 
-        return merge(downloadStateFlow, pollStatusFlow).transformWhile {
-            emit(it)
-            // Stop when the application is installed or errors
-            !it.isCompleted()
-        }.onCompletion {
-            // Always notify on main thread
-            withUIContext {
-                // Always remove the download when unsubscribed
-                deleteDownload(pkgName)
+        return merge(downloadStateFlow, pollStatusFlow)
+            .transformWhile {
+                emit(it)
+                // Stop when the application is installed or errors
+                !it.isCompleted()
+            }.onCompletion {
+                // Always notify on main thread
+                withUIContext {
+                    // Always remove the download when unsubscribed
+                    deleteDownload(pkgName)
+                }
             }
-        }
     }
 
     /**
@@ -121,43 +129,49 @@ internal class ExtensionInstaller(private val context: Context) {
      *
      * @param id The id of the download to poll.
      */
-    private fun downloadStatusFlow(id: Long): Flow<Int> = flow {
-        val query = DownloadManager.Query().setFilterById(id)
-        while (true) {
-            // Get the current download status
-            val downloadStatus = downloadManager.query(query).use { cursor ->
-                if (!cursor.moveToFirst()) return@flow
-                cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+    private fun downloadStatusFlow(id: Long): Flow<Int> =
+        flow {
+            val query = DownloadManager.Query().setFilterById(id)
+            while (true) {
+                // Get the current download status
+                val downloadStatus =
+                    downloadManager.query(query).use { cursor ->
+                        if (!cursor.moveToFirst()) return@flow
+                        cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                    }
+
+                emit(downloadStatus)
+
+                // Stop polling when the download fails or finishes
+                if (
+                    downloadStatus == DownloadManager.STATUS_SUCCESSFUL ||
+                    downloadStatus == DownloadManager.STATUS_FAILED
+                ) {
+                    return@flow
+                }
+
+                delay(1.seconds)
             }
-
-            emit(downloadStatus)
-
-            // Stop polling when the download fails or finishes
-            if (
-                downloadStatus == DownloadManager.STATUS_SUCCESSFUL ||
-                downloadStatus == DownloadManager.STATUS_FAILED
-            ) {
-                return@flow
-            }
-
-            delay(1.seconds)
         }
-    }
-        // Ignore duplicate results
-        .distinctUntilChanged()
+            // Ignore duplicate results
+            .distinctUntilChanged()
 
     /**
      * Starts an intent to install the extension at the given uri.
      *
      * @param uri The uri of the extension to install.
      */
-    fun installApk(downloadId: Long, uri: Uri) {
+    fun installApk(
+        downloadId: Long,
+        uri: Uri,
+    ) {
         when (val installer = extensionInstaller.get()) {
             BasePreferences.ExtensionInstaller.LEGACY -> {
-                val intent = Intent(context, ExtensionInstallActivity::class.java)
-                    .setDataAndType(uri, APK_MIME)
-                    .putExtra(EXTRA_DOWNLOAD_ID, downloadId)
-                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                val intent =
+                    Intent(context, ExtensionInstallActivity::class.java)
+                        .setDataAndType(uri, APK_MIME)
+                        .putExtra(EXTRA_DOWNLOAD_ID, downloadId)
+                        .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
                 context.startActivity(intent)
             }
@@ -214,8 +228,9 @@ internal class ExtensionInstaller(private val context: Context) {
     fun uninstallApk(pkgName: String) {
         if (context.isPackageInstalled(pkgName)) {
             @Suppress("DEPRECATION")
-            val intent = Intent(Intent.ACTION_UNINSTALL_PACKAGE, "package:$pkgName".toUri())
-                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val intent =
+                Intent(Intent.ACTION_UNINSTALL_PACKAGE, "package:$pkgName".toUri())
+                    .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             context.startActivity(intent)
         } else {
             ExtensionLoader.uninstallPrivateExtension(context, pkgName)
@@ -229,7 +244,10 @@ internal class ExtensionInstaller(private val context: Context) {
      * @param downloadId The id of the download.
      * @param step New install step.
      */
-    fun updateInstallStep(downloadId: Long, step: InstallStep) {
+    fun updateInstallStep(
+        downloadId: Long,
+        step: InstallStep,
+    ) {
         downloadsStateFlows[downloadId]?.let { it.value = step }
     }
 
@@ -253,7 +271,6 @@ internal class ExtensionInstaller(private val context: Context) {
      * Receiver that listens to download status events.
      */
     private inner class DownloadCompletionReceiver : BroadcastReceiver() {
-
         /**
          * Whether this receiver is currently registered.
          */
@@ -284,7 +301,10 @@ internal class ExtensionInstaller(private val context: Context) {
          * Called when a download event is received. It looks for the download in the current active
          * downloads and notifies its installation step.
          */
-        override fun onReceive(context: Context, intent: Intent?) {
+        override fun onReceive(
+            context: Context,
+            intent: Intent?,
+        ) {
             val id = intent?.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, 0) ?: return
 
             // Avoid events for downloads we didn't request
@@ -302,9 +322,11 @@ internal class ExtensionInstaller(private val context: Context) {
             val query = DownloadManager.Query().setFilterById(id)
             downloadManager.query(query).use { cursor ->
                 if (cursor.moveToFirst()) {
-                    val localUri = cursor.getString(
-                        cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI),
-                    ).removePrefix(FILE_SCHEME)
+                    val localUri =
+                        cursor
+                            .getString(
+                                cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI),
+                            ).removePrefix(FILE_SCHEME)
 
                     installApk(id, File(localUri).getUriCompat(context))
                 }
@@ -318,3 +340,4 @@ internal class ExtensionInstaller(private val context: Context) {
         const val FILE_SCHEME = "file://"
     }
 }
+

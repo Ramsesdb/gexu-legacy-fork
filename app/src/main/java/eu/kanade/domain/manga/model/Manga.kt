@@ -29,33 +29,35 @@ val Manga.downloadedFilter: TriState
             else -> TriState.DISABLED
         }
     }
-fun Manga.chaptersFiltered(): Boolean {
-    return unreadFilter != TriState.DISABLED ||
+
+fun Manga.chaptersFiltered(): Boolean =
+    unreadFilter != TriState.DISABLED ||
         downloadedFilter != TriState.DISABLED ||
         bookmarkedFilter != TriState.DISABLED
-}
 
-fun Manga.toSManga(): SManga = SManga.create().also {
-    it.url = url
-    it.title = title
-    it.artist = artist
-    it.author = author
-    it.description = description
-    it.genre = genre.orEmpty().joinToString()
-    it.status = status.toInt()
-    it.thumbnail_url = thumbnailUrl
-    it.initialized = initialized
-}
+fun Manga.toSManga(): SManga =
+    SManga.create().also {
+        it.url = url
+        it.title = title
+        it.artist = artist
+        it.author = author
+        it.description = description
+        it.genre = genre.orEmpty().joinToString()
+        it.status = status.toInt()
+        it.thumbnail_url = thumbnailUrl
+        it.initialized = initialized
+    }
 
 fun Manga.copyFrom(other: SManga): Manga {
     val author = other.author ?: author
     val artist = other.artist ?: artist
     val description = other.description ?: description
-    val genres = if (other.genre != null) {
-        other.getGenres()
-    } else {
-        genre
-    }
+    val genres =
+        if (other.genre != null) {
+            other.getGenres()
+        } else {
+            genre
+        }
     val thumbnailUrl = other.thumbnail_url ?: thumbnailUrl
     return this.copy(
         author = author,
@@ -69,9 +71,7 @@ fun Manga.copyFrom(other: SManga): Manga {
     )
 }
 
-fun Manga.hasCustomCover(coverCache: CoverCache = Injekt.get()): Boolean {
-    return coverCache.getCustomCoverFile(id).exists()
-}
+fun Manga.hasCustomCover(coverCache: CoverCache = Injekt.get()): Boolean = coverCache.getCustomCoverFile(id).exists()
 
 /**
  * Creates a ComicInfo instance based on the manga and chapter metadata.
@@ -85,22 +85,24 @@ fun getComicInfo(
 ) = ComicInfo(
     title = ComicInfo.Title(chapter.name),
     series = ComicInfo.Series(manga.title),
-    number = chapter.chapterNumber.takeIf { it >= 0 }?.let {
-        if ((it.rem(1) == 0.0)) {
-            ComicInfo.Number(it.toInt().toString())
-        } else {
-            ComicInfo.Number(it.toString())
-        }
-    },
+    number =
+        chapter.chapterNumber.takeIf { it >= 0 }?.let {
+            if ((it.rem(1) == 0.0)) {
+                ComicInfo.Number(it.toInt().toString())
+            } else {
+                ComicInfo.Number(it.toString())
+            }
+        },
     web = ComicInfo.Web(urls.joinToString(" ")),
     summary = manga.description?.let { ComicInfo.Summary(it) },
     writer = manga.author?.let { ComicInfo.Writer(it) },
     penciller = manga.artist?.let { ComicInfo.Penciller(it) },
     translator = chapter.scanlator?.let { ComicInfo.Translator(it) },
     genre = manga.genre?.let { ComicInfo.Genre(it.joinToString()) },
-    publishingStatus = ComicInfo.PublishingStatusTachiyomi(
-        ComicInfoPublishingStatus.toComicInfoValue(manga.status),
-    ),
+    publishingStatus =
+        ComicInfo.PublishingStatusTachiyomi(
+            ComicInfoPublishingStatus.toComicInfoValue(manga.status),
+        ),
     categories = categories?.let { ComicInfo.CategoriesTachiyomi(it.joinToString()) },
     source = ComicInfo.SourceMihon(sourceName),
     inker = null,
@@ -109,3 +111,4 @@ fun getComicInfo(
     coverArtist = null,
     tags = null,
 )
+

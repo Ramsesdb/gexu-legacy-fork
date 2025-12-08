@@ -7,8 +7,10 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import java.io.IOException
 
-class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Interceptor {
-
+class AnilistInterceptor(
+    val anilist: Anilist,
+    private var token: String?,
+) : Interceptor {
     /**
      * OAuth object used for authenticated requests.
      *
@@ -41,10 +43,12 @@ class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Int
         }
 
         // Add the authorization header to the original request.
-        val authRequest = originalRequest.newBuilder()
-            .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
-            .build()
+        val authRequest =
+            originalRequest
+                .newBuilder()
+                .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
+                .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .build()
 
         return chain.proceed(authRequest)
     }
@@ -59,3 +63,4 @@ class AnilistInterceptor(val anilist: Anilist, private var token: String?) : Int
         anilist.saveOAuth(oauth)
     }
 }
+

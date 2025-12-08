@@ -25,7 +25,6 @@ class DownloadStore(
     private val getManga: GetManga = Injekt.get(),
     private val getChapter: GetChapter = Injekt.get(),
 ) {
-
     /**
      * Preference file where active downloads are stored.
      */
@@ -83,26 +82,26 @@ class DownloadStore(
      *
      * @param download the download.
      */
-    private fun getKey(download: Download): String {
-        return download.chapter.id.toString()
-    }
+    private fun getKey(download: Download): String = download.chapter.id.toString()
 
     /**
      * Returns the list of downloads to restore. It should be called in a background thread.
      */
     fun restore(): List<Download> {
-        val objs = preferences.all
-            .mapNotNull { it.value as? String }
-            .mapNotNull { deserialize(it) }
-            .sortedBy { it.order }
+        val objs =
+            preferences.all
+                .mapNotNull { it.value as? String }
+                .mapNotNull { deserialize(it) }
+                .sortedBy { it.order }
 
         val downloads = mutableListOf<Download>()
         if (objs.isNotEmpty()) {
             val cachedManga = mutableMapOf<Long, Manga?>()
             for ((mangaId, chapterId) in objs) {
-                val manga = cachedManga.getOrPut(mangaId) {
-                    runBlocking { getManga.await(mangaId) }
-                } ?: continue
+                val manga =
+                    cachedManga.getOrPut(mangaId) {
+                        runBlocking { getManga.await(mangaId) }
+                    } ?: continue
                 val source = sourceManager.get(manga.source) as? HttpSource ?: continue
                 val chapter = runBlocking { getChapter.await(chapterId) } ?: continue
                 downloads.add(Download(source, manga, chapter))
@@ -129,13 +128,12 @@ class DownloadStore(
      *
      * @param string the download as string.
      */
-    private fun deserialize(string: String): DownloadObject? {
-        return try {
+    private fun deserialize(string: String): DownloadObject? =
+        try {
             json.decodeFromString<DownloadObject>(string)
         } catch (e: Exception) {
             null
         }
-    }
 }
 
 /**
@@ -146,4 +144,9 @@ class DownloadStore(
  * @param order the order of the download in the queue.
  */
 @Serializable
-private data class DownloadObject(val mangaId: Long, val chapterId: Long, val order: Int)
+private data class DownloadObject(
+    val mangaId: Long,
+    val chapterId: Long,
+    val order: Int,
+)
+

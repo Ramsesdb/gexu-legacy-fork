@@ -5,8 +5,11 @@ import android.content.Context
 import android.content.res.Resources
 
 object InternalResourceHelper {
-
-    fun getBoolean(context: Context, resName: String, defaultValue: Boolean): Boolean {
+    fun getBoolean(
+        context: Context,
+        resName: String,
+        defaultValue: Boolean,
+    ): Boolean {
         val id = getResourceId(resName, "bool")
         return if (id != 0) {
             context.createPackageContext("android", 0).resources.getBoolean(id)
@@ -22,7 +25,9 @@ object InternalResourceHelper {
      * @return 0 if not available
      */
     @SuppressLint("DiscouragedApi")
-    private fun getResourceId(resName: String, type: String): Int {
-        return Resources.getSystem().getIdentifier(resName, type, "android")
-    }
+    private fun getResourceId(
+        resName: String,
+        type: String,
+    ): Int = Resources.getSystem().getIdentifier(resName, type, "android")
 }
+

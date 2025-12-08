@@ -92,7 +92,6 @@ data class TrackInfoDialogHomeScreen(
     private val mangaTitle: String,
     private val sourceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -179,7 +178,10 @@ data class TrackInfoDialogHomeScreen(
     /**
      * Opens registered tracker url in browser
      */
-    private fun openTrackerInBrowser(context: Context, trackItem: TrackItem) {
+    private fun openTrackerInBrowser(
+        context: Context,
+        trackItem: TrackItem,
+    ) {
         val url = trackItem.track?.remoteUrl ?: return
         if (url.isNotBlank()) {
             context.openInBrowser(url)
@@ -198,14 +200,14 @@ data class TrackInfoDialogHomeScreen(
         private val sourceId: Long,
         private val getTracks: GetTracks = Injekt.get(),
     ) : StateScreenModel<Model.State>(State()) {
-
         init {
             screenModelScope.launch {
                 refreshTrackers()
             }
 
             screenModelScope.launch {
-                getTracks.subscribe(mangaId)
+                getTracks
+                    .subscribe(mangaId)
                     .catch { logcat(LogPriority.ERROR, it) }
                     .distinctUntilChanged()
                     .map { it.mapToTrackItem() }
@@ -230,7 +232,8 @@ data class TrackInfoDialogHomeScreen(
             val refreshTracks = Injekt.get<RefreshTracks>()
             val context = Injekt.get<Application>()
 
-            refreshTracks.await(mangaId)
+            refreshTracks
+                .await(mangaId)
                 .filter { it.first != null }
                 .forEach { (track, e) ->
                     logcat(LogPriority.ERROR, e) {
@@ -275,16 +278,16 @@ private data class TrackStatusSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                )
+            }
         val state by screenModel.state.collectAsState()
         TrackStatusSelector(
             selection = state.selection,
@@ -302,10 +305,7 @@ private data class TrackStatusSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
     ) : StateScreenModel<Model.State>(State(track.status)) {
-
-        fun getSelections(): Map<Long, StringResource?> {
-            return tracker.getStatusList().associateWith { tracker.getStatus(it) }
-        }
+        fun getSelections(): Map<Long, StringResource?> = tracker.getStatusList().associateWith { tracker.getStatus(it) }
 
         fun setSelection(selection: Long) {
             mutableState.update { it.copy(selection = selection) }
@@ -328,16 +328,16 @@ private data class TrackChapterSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                )
+            }
         val state by screenModel.state.collectAsState()
 
         TrackChapterSelector(
@@ -356,13 +356,13 @@ private data class TrackChapterSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
     ) : StateScreenModel<Model.State>(State(track.lastChapterRead.toInt())) {
-
         fun getRange(): Iterable<Int> {
-            val endRange = if (track.totalChapters > 0) {
-                track.totalChapters
-            } else {
-                10000
-            }
+            val endRange =
+                if (track.totalChapters > 0) {
+                    track.totalChapters
+                } else {
+                    10000
+                }
             return 0..endRange.toInt()
         }
 
@@ -387,16 +387,16 @@ private data class TrackScoreSelectorScreen(
     private val track: Track,
     private val serviceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                )
+            }
         val state by screenModel.state.collectAsState()
 
         TrackScoreSelector(
@@ -415,10 +415,7 @@ private data class TrackScoreSelectorScreen(
         private val track: Track,
         private val tracker: Tracker,
     ) : StateScreenModel<Model.State>(State(tracker.displayScore(track))) {
-
-        fun getSelections(): ImmutableList<String> {
-            return tracker.getScoreList()
-        }
+        fun getSelections(): ImmutableList<String> = tracker.getScoreList()
 
         fun setSelection(selection: String) {
             mutableState.update { it.copy(selection = selection) }
@@ -442,86 +439,99 @@ private data class TrackDateSelectorScreen(
     private val serviceId: Long,
     private val start: Boolean,
 ) : Screen() {
-
     @Transient
-    private val selectableDates = object : SelectableDates {
-        override fun isSelectableDate(utcTimeMillis: Long): Boolean {
-            val dateToCheck = Instant.ofEpochMilli(utcTimeMillis)
-                .atZone(ZoneOffset.systemDefault())
-                .toLocalDate()
+    private val selectableDates =
+        object : SelectableDates {
+            override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                val dateToCheck =
+                    Instant
+                        .ofEpochMilli(utcTimeMillis)
+                        .atZone(ZoneOffset.systemDefault())
+                        .toLocalDate()
 
-            if (dateToCheck > LocalDate.now()) {
-                // Disallow future dates
-                return false
+                if (dateToCheck > LocalDate.now()) {
+                    // Disallow future dates
+                    return false
+                }
+
+                return if (start && track.finishDate > 0) {
+                    // Disallow start date to be set later than finish date
+                    val dateFinished =
+                        Instant
+                            .ofEpochMilli(track.finishDate)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                    dateToCheck <= dateFinished
+                } else if (!start && track.startDate > 0) {
+                    // Disallow end date to be set earlier than start date
+                    val dateStarted =
+                        Instant
+                            .ofEpochMilli(track.startDate)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                    dateToCheck >= dateStarted
+                } else {
+                    // Nothing set before
+                    true
+                }
             }
 
-            return if (start && track.finishDate > 0) {
-                // Disallow start date to be set later than finish date
-                val dateFinished = Instant.ofEpochMilli(track.finishDate)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                dateToCheck <= dateFinished
-            } else if (!start && track.startDate > 0) {
-                // Disallow end date to be set earlier than start date
-                val dateStarted = Instant.ofEpochMilli(track.startDate)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                dateToCheck >= dateStarted
-            } else {
-                // Nothing set before
-                true
+            override fun isSelectableYear(year: Int): Boolean {
+                if (year > LocalDate.now().year) {
+                    // Disallow future dates
+                    return false
+                }
+
+                return if (start && track.finishDate > 0) {
+                    // Disallow start date to be set later than finish date
+                    val dateFinished =
+                        Instant
+                            .ofEpochMilli(track.finishDate)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .year
+                    year <= dateFinished
+                } else if (!start && track.startDate > 0) {
+                    // Disallow end date to be set earlier than start date
+                    val dateStarted =
+                        Instant
+                            .ofEpochMilli(track.startDate)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                            .year
+                    year >= dateStarted
+                } else {
+                    // Nothing set before
+                    true
+                }
             }
         }
-
-        override fun isSelectableYear(year: Int): Boolean {
-            if (year > LocalDate.now().year) {
-                // Disallow future dates
-                return false
-            }
-
-            return if (start && track.finishDate > 0) {
-                // Disallow start date to be set later than finish date
-                val dateFinished = Instant.ofEpochMilli(track.finishDate)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                    .year
-                year <= dateFinished
-            } else if (!start && track.startDate > 0) {
-                // Disallow end date to be set earlier than start date
-                val dateStarted = Instant.ofEpochMilli(track.startDate)
-                    .atZone(ZoneId.systemDefault())
-                    .toLocalDate()
-                    .year
-                year >= dateStarted
-            } else {
-                // Nothing set before
-                true
-            }
-        }
-    }
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-                start = start,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                    start = start,
+                )
+            }
 
-        val canRemove = if (start) {
-            track.startDate > 0
-        } else {
-            track.finishDate > 0
-        }
-        TrackDateSelector(
-            title = if (start) {
-                stringResource(MR.strings.track_started_reading_date)
+        val canRemove =
+            if (start) {
+                track.startDate > 0
             } else {
-                stringResource(MR.strings.track_finished_reading_date)
-            },
+                track.finishDate > 0
+            }
+        TrackDateSelector(
+            title =
+                if (start) {
+                    stringResource(MR.strings.track_started_reading_date)
+                } else {
+                    stringResource(MR.strings.track_finished_reading_date)
+                },
             initialSelectedDateMillis = screenModel.initialSelection,
             selectableDates = selectableDates,
             onConfirm = {
@@ -538,13 +548,13 @@ private data class TrackDateSelectorScreen(
         private val tracker: Tracker,
         private val start: Boolean,
     ) : ScreenModel {
-
         // In UTC
         val initialSelection: Long
             get() {
-                val millis = (if (start) track.startDate else track.finishDate)
-                    .takeIf { it != 0L }
-                    ?: Instant.now().toEpochMilli()
+                val millis =
+                    (if (start) track.startDate else track.finishDate)
+                        .takeIf { it != 0L }
+                        ?: Instant.now().toEpochMilli()
                 return millis.convertEpochMillisZone(ZoneOffset.systemDefault(), ZoneOffset.UTC)
             }
 
@@ -572,17 +582,17 @@ private data class TrackDateRemoverScreen(
     private val serviceId: Long,
     private val start: Boolean,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-                start = start,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                    start = start,
+                )
+            }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
             icon = {
@@ -600,11 +610,12 @@ private data class TrackDateRemoverScreen(
             text = {
                 val serviceName = screenModel.getServiceName()
                 Text(
-                    text = if (start) {
-                        stringResource(MR.strings.track_remove_start_date_conf_text, serviceName)
-                    } else {
-                        stringResource(MR.strings.track_remove_finish_date_conf_text, serviceName)
-                    },
+                    text =
+                        if (start) {
+                            stringResource(MR.strings.track_remove_start_date_conf_text, serviceName)
+                        } else {
+                            stringResource(MR.strings.track_remove_finish_date_conf_text, serviceName)
+                        },
                 )
             },
             buttons = {
@@ -620,10 +631,11 @@ private data class TrackDateRemoverScreen(
                             screenModel.removeDate()
                             navigator.popUntil { it is TrackInfoDialogHomeScreen }
                         },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
+                        colors =
+                            ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
                     ) {
                         Text(text = stringResource(MR.strings.action_remove))
                     }
@@ -637,7 +649,6 @@ private data class TrackDateRemoverScreen(
         private val tracker: Tracker,
         private val start: Boolean,
     ) : ScreenModel {
-
         fun getServiceName() = tracker.name
 
         fun removeDate() {
@@ -658,18 +669,18 @@ data class TrackerSearchScreen(
     private val currentUrl: String?,
     private val serviceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                mangaId = mangaId,
-                currentUrl = currentUrl,
-                initialQuery = initialQuery,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    mangaId = mangaId,
+                    currentUrl = currentUrl,
+                    initialQuery = initialQuery,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                )
+            }
 
         val state by screenModel.state.collectAsState()
 
@@ -697,7 +708,6 @@ data class TrackerSearchScreen(
         initialQuery: String,
         private val tracker: Tracker,
     ) : StateScreenModel<Model.State>(State()) {
-
         val supportsPrivateTracking = tracker.supportsPrivateTracking
 
         init {
@@ -712,14 +722,15 @@ data class TrackerSearchScreen(
                 // To show loading state
                 mutableState.update { it.copy(queryResult = null, selected = null) }
 
-                val result = withIOContext {
-                    try {
-                        val results = tracker.search(query)
-                        Result.success(results)
-                    } catch (e: Throwable) {
-                        Result.failure(e)
+                val result =
+                    withIOContext {
+                        try {
+                            val results = tracker.search(query)
+                            Result.success(results)
+                        } catch (e: Throwable) {
+                            Result.failure(e)
+                        }
                     }
-                }
                 mutableState.update { oldState ->
                     oldState.copy(
                         queryResult = result,
@@ -750,17 +761,17 @@ private data class TrackerRemoveScreen(
     private val track: Track,
     private val serviceId: Long,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val screenModel = rememberScreenModel {
-            Model(
-                mangaId = mangaId,
-                track = track,
-                tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                Model(
+                    mangaId = mangaId,
+                    track = track,
+                    tracker = Injekt.get<TrackerManager>().get(serviceId)!!,
+                )
+            }
         val serviceName = screenModel.getName()
         var removeRemoteTrack by remember { mutableStateOf(false) }
         AlertDialogContent(
@@ -797,10 +808,11 @@ private data class TrackerRemoveScreen(
             buttons = {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(
-                        MaterialTheme.padding.small,
-                        Alignment.End,
-                    ),
+                    horizontalArrangement =
+                        Arrangement.spacedBy(
+                            MaterialTheme.padding.small,
+                            Alignment.End,
+                        ),
                 ) {
                     TextButton(onClick = navigator::pop) {
                         Text(text = stringResource(MR.strings.action_cancel))
@@ -811,10 +823,11 @@ private data class TrackerRemoveScreen(
                             if (removeRemoteTrack) screenModel.deleteMangaFromService()
                             navigator.pop()
                         },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer,
-                            contentColor = MaterialTheme.colorScheme.onErrorContainer,
-                        ),
+                        colors =
+                            ButtonDefaults.filledTonalButtonColors(
+                                containerColor = MaterialTheme.colorScheme.errorContainer,
+                                contentColor = MaterialTheme.colorScheme.onErrorContainer,
+                            ),
                     ) {
                         Text(text = stringResource(MR.strings.action_ok))
                     }
@@ -829,7 +842,6 @@ private data class TrackerRemoveScreen(
         private val tracker: Tracker,
         private val deleteTrack: DeleteTrack = Injekt.get(),
     ) : ScreenModel {
-
         fun getName() = tracker.name
 
         fun isDeletable() = tracker is DeletableTracker
@@ -849,3 +861,4 @@ private data class TrackerRemoveScreen(
         }
     }
 }
+

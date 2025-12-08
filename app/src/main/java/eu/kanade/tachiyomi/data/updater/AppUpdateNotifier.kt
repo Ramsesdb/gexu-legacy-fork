@@ -17,8 +17,9 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.release.model.Release
 import tachiyomi.i18n.MR
 
-internal class AppUpdateNotifier(private val context: Context) {
-
+internal class AppUpdateNotifier(
+    private val context: Context,
+) {
     private val notificationBuilder = context.notificationBuilder(Notifications.CHANNEL_APP_UPDATE)
 
     /**
@@ -36,21 +37,23 @@ internal class AppUpdateNotifier(private val context: Context) {
 
     @SuppressLint("LaunchActivityFromNotification")
     fun promptUpdate(release: Release) {
-        val updateIntent = NotificationReceiver.downloadAppUpdatePendingBroadcast(
-            context,
-            release.downloadLink,
-            release.version,
-        )
-
-        val releaseIntent = Intent(Intent.ACTION_VIEW, release.releaseLink.toUri()).run {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            PendingIntent.getActivity(
+        val updateIntent =
+            NotificationReceiver.downloadAppUpdatePendingBroadcast(
                 context,
-                release.hashCode(),
-                this,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                release.downloadLink,
+                release.version,
             )
-        }
+
+        val releaseIntent =
+            Intent(Intent.ACTION_VIEW, release.releaseLink.toUri()).run {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                PendingIntent.getActivity(
+                    context,
+                    release.hashCode(),
+                    this,
+                    PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+                )
+            }
 
         with(notificationBuilder) {
             setContentTitle(context.stringResource(MR.strings.update_check_notification_update_available))
@@ -166,3 +169,4 @@ internal class AppUpdateNotifier(private val context: Context) {
         notificationBuilder.show(Notifications.ID_APP_UPDATE_ERROR)
     }
 }
+

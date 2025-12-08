@@ -62,7 +62,6 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 
 object AboutScreen : Screen() {
-
     @Composable
     override fun Content() {
         val scope = rememberCoroutineScope()
@@ -119,12 +118,13 @@ object AboutScreen : Screen() {
                                         checkVersion(
                                             context = context,
                                             onAvailableUpdate = { result ->
-                                                val updateScreen = NewUpdateScreen(
-                                                    versionName = result.release.version,
-                                                    changelogInfo = result.release.info,
-                                                    releaseLink = result.release.releaseLink,
-                                                    downloadLink = result.release.downloadLink,
-                                                )
+                                                val updateScreen =
+                                                    NewUpdateScreen(
+                                                        versionName = result.release.version,
+                                                        changelogInfo = result.release.info,
+                                                        releaseLink = result.release.releaseLink,
+                                                        downloadLink = result.release.downloadLink,
+                                                    )
                                                 navigator.push(updateScreen)
                                             },
                                             onFinish = {
@@ -163,9 +163,10 @@ object AboutScreen : Screen() {
 
                 item {
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 8.dp),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         LinkIcon(
@@ -236,8 +237,8 @@ object AboutScreen : Screen() {
         }
     }
 
-    fun getVersionName(withBuildDate: Boolean): String {
-        return when {
+    fun getVersionName(withBuildDate: Boolean): String =
+        when {
             BuildConfig.DEBUG -> {
                 "Debug ${BuildConfig.COMMIT_SHA}".let {
                     if (withBuildDate) {
@@ -266,15 +267,14 @@ object AboutScreen : Screen() {
                 }
             }
         }
-    }
 
-    internal fun getFormattedBuildTime(): String {
-        return try {
-            LocalDateTime.ofInstant(
-                Instant.parse(BuildConfig.BUILD_TIME),
-                ZoneId.systemDefault(),
-            )
-                .toDateTimestampString(
+    internal fun getFormattedBuildTime(): String =
+        try {
+            LocalDateTime
+                .ofInstant(
+                    Instant.parse(BuildConfig.BUILD_TIME),
+                    ZoneId.systemDefault(),
+                ).toDateTimestampString(
                     UiPreferences.dateFormat(
                         Injekt.get<UiPreferences>().dateFormat().get(),
                     ),
@@ -282,5 +282,5 @@ object AboutScreen : Screen() {
         } catch (e: Exception) {
             BuildConfig.BUILD_TIME
         }
-    }
 }
+

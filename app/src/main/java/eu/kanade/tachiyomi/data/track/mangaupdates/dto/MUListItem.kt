@@ -14,9 +14,9 @@ data class MUListItem(
     val priority: Int? = null,
 )
 
-fun MUListItem.copyTo(track: Track): Track {
-    return track.apply {
+fun MUListItem.copyTo(track: Track): Track =
+    track.apply {
         this.status = listId ?: READING_LIST
         this.last_chapter_read = this@copyTo.status?.chapter?.toDouble() ?: 0.0
     }
-}
+

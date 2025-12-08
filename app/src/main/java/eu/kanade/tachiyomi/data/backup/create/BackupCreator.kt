@@ -40,38 +40,40 @@ import java.util.Locale
 class BackupCreator(
     private val context: Context,
     private val isAutoBackup: Boolean,
-
     private val parser: ProtoBuf = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
     private val backupPreferences: BackupPreferences = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
-
     private val categoriesBackupCreator: CategoriesBackupCreator = CategoriesBackupCreator(),
     private val mangaBackupCreator: MangaBackupCreator = MangaBackupCreator(),
     private val preferenceBackupCreator: PreferenceBackupCreator = PreferenceBackupCreator(),
     private val extensionRepoBackupCreator: ExtensionRepoBackupCreator = ExtensionRepoBackupCreator(),
     private val sourcesBackupCreator: SourcesBackupCreator = SourcesBackupCreator(),
 ) {
-
-    suspend fun backup(uri: Uri, options: BackupOptions): String {
+    suspend fun backup(
+        uri: Uri,
+        options: BackupOptions,
+    ): String {
         var file: UniFile? = null
         try {
-            file = if (isAutoBackup) {
-                // Get dir of file and create
-                val dir = UniFile.fromUri(context, uri)
+            file =
+                if (isAutoBackup) {
+                    // Get dir of file and create
+                    val dir = UniFile.fromUri(context, uri)
 
-                // Delete older backups
-                dir?.listFiles { _, filename -> FILENAME_REGEX.matches(filename) }
-                    .orEmpty()
-                    .sortedByDescending { it.name }
-                    .drop(MAX_AUTO_BACKUPS - 1)
-                    .forEach { it.delete() }
+                    // Delete older backups
+                    dir
+                        ?.listFiles { _, filename -> FILENAME_REGEX.matches(filename) }
+                        .orEmpty()
+                        .sortedByDescending { it.name }
+                        .drop(MAX_AUTO_BACKUPS - 1)
+                        .forEach { it.delete() }
 
-                // Create new file to place backup
-                dir?.createFile(getFilename())
-            } else {
-                UniFile.fromUri(context, uri)
-            }
+                    // Create new file to place backup
+                    dir?.createFile(getFilename())
+                } else {
+                    UniFile.fromUri(context, uri)
+                }
 
             if (file == null || !file.isFile) {
                 throw IllegalStateException(context.stringResource(MR.strings.create_backup_file_error))
@@ -80,26 +82,30 @@ class BackupCreator(
             val nonFavoriteManga = if (options.readEntries) mangaRepository.getReadMangaNotInLibrary() else emptyList()
             val backupManga = backupMangas(getFavorites.await() + nonFavoriteManga, options)
 
-            val backup = Backup(
-                backupManga = backupManga,
-                backupCategories = backupCategories(options),
-                backupSources = backupSources(backupManga),
-                backupPreferences = backupAppPreferences(options),
-                backupExtensionRepo = backupExtensionRepos(options),
-                backupSourcePreferences = backupSourcePreferences(options),
-            )
+            val backup =
+                Backup(
+                    backupManga = backupManga,
+                    backupCategories = backupCategories(options),
+                    backupSources = backupSources(backupManga),
+                    backupPreferences = backupAppPreferences(options),
+                    backupExtensionRepo = backupExtensionRepos(options),
+                    backupSourcePreferences = backupSourcePreferences(options),
+                )
 
             val byteArray = parser.encodeToByteArray(Backup.serializer(), backup)
             if (byteArray.isEmpty()) {
                 throw IllegalStateException(context.stringResource(MR.strings.empty_backup_error))
             }
 
-            file.openOutputStream()
+            file
+                .openOutputStream()
                 .also {
                     // Force overwrite old file
                     (it as? FileOutputStream)?.channel?.truncate(0)
-                }
-                .sink().gzip().buffer().use {
+                }.sink()
+                .gzip()
+                .buffer()
+                .use {
                     it.write(byteArray)
                 }
             val fileUri = file.uri
@@ -125,15 +131,16 @@ class BackupCreator(
         return categoriesBackupCreator()
     }
 
-    private suspend fun backupMangas(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
+    private suspend fun backupMangas(
+        mangas: List<Manga>,
+        options: BackupOptions,
+    ): List<BackupManga> {
         if (!options.libraryEntries) return emptyList()
 
         return mangaBackupCreator(mangas, options)
     }
 
-    private fun backupSources(mangas: List<BackupManga>): List<BackupSource> {
-        return sourcesBackupCreator(mangas)
-    }
+    private fun backupSources(mangas: List<BackupManga>): List<BackupSource> = sourcesBackupCreator(mangas)
 
     private fun backupAppPreferences(options: BackupOptions): List<BackupPreference> {
         if (!options.appSettings) return emptyList()
@@ -163,3 +170,4 @@ class BackupCreator(
         }
     }
 }
+

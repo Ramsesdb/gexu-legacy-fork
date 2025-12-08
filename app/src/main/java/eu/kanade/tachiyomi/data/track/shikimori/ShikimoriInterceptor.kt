@@ -8,8 +8,9 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import uy.kohesive.injekt.injectLazy
 
-class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
-
+class ShikimoriInterceptor(
+    private val shikimori: Shikimori,
+) : Interceptor {
     private val json: Json by injectLazy()
 
     /**
@@ -34,10 +35,12 @@ class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
             }
         }
         // Add the authorization header to the original request.
-        val authRequest = originalRequest.newBuilder()
-            .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
-            .build()
+        val authRequest =
+            originalRequest
+                .newBuilder()
+                .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
+                .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .build()
 
         return chain.proceed(authRequest)
     }
@@ -47,3 +50,4 @@ class ShikimoriInterceptor(private val shikimori: Shikimori) : Interceptor {
         shikimori.saveToken(oauth)
     }
 }
+

@@ -16,14 +16,14 @@ class NewUpdateScreen(
     private val releaseLink: String,
     private val downloadLink: String,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val changelogInfoNoChecksum = remember {
-            changelogInfo.replace("""---(\R|.)*Checksums(\R|.)*""".toRegex(), "")
-        }
+        val changelogInfoNoChecksum =
+            remember {
+                changelogInfo.replace("""---(\R|.)*Checksums(\R|.)*""".toRegex(), "")
+            }
 
         NewUpdateScreen(
             versionName = versionName,
@@ -41,3 +41,4 @@ class NewUpdateScreen(
         )
     }
 }
+

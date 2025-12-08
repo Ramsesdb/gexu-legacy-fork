@@ -9,7 +9,6 @@ enum class InstallStep {
     Error,
     ;
 
-    fun isCompleted(): Boolean {
-        return this == Installed || this == Error || this == Idle
-    }
+    fun isCompleted(): Boolean = this == Installed || this == Error || this == Idle
 }
+

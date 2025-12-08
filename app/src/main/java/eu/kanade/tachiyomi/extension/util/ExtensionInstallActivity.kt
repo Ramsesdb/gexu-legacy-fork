@@ -16,7 +16,6 @@ import kotlin.time.Duration.Companion.seconds
  * with [startActivityForResult], which we need to update the UI.
  */
 class ExtensionInstallActivity : Activity() {
-
     // MIUI package installer bug workaround
     private var ignoreUntil = 0L
     private var ignoreResult = false
@@ -26,10 +25,11 @@ class ExtensionInstallActivity : Activity() {
         super.onCreate(savedInstanceState)
 
         @Suppress("DEPRECATION")
-        val installIntent = Intent(Intent.ACTION_INSTALL_PACKAGE)
-            .setDataAndType(intent.data, intent.type)
-            .putExtra(Intent.EXTRA_RETURN_RESULT, true)
-            .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        val installIntent =
+            Intent(Intent.ACTION_INSTALL_PACKAGE)
+                .setDataAndType(intent.data, intent.type)
+                .putExtra(Intent.EXTRA_RETURN_RESULT, true)
+                .setFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
 
         if (hasMiuiPackageInstaller) {
             ignoreResult = true
@@ -45,7 +45,11 @@ class ExtensionInstallActivity : Activity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    override fun onActivityResult(
+        requestCode: Int,
+        resultCode: Int,
+        data: Intent?,
+    ) {
         if (ignoreResult && System.nanoTime() < ignoreUntil) {
             hasIgnoredResult = true
             return
@@ -67,13 +71,15 @@ class ExtensionInstallActivity : Activity() {
     private fun checkInstallationResult(resultCode: Int) {
         val downloadId = intent.extras!!.getLong(ExtensionInstaller.EXTRA_DOWNLOAD_ID)
         val extensionManager = Injekt.get<ExtensionManager>()
-        val newStep = when (resultCode) {
-            RESULT_OK -> InstallStep.Installed
-            RESULT_CANCELED -> InstallStep.Idle
-            else -> InstallStep.Error
-        }
+        val newStep =
+            when (resultCode) {
+                RESULT_OK -> InstallStep.Installed
+                RESULT_CANCELED -> InstallStep.Idle
+                else -> InstallStep.Error
+            }
         extensionManager.updateInstallStep(downloadId, newStep)
     }
 }
 
 private const val INSTALL_REQUEST_CODE = 500
+

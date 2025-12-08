@@ -15,7 +15,9 @@ import coil3.compose.AsyncImage
 import eu.kanade.presentation.util.rememberResourceBitmapPainter
 import eu.kanade.tachiyomi.R
 
-enum class MangaCover(val ratio: Float) {
+enum class MangaCover(
+    val ratio: Float,
+) {
     Square(1f / 1f),
     Book(2f / 3f),
     ;
@@ -33,22 +35,24 @@ enum class MangaCover(val ratio: Float) {
             placeholder = ColorPainter(CoverPlaceholderColor),
             error = rememberResourceBitmapPainter(id = R.drawable.cover_error),
             contentDescription = contentDescription,
-            modifier = modifier
-                .aspectRatio(ratio)
-                .clip(shape)
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(
-                            role = Role.Button,
-                            onClick = onClick,
-                        )
-                    } else {
-                        Modifier
-                    },
-                ),
+            modifier =
+                modifier
+                    .aspectRatio(ratio)
+                    .clip(shape)
+                    .then(
+                        if (onClick != null) {
+                            Modifier.clickable(
+                                role = Role.Button,
+                                onClick = onClick,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ),
             contentScale = ContentScale.Crop,
         )
     }
 }
 
 private val CoverPlaceholderColor = Color(0x1F888888)
+

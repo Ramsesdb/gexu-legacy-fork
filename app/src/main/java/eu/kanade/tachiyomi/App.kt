@@ -68,8 +68,10 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.security.Security
 
-class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factory {
-
+class App :
+    Application(),
+    DefaultLifecycleObserver,
+    SingletonImageLoader.Factory {
     private val basePreferences: BasePreferences by injectLazy()
     private val privacyPreferences: PrivacyPreferences by injectLazy()
     private val networkPreferences: NetworkPreferences by injectLazy()
@@ -106,7 +108,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         val scope = ProcessLifecycleOwner.get().lifecycleScope
 
         // Show notification to disable Incognito Mode when it's enabled
-        basePreferences.incognitoMode().changes()
+        basePreferences
+            .incognitoMode()
+            .changes()
             .onEach { enabled ->
                 if (enabled) {
                     disableIncognitoReceiver.register()
@@ -119,27 +123,29 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
                         setSmallIcon(R.drawable.ic_glasses_24dp)
                         setOngoing(true)
 
-                        val pendingIntent = PendingIntent.getBroadcast(
-                            this@App,
-                            0,
-                            Intent(ACTION_DISABLE_INCOGNITO_MODE).setPackage(BuildConfig.APPLICATION_ID),
-                            PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
-                        )
+                        val pendingIntent =
+                            PendingIntent.getBroadcast(
+                                this@App,
+                                0,
+                                Intent(ACTION_DISABLE_INCOGNITO_MODE).setPackage(BuildConfig.APPLICATION_ID),
+                                PendingIntent.FLAG_ONE_SHOT or PendingIntent.FLAG_IMMUTABLE,
+                            )
                         setContentIntent(pendingIntent)
                     }
                 } else {
                     disableIncognitoReceiver.unregister()
                     cancelNotification(Notifications.ID_INCOGNITO_MODE)
                 }
-            }
-            .launchIn(scope)
+            }.launchIn(scope)
 
-        privacyPreferences.analytics()
+        privacyPreferences
+            .analytics()
             .changes()
             .onEach(TelemetryConfig::setAnalyticsEnabled)
             .launchIn(scope)
 
-        privacyPreferences.crashlytics()
+        privacyPreferences
+            .crashlytics()
             .changes()
             .onEach(TelemetryConfig::setCrashlyticsEnabled)
             .launchIn(scope)
@@ -148,7 +154,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
             if (!preference.isSet()) preference.set(GLUtil.DEVICE_TEXTURE_LIMIT)
         }
 
-        basePreferences.hardwareBitmapThreshold().changes()
+        basePreferences
+            .hardwareBitmapThreshold()
+            .changes()
             .onEach { ImageUtil.hardwareBitmapThreshold = it }
             .launchIn(scope)
 
@@ -179,33 +187,33 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         )
     }
 
-    override fun newImageLoader(context: Context): ImageLoader {
-        return ImageLoader.Builder(this).apply {
-            val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
-            components {
-                // NetworkFetcher.Factory
-                add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
-                // Decoder.Factory
-                add(TachiyomiImageDecoder.Factory())
-                // Fetcher.Factory
-                add(BufferedSourceFetcher.Factory())
-                add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))
-                add(MangaCoverFetcher.MangaFactory(callFactoryLazy))
-                // Keyer
-                add(MangaCoverKeyer())
-                add(MangaKeyer())
-            }
+    override fun newImageLoader(context: Context): ImageLoader =
+        ImageLoader
+            .Builder(this)
+            .apply {
+                val callFactoryLazy = lazy { Injekt.get<NetworkHelper>().client }
+                components {
+                    // NetworkFetcher.Factory
+                    add(OkHttpNetworkFetcherFactory(callFactoryLazy::value))
+                    // Decoder.Factory
+                    add(TachiyomiImageDecoder.Factory())
+                    // Fetcher.Factory
+                    add(BufferedSourceFetcher.Factory())
+                    add(MangaCoverFetcher.MangaCoverFactory(callFactoryLazy))
+                    add(MangaCoverFetcher.MangaFactory(callFactoryLazy))
+                    // Keyer
+                    add(MangaCoverKeyer())
+                    add(MangaKeyer())
+                }
 
-            crossfade((300 * this@App.animatorDurationScale).toInt())
-            allowRgb565(DeviceUtil.isLowRamDevice(this@App))
-            if (networkPreferences.verboseLogging().get()) logger(DebugLogger())
+                crossfade((300 * this@App.animatorDurationScale).toInt())
+                allowRgb565(DeviceUtil.isLowRamDevice(this@App))
+                if (networkPreferences.verboseLogging().get()) logger(DebugLogger())
 
-            // Coil spawns a new thread for every image load by default
-            fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(8))
-            decoderCoroutineContext(Dispatchers.IO.limitedParallelism(3))
-        }
-            .build()
-    }
+                // Coil spawns a new thread for every image load by default
+                fetcherCoroutineContext(Dispatchers.IO.limitedParallelism(8))
+                decoderCoroutineContext(Dispatchers.IO.limitedParallelism(3))
+            }.build()
 
     override fun onStart(owner: LifecycleOwner) {
         SecureActivityDelegate.onApplicationStart()
@@ -219,10 +227,11 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         try {
             // Override the value passed as X-Requested-With in WebView requests
             val stackTrace = Looper.getMainLooper().thread.stackTrace
-            val isChromiumCall = stackTrace.any { trace ->
-                trace.className.lowercase() in setOf("org.chromium.base.buildinfo", "org.chromium.base.apkinfo") &&
-                    trace.methodName.lowercase() in setOf("getall", "getpackagename", "<init>")
-            }
+            val isChromiumCall =
+                stackTrace.any { trace ->
+                    trace.className.lowercase() in setOf("org.chromium.base.buildinfo", "org.chromium.base.apkinfo") &&
+                        trace.methodName.lowercase() in setOf("getall", "getpackagename", "<init>")
+                }
 
             if (isChromiumCall) return WebViewUtil.spoofedPackageName(applicationContext)
         } catch (_: Exception) {
@@ -242,7 +251,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
     private inner class DisableIncognitoReceiver : BroadcastReceiver() {
         private var registered = false
 
-        override fun onReceive(context: Context, intent: Intent) {
+        override fun onReceive(
+            context: Context,
+            intent: Intent,
+        ) {
             basePreferences.incognitoMode().set(false)
         }
 
@@ -268,3 +280,4 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 }
 
 private const val ACTION_DISABLE_INCOGNITO_MODE = "tachi.action.DISABLE_INCOGNITO_MODE"
+

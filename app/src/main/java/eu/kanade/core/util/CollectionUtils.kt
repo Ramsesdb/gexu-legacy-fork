@@ -5,9 +5,7 @@ import androidx.compose.ui.util.fastForEach
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.contract
 
-fun <T : R, R : Any> List<T>.insertSeparators(
-    generator: (before: T?, after: T?) -> R?,
-): List<R> {
+fun <T : R, R : Any> List<T>.insertSeparators(generator: (before: T?, after: T?) -> R?): List<R> {
     if (isEmpty()) return emptyList()
     val newList = mutableListOf<R>()
     for (i in -1..lastIndex) {
@@ -23,9 +21,7 @@ fun <T : R, R : Any> List<T>.insertSeparators(
 /**
  * Similar to [eu.kanade.core.util.insertSeparators] but iterates from last to first element
  */
-fun <T : R, R : Any> List<T>.insertSeparatorsReversed(
-    generator: (before: T?, after: T?) -> R?,
-): List<R> {
+fun <T : R, R : Any> List<T>.insertSeparatorsReversed(generator: (before: T?, after: T?) -> R?): List<R> {
     if (isEmpty()) return emptyList()
     val newList = mutableListOf<R>()
     for (i in size downTo 0) {
@@ -38,7 +34,10 @@ fun <T : R, R : Any> List<T>.insertSeparatorsReversed(
     return newList.asReversed()
 }
 
-fun <E> HashSet<E>.addOrRemove(value: E, shouldAdd: Boolean) {
+fun <E> HashSet<E>.addOrRemove(
+    value: E,
+    shouldAdd: Boolean,
+) {
     if (shouldAdd) {
         add(value)
     } else {
@@ -97,3 +96,4 @@ inline fun <T> List<T>.fastCountNot(predicate: (T) -> Boolean): Int {
     fastForEach { if (predicate(it)) --count }
     return count
 }
+

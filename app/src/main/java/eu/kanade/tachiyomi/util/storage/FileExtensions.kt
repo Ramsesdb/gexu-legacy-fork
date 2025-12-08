@@ -14,16 +14,18 @@ val Context.cacheImageDir: File
  *
  * @param context context of application
  */
-fun File.getUriCompat(context: Context): Uri {
-    return FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID + ".provider", this)
-}
+fun File.getUriCompat(context: Context): Uri = FileProvider.getUriForFile(context, BuildConfig.APPLICATION_ID + ".provider", this)
 
 /**
  * Copies this file to the given [target] file while marking the file as read-only.
  *
  * @see File.copyTo
  */
-fun File.copyAndSetReadOnlyTo(target: File, overwrite: Boolean = false, bufferSize: Int = DEFAULT_BUFFER_SIZE): File {
+fun File.copyAndSetReadOnlyTo(
+    target: File,
+    overwrite: Boolean = false,
+    bufferSize: Int = DEFAULT_BUFFER_SIZE,
+): File {
     if (!this.exists()) {
         throw NoSuchFileException(file = this, reason = "The source file doesn't exist.")
     }
@@ -63,3 +65,4 @@ fun File.copyAndSetReadOnlyTo(target: File, overwrite: Boolean = false, bufferSi
 
     return target
 }
+

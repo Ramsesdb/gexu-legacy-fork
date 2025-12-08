@@ -29,13 +29,11 @@ class BackupRestorer(
     private val context: Context,
     private val notifier: BackupNotifier,
     private val isSync: Boolean,
-
     private val categoriesRestorer: CategoriesRestorer = CategoriesRestorer(),
     private val preferenceRestorer: PreferenceRestorer = PreferenceRestorer(context),
     private val extensionRepoRestorer: ExtensionRepoRestorer = ExtensionRepoRestorer(),
     private val mangaRestorer: MangaRestorer = MangaRestorer(),
 ) {
-
     private var restoreAmount = 0
     private var restoreProgress = 0
     private val errors = mutableListOf<Pair<Date, String>>()
@@ -45,7 +43,10 @@ class BackupRestorer(
      */
     private var sourceMapping: Map<Long, String> = emptyMap()
 
-    suspend fun restore(uri: Uri, options: RestoreOptions) {
+    suspend fun restore(
+        uri: Uri,
+        options: RestoreOptions,
+    ) {
         val startTime = System.currentTimeMillis()
 
         restoreFromFile(uri, options)
@@ -63,7 +64,10 @@ class BackupRestorer(
         )
     }
 
-    private suspend fun restoreFromFile(uri: Uri, options: RestoreOptions) {
+    private suspend fun restoreFromFile(
+        uri: Uri,
+        options: RestoreOptions,
+    ) {
         val backup = BackupDecoder(context).decode(uri)
 
         // Store source mapping for error messages
@@ -107,24 +111,26 @@ class BackupRestorer(
         }
     }
 
-    private fun CoroutineScope.restoreCategories(backupCategories: List<BackupCategory>) = launch {
-        ensureActive()
-        categoriesRestorer(backupCategories)
+    private fun CoroutineScope.restoreCategories(backupCategories: List<BackupCategory>) =
+        launch {
+            ensureActive()
+            categoriesRestorer(backupCategories)
 
-        restoreProgress += 1
-        notifier.showRestoreProgress(
-            context.stringResource(MR.strings.categories),
-            restoreProgress,
-            restoreAmount,
-            isSync,
-        )
-    }
+            restoreProgress += 1
+            notifier.showRestoreProgress(
+                context.stringResource(MR.strings.categories),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+        }
 
     private fun CoroutineScope.restoreManga(
         backupMangas: List<BackupManga>,
         backupCategories: List<BackupCategory>,
     ) = launch {
-        mangaRestorer.sortByNew(backupMangas)
+        mangaRestorer
+            .sortByNew(backupMangas)
             .forEach {
                 ensureActive()
 
@@ -159,41 +165,41 @@ class BackupRestorer(
         )
     }
 
-    private fun CoroutineScope.restoreSourcePreferences(preferences: List<BackupSourcePreferences>) = launch {
-        ensureActive()
-        preferenceRestorer.restoreSource(preferences)
+    private fun CoroutineScope.restoreSourcePreferences(preferences: List<BackupSourcePreferences>) =
+        launch {
+            ensureActive()
+            preferenceRestorer.restoreSource(preferences)
 
-        restoreProgress += 1
-        notifier.showRestoreProgress(
-            context.stringResource(MR.strings.source_settings),
-            restoreProgress,
-            restoreAmount,
-            isSync,
-        )
-    }
+            restoreProgress += 1
+            notifier.showRestoreProgress(
+                context.stringResource(MR.strings.source_settings),
+                restoreProgress,
+                restoreAmount,
+                isSync,
+            )
+        }
 
-    private fun CoroutineScope.restoreExtensionRepos(
-        backupExtensionRepo: List<BackupExtensionRepos>,
-    ) = launch {
-        backupExtensionRepo
-            .forEach {
-                ensureActive()
+    private fun CoroutineScope.restoreExtensionRepos(backupExtensionRepo: List<BackupExtensionRepos>) =
+        launch {
+            backupExtensionRepo
+                .forEach {
+                    ensureActive()
 
-                try {
-                    extensionRepoRestorer(it)
-                } catch (e: Exception) {
-                    errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
+                    try {
+                        extensionRepoRestorer(it)
+                    } catch (e: Exception) {
+                        errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
+                    }
+
+                    restoreProgress += 1
+                    notifier.showRestoreProgress(
+                        context.stringResource(MR.strings.extensionRepo_settings),
+                        restoreProgress,
+                        restoreAmount,
+                        isSync,
+                    )
                 }
-
-                restoreProgress += 1
-                notifier.showRestoreProgress(
-                    context.stringResource(MR.strings.extensionRepo_settings),
-                    restoreProgress,
-                    restoreAmount,
-                    isSync,
-                )
-            }
-    }
+        }
 
     private fun writeErrorLog(): File {
         try {
@@ -214,3 +220,4 @@ class BackupRestorer(
         return File("")
     }
 }
+

@@ -42,7 +42,6 @@ class ExtensionDetailsScreenModel(
     private val toggleIncognito: ToggleIncognito = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
 ) : StateScreenModel<ExtensionDetailsScreenModel.State>(State()) {
-
     private val _events: Channel<ExtensionDetailsEvent> = Channel()
     val events: Flow<ExtensionDetailsEvent> = _events.receiveAsFlow()
 
@@ -64,7 +63,8 @@ class ExtensionDetailsScreenModel(
             launch {
                 state.collectLatest { state ->
                     if (state.extension == null) return@collectLatest
-                    getExtensionSources.subscribe(state.extension)
+                    getExtensionSources
+                        .subscribe(state.extension)
                         .map {
                             it.sortedWith(
                                 compareBy(
@@ -75,18 +75,17 @@ class ExtensionDetailsScreenModel(
                                     },
                                 ),
                             )
-                        }
-                        .catch { throwable ->
+                        }.catch { throwable ->
                             logcat(LogPriority.ERROR, throwable)
                             mutableState.update { it.copy(_sources = persistentListOf()) }
-                        }
-                        .collectLatest { sources ->
+                        }.collectLatest { sources ->
                             mutableState.update { it.copy(_sources = sources.toImmutableList()) }
                         }
                 }
             }
             launch {
-                preferences.incognitoExtensions()
+                preferences
+                    .incognitoExtensions()
                     .changes()
                     .map { pkgName in it }
                     .distinctUntilChanged()
@@ -100,19 +99,21 @@ class ExtensionDetailsScreenModel(
     fun clearCookies() {
         val extension = state.value.extension ?: return
 
-        val urls = extension.sources
-            .filterIsInstance<HttpSource>()
-            .mapNotNull { it.baseUrl.takeUnless { url -> url.isEmpty() } }
-            .distinct()
+        val urls =
+            extension.sources
+                .filterIsInstance<HttpSource>()
+                .mapNotNull { it.baseUrl.takeUnless { url -> url.isEmpty() } }
+                .distinct()
 
-        val cleared = urls.sumOf {
-            try {
-                network.cookieJar.remove(it.toHttpUrl())
-            } catch (e: Exception) {
-                logcat(LogPriority.ERROR, e) { "Failed to clear cookies for $it" }
-                0
+        val cleared =
+            urls.sumOf {
+                try {
+                    network.cookieJar.remove(it.toHttpUrl())
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Failed to clear cookies for $it" }
+                    0
+                }
             }
-        }
 
         logcat { "Cleared $cleared cookies for: ${urls.joinToString()}" }
     }
@@ -127,7 +128,8 @@ class ExtensionDetailsScreenModel(
     }
 
     fun toggleSources(enable: Boolean) {
-        state.value.extension?.sources
+        state.value.extension
+            ?.sources
             ?.map { it.id }
             ?.let { toggleSource.await(it, enable) }
     }
@@ -144,7 +146,6 @@ class ExtensionDetailsScreenModel(
         val isIncognito: Boolean = false,
         private val _sources: ImmutableList<ExtensionSourceItem>? = null,
     ) {
-
         val sources: ImmutableList<ExtensionSourceItem>
             get() = _sources ?: persistentListOf()
 
@@ -156,3 +157,4 @@ class ExtensionDetailsScreenModel(
 sealed interface ExtensionDetailsEvent {
     data object Uninstalled : ExtensionDetailsEvent
 }
+

@@ -30,7 +30,6 @@ data class DummyTracker(
     val val10PointScore: Double = 5.4,
     val valSearchResults: List<TrackSearch> = listOf(),
 ) : Tracker {
-
     override val client: OkHttpClient
         get() = TODO("Not yet implemented")
 
@@ -40,15 +39,16 @@ data class DummyTracker(
 
     override fun getStatusList(): List<Long> = valStatuses
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        1L -> MR.strings.reading
-        2L -> MR.strings.plan_to_read
-        3L -> MR.strings.completed
-        4L -> MR.strings.on_hold
-        5L -> MR.strings.dropped
-        6L -> MR.strings.repeating
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            1L -> MR.strings.reading
+            2L -> MR.strings.plan_to_read
+            3L -> MR.strings.completed
+            4L -> MR.strings.on_hold
+            5L -> MR.strings.dropped
+            6L -> MR.strings.repeating
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = valReadingStatus
 
@@ -62,8 +62,7 @@ data class DummyTracker(
 
     override fun indexToScore(index: Int): Double = getScoreList()[index].toDouble()
 
-    override fun displayScore(track: Track): String =
-        track.score.toString()
+    override fun displayScore(track: Track): String = track.score.toString()
 
     override suspend fun update(
         track: eu.kanade.tachiyomi.data.database.models.Track,
@@ -77,11 +76,13 @@ data class DummyTracker(
 
     override suspend fun search(query: String): List<TrackSearch> = valSearchResults
 
-    override suspend fun refresh(
-        track: eu.kanade.tachiyomi.data.database.models.Track,
-    ): eu.kanade.tachiyomi.data.database.models.Track = track
+    override suspend fun refresh(track: eu.kanade.tachiyomi.data.database.models.Track): eu.kanade.tachiyomi.data.database.models.Track =
+        track
 
-    override suspend fun login(username: String, password: String) = Unit
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) = Unit
 
     override fun logout() = Unit
 
@@ -89,7 +90,10 @@ data class DummyTracker(
 
     override fun getPassword(): String = "passw0rd"
 
-    override fun saveCredentials(username: String, password: String) = Unit
+    override fun saveCredentials(
+        username: String,
+        password: String,
+    ) = Unit
 
     override suspend fun register(
         item: eu.kanade.tachiyomi.data.database.models.Track,
@@ -126,3 +130,4 @@ data class DummyTracker(
         private: Boolean,
     ) = Unit
 }
+

@@ -29,7 +29,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 internal class StorageStep : OnboardingStep {
-
     private val storagePref = Injekt.get<StoragePreferences>().baseStorageDirectory()
 
     private var _isComplete by mutableStateOf(false)
@@ -84,8 +83,10 @@ internal class StorageStep : OnboardingStep {
         }
 
         LaunchedEffect(Unit) {
-            storagePref.changes()
+            storagePref
+                .changes()
                 .collectLatest { _isComplete = storagePref.isSet() }
         }
     }
 }
+

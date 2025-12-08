@@ -27,22 +27,25 @@ class DeepLinkScreenModel(
     private val getChapterByUrlAndMangaId: GetChapterByUrlAndMangaId = Injekt.get(),
     private val syncChaptersWithSource: SyncChaptersWithSource = Injekt.get(),
 ) : StateScreenModel<DeepLinkScreenModel.State>(State.Loading) {
-
     init {
         screenModelScope.launchIO {
-            val source = sourceManager.getCatalogueSources()
-                .filterIsInstance<ResolvableSource>()
-                .firstOrNull { it.getUriType(query) != UriType.Unknown }
+            val source =
+                sourceManager
+                    .getCatalogueSources()
+                    .filterIsInstance<ResolvableSource>()
+                    .firstOrNull { it.getUriType(query) != UriType.Unknown }
 
-            val manga = source?.getManga(query)?.let {
-                networkToLocalManga(it.toDomainManga(source.id))
-            }
+            val manga =
+                source?.getManga(query)?.let {
+                    networkToLocalManga(it.toDomainManga(source.id))
+                }
 
-            val chapter = if (source?.getUriType(query) == UriType.Chapter && manga != null) {
-                source.getChapter(query)?.let { getChapterFromSChapter(it, manga, source) }
-            } else {
-                null
-            }
+            val chapter =
+                if (source?.getUriType(query) == UriType.Chapter && manga != null) {
+                    source.getChapter(query)?.let { getChapterFromSChapter(it, manga, source) }
+                } else {
+                    null
+                }
 
             mutableState.update {
                 if (manga == null) {
@@ -58,7 +61,11 @@ class DeepLinkScreenModel(
         }
     }
 
-    private suspend fun getChapterFromSChapter(sChapter: SChapter, manga: Manga, source: Source): Chapter? {
+    private suspend fun getChapterFromSChapter(
+        sChapter: SChapter,
+        manga: Manga,
+        source: Source,
+    ): Chapter? {
         val localChapter = getChapterByUrlAndMangaId.await(sChapter.url, manga.id)
 
         return if (localChapter == null) {
@@ -78,6 +85,10 @@ class DeepLinkScreenModel(
         data object NoResults : State
 
         @Immutable
-        data class Result(val manga: Manga, val chapterId: Long? = null) : State
+        data class Result(
+            val manga: Manga,
+            val chapterId: Long? = null,
+        ) : State
     }
 }
+

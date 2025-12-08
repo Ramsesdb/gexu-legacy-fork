@@ -25,7 +25,6 @@ abstract class BaseTracker(
     override val id: Long,
     override val name: String,
 ) : Tracker {
-
     val trackPreferences: TrackPreferences by injectLazy()
     val networkService: NetworkHelper by injectLazy()
     private val addTracks: AddTracks by injectLazy()
@@ -40,13 +39,9 @@ abstract class BaseTracker(
     override val supportsPrivateTracking: Boolean = false
 
     // TODO: Store all scores as 10 point in the future maybe?
-    override fun get10PointScore(track: DomainTrack): Double {
-        return track.score
-    }
+    override fun get10PointScore(track: DomainTrack): Double = track.score
 
-    override fun indexToScore(index: Int): Double {
-        return index.toDouble()
-    }
+    override fun indexToScore(index: Int): Double = index.toDouble()
 
     @CallSuper
     override fun logout() {
@@ -54,8 +49,9 @@ abstract class BaseTracker(
     }
 
     override val isLoggedIn: Boolean
-        get() = getUsername().isNotEmpty() &&
-            getPassword().isNotEmpty()
+        get() =
+            getUsername().isNotEmpty() &&
+                getPassword().isNotEmpty()
 
     override val isLoggedInFlow: Flow<Boolean> by lazy {
         combine(
@@ -70,11 +66,17 @@ abstract class BaseTracker(
 
     override fun getPassword() = trackPreferences.trackPassword(this).get()
 
-    override fun saveCredentials(username: String, password: String) {
+    override fun saveCredentials(
+        username: String,
+        password: String,
+    ) {
         trackPreferences.setCredentials(this, username, password)
     }
 
-    override suspend fun register(item: Track, mangaId: Long) {
+    override suspend fun register(
+        item: Track,
+        mangaId: Long,
+    ) {
         item.manga_id = mangaId
         try {
             addTracks.bind(this, item, mangaId)
@@ -83,7 +85,10 @@ abstract class BaseTracker(
         }
     }
 
-    override suspend fun setRemoteStatus(track: Track, status: Long) {
+    override suspend fun setRemoteStatus(
+        track: Track,
+        status: Long,
+    ) {
         track.status = status
         if (track.status == getCompletionStatus() && track.total_chapters != 0L) {
             track.last_chapter_read = track.total_chapters.toDouble()
@@ -91,7 +96,10 @@ abstract class BaseTracker(
         updateRemote(track)
     }
 
-    override suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int) {
+    override suspend fun setRemoteLastChapterRead(
+        track: Track,
+        chapterNumber: Int,
+    ) {
         if (
             track.last_chapter_read == 0.0 &&
             track.last_chapter_read < chapterNumber &&
@@ -107,35 +115,49 @@ abstract class BaseTracker(
         updateRemote(track)
     }
 
-    override suspend fun setRemoteScore(track: Track, scoreString: String) {
+    override suspend fun setRemoteScore(
+        track: Track,
+        scoreString: String,
+    ) {
         track.score = indexToScore(getScoreList().indexOf(scoreString))
         updateRemote(track)
     }
 
-    override suspend fun setRemoteStartDate(track: Track, epochMillis: Long) {
+    override suspend fun setRemoteStartDate(
+        track: Track,
+        epochMillis: Long,
+    ) {
         track.started_reading_date = epochMillis
         updateRemote(track)
     }
 
-    override suspend fun setRemoteFinishDate(track: Track, epochMillis: Long) {
+    override suspend fun setRemoteFinishDate(
+        track: Track,
+        epochMillis: Long,
+    ) {
         track.finished_reading_date = epochMillis
         updateRemote(track)
     }
 
-    override suspend fun setRemotePrivate(track: Track, private: Boolean) {
+    override suspend fun setRemotePrivate(
+        track: Track,
+        private: Boolean,
+    ) {
         track.private = private
         updateRemote(track)
     }
 
-    private suspend fun updateRemote(track: Track): Unit = withIOContext {
-        try {
-            update(track)
-            track.toDomainTrack(idRequired = false)?.let {
-                insertTrack.await(it)
+    private suspend fun updateRemote(track: Track): Unit =
+        withIOContext {
+            try {
+                update(track)
+                track.toDomainTrack(idRequired = false)?.let {
+                    insertTrack.await(it)
+                }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
+                withUIContext { Injekt.get<Application>().toast(e.message) }
             }
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to update remote track data id=$id" }
-            withUIContext { Injekt.get<Application>().toast(e.message) }
         }
-    }
 }
+

@@ -28,18 +28,17 @@ class MigrateSourceScreenModel(
     private val getSourcesWithFavoriteCount: GetSourcesWithFavoriteCount = Injekt.get(),
     private val setMigrateSorting: SetMigrateSorting = Injekt.get(),
 ) : StateScreenModel<MigrateSourceScreenModel.State>(State()) {
-
     private val _channel = Channel<Event>(Int.MAX_VALUE)
     val channel = _channel.receiveAsFlow()
 
     init {
         screenModelScope.launchIO {
-            getSourcesWithFavoriteCount.subscribe()
+            getSourcesWithFavoriteCount
+                .subscribe()
                 .catch {
                     logcat(LogPriority.ERROR, it)
                     _channel.send(Event.FailedFetchingSourcesWithCount)
-                }
-                .collectLatest { sources ->
+                }.collectLatest { sources ->
                     mutableState.update {
                         it.copy(
                             isLoading = false,
@@ -49,21 +48,26 @@ class MigrateSourceScreenModel(
                 }
         }
 
-        preferences.migrationSortingDirection().changes()
+        preferences
+            .migrationSortingDirection()
+            .changes()
             .onEach { mutableState.update { state -> state.copy(sortingDirection = it) } }
             .launchIn(screenModelScope)
 
-        preferences.migrationSortingMode().changes()
+        preferences
+            .migrationSortingMode()
+            .changes()
             .onEach { mutableState.update { state -> state.copy(sortingMode = it) } }
             .launchIn(screenModelScope)
     }
 
     fun toggleSortingMode() {
         with(state.value) {
-            val newMode = when (sortingMode) {
-                SetMigrateSorting.Mode.ALPHABETICAL -> SetMigrateSorting.Mode.TOTAL
-                SetMigrateSorting.Mode.TOTAL -> SetMigrateSorting.Mode.ALPHABETICAL
-            }
+            val newMode =
+                when (sortingMode) {
+                    SetMigrateSorting.Mode.ALPHABETICAL -> SetMigrateSorting.Mode.TOTAL
+                    SetMigrateSorting.Mode.TOTAL -> SetMigrateSorting.Mode.ALPHABETICAL
+                }
 
             setMigrateSorting.await(newMode, sortingDirection)
         }
@@ -71,10 +75,11 @@ class MigrateSourceScreenModel(
 
     fun toggleSortingDirection() {
         with(state.value) {
-            val newDirection = when (sortingDirection) {
-                SetMigrateSorting.Direction.ASCENDING -> SetMigrateSorting.Direction.DESCENDING
-                SetMigrateSorting.Direction.DESCENDING -> SetMigrateSorting.Direction.ASCENDING
-            }
+            val newDirection =
+                when (sortingDirection) {
+                    SetMigrateSorting.Direction.ASCENDING -> SetMigrateSorting.Direction.DESCENDING
+                    SetMigrateSorting.Direction.DESCENDING -> SetMigrateSorting.Direction.ASCENDING
+                }
 
             setMigrateSorting.await(sortingMode, newDirection)
         }
@@ -94,3 +99,4 @@ class MigrateSourceScreenModel(
         data object FailedFetchingSourcesWithCount : Event
     }
 }
+

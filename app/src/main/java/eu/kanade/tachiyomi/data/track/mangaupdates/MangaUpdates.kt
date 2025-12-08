@@ -16,8 +16,10 @@ import kotlinx.collections.immutable.toImmutableList
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker {
-
+class MangaUpdates(
+    id: Long,
+) : BaseTracker(id, "MangaUpdates"),
+    DeletableTracker {
     companion object {
         const val READING_LIST = 0L
         const val WISH_LIST = 1L
@@ -25,17 +27,18 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
         const val UNFINISHED_LIST = 3L
         const val ON_HOLD_LIST = 4L
 
-        private val SCORE_LIST = (0..10)
-            .flatMap { decimal ->
-                when (decimal) {
-                    0 -> listOf("-")
-                    10 -> listOf("10.0")
-                    else -> (0..9).map { fraction ->
-                        "$decimal.$fraction"
+        private val SCORE_LIST =
+            (0..10)
+                .flatMap { decimal ->
+                    when (decimal) {
+                        0 -> listOf("-")
+                        10 -> listOf("10.0")
+                        else ->
+                            (0..9).map { fraction ->
+                                "$decimal.$fraction"
+                            }
                     }
-                }
-            }
-            .toImmutableList()
+                }.toImmutableList()
     }
 
     private val interceptor by lazy { MangaUpdatesInterceptor(this) }
@@ -46,18 +49,17 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
 
     override fun getLogoColor(): Int = Color.rgb(146, 160, 173)
 
-    override fun getStatusList(): List<Long> {
-        return listOf(READING_LIST, COMPLETE_LIST, ON_HOLD_LIST, UNFINISHED_LIST, WISH_LIST)
-    }
+    override fun getStatusList(): List<Long> = listOf(READING_LIST, COMPLETE_LIST, ON_HOLD_LIST, UNFINISHED_LIST, WISH_LIST)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING_LIST -> MR.strings.reading_list
-        WISH_LIST -> MR.strings.wish_list
-        COMPLETE_LIST -> MR.strings.complete_list
-        ON_HOLD_LIST -> MR.strings.on_hold_list
-        UNFINISHED_LIST -> MR.strings.unfinished_list
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            READING_LIST -> MR.strings.reading_list
+            WISH_LIST -> MR.strings.wish_list
+            COMPLETE_LIST -> MR.strings.complete_list
+            ON_HOLD_LIST -> MR.strings.on_hold_list
+            UNFINISHED_LIST -> MR.strings.unfinished_list
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING_LIST
 
@@ -71,7 +73,10 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
 
     override fun displayScore(track: DomainTrack): String = track.score.toString()
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETE_LIST && didReadChapter) {
             track.status = READING_LIST
         }
@@ -83,8 +88,11 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
         api.deleteSeriesFromList(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        return try {
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track =
+        try {
             val (series, rating) = api.getSeriesListItem(track)
             track.copyFrom(series, rating)
         } catch (e: Exception) {
@@ -92,32 +100,37 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
             api.addSeriesToList(track, hasReadChapters)
             track
         }
-    }
 
-    override suspend fun search(query: String): List<TrackSearch> {
-        return api.search(query)
+    override suspend fun search(query: String): List<TrackSearch> =
+        api
+            .search(query)
             .map {
                 it.toTrackSearch(id)
             }
-    }
 
     override suspend fun refresh(track: Track): Track {
         val (series, rating) = api.getSeriesListItem(track)
         return track.copyFrom(series, rating)
     }
 
-    private fun Track.copyFrom(item: MUListItem, rating: MURating?): Track = apply {
-        item.copyTo(this)
-        score = rating?.rating ?: 0.0
-    }
+    private fun Track.copyFrom(
+        item: MUListItem,
+        rating: MURating?,
+    ): Track =
+        apply {
+            item.copyTo(this)
+            score = rating?.rating ?: 0.0
+        }
 
-    override suspend fun login(username: String, password: String) {
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) {
         val authenticated = api.authenticate(username, password) ?: throw Throwable("Unable to login")
         saveCredentials(authenticated.uid.toString(), authenticated.sessionToken)
         interceptor.newAuth(authenticated.sessionToken)
     }
 
-    fun restoreSession(): String? {
-        return trackPreferences.trackPassword(this).get().ifBlank { null }
-    }
+    fun restoreSession(): String? = trackPreferences.trackPassword(this).get().ifBlank { null }
 }
+

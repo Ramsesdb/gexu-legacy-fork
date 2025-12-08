@@ -12,17 +12,17 @@ class GetLanguagesWithSources(
     private val repository: SourceRepository,
     private val preferences: SourcePreferences,
 ) {
-
-    fun subscribe(): Flow<SortedMap<String, List<Source>>> {
-        return combine(
+    fun subscribe(): Flow<SortedMap<String, List<Source>>> =
+        combine(
             preferences.enabledLanguages().changes(),
             preferences.disabledSources().changes(),
             repository.getOnlineSources(),
         ) { enabledLanguage, disabledSource, onlineSources ->
-            val sortedSources = onlineSources.sortedWith(
-                compareBy<Source> { it.id.toString() in disabledSource }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
-            )
+            val sortedSources =
+                onlineSources.sortedWith(
+                    compareBy<Source> { it.id.toString() in disabledSource }
+                        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+                )
 
             sortedSources
                 .groupBy { it.lang }
@@ -30,5 +30,5 @@ class GetLanguagesWithSources(
                     compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator),
                 )
         }
-    }
 }
+

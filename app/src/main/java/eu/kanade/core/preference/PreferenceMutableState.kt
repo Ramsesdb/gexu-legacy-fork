@@ -11,11 +11,11 @@ class PreferenceMutableState<T>(
     private val preference: Preference<T>,
     scope: CoroutineScope,
 ) : MutableState<T> {
-
     private val state = mutableStateOf(preference.get())
 
     init {
-        preference.changes()
+        preference
+            .changes()
             .onEach { state.value = it }
             .launchIn(scope)
     }
@@ -26,13 +26,10 @@ class PreferenceMutableState<T>(
             preference.set(value)
         }
 
-    override fun component1(): T {
-        return state.value
-    }
+    override fun component1(): T = state.value
 
-    override fun component2(): (T) -> Unit {
-        return preference::set
-    }
+    override fun component2(): (T) -> Unit = preference::set
 }
 
 fun <T> Preference<T>.asState(scope: CoroutineScope) = PreferenceMutableState(this, scope)
+

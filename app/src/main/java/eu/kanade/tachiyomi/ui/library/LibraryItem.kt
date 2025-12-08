@@ -50,11 +50,11 @@ data class LibraryItem(
     private fun checkNegatableConstraint(
         constraint: String,
         predicate: (String) -> Boolean,
-    ): Boolean {
-        return if (constraint.startsWith("-")) {
+    ): Boolean =
+        if (constraint.startsWith("-")) {
             !predicate(constraint.substringAfter("-").trimStart())
         } else {
             predicate(constraint)
         }
-    }
 }
+

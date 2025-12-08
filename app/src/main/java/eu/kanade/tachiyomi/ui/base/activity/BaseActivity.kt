@@ -13,7 +13,6 @@ open class BaseActivity :
     AppCompatActivity(),
     SecureActivityDelegate by SecureActivityDelegateImpl(),
     ThemingDelegate by ThemingDelegateImpl() {
-
     override fun attachBaseContext(newBase: Context) {
         super.attachBaseContext(newBase.prepareTabletUiContext())
     }
@@ -23,3 +22,4 @@ open class BaseActivity :
         super.onCreate(savedInstanceState)
     }
 }
+

@@ -35,7 +35,10 @@ import java.io.File
  * @param label Label to show to the user describing the content
  * @param content the actual text to copy to the board
  */
-fun Context.copyToClipboard(label: String, content: String) {
+fun Context.copyToClipboard(
+    label: String,
+    content: String,
+) {
     if (content.isBlank()) return
 
     try {
@@ -56,18 +59,25 @@ fun Context.copyToClipboard(label: String, content: String) {
 val Context.powerManager: PowerManager
     get() = getSystemService()!!
 
-fun Context.openInBrowser(url: String, forceDefaultBrowser: Boolean = false) {
+fun Context.openInBrowser(
+    url: String,
+    forceDefaultBrowser: Boolean = false,
+) {
     this.openInBrowser(url.toUri(), forceDefaultBrowser)
 }
 
-fun Context.openInBrowser(uri: Uri, forceDefaultBrowser: Boolean = false) {
+fun Context.openInBrowser(
+    uri: Uri,
+    forceDefaultBrowser: Boolean = false,
+) {
     try {
-        val intent = Intent(Intent.ACTION_VIEW, uri).apply {
-            // Force default browser so that verified extensions don't re-open Tachiyomi
-            if (forceDefaultBrowser) {
-                defaultBrowserPackageName()?.let { setPackage(it) }
+        val intent =
+            Intent(Intent.ACTION_VIEW, uri).apply {
+                // Force default browser so that verified extensions don't re-open Tachiyomi
+                if (forceDefaultBrowser) {
+                    defaultBrowserPackageName()?.let { setPackage(it) }
+                }
             }
-        }
         startActivity(intent)
     } catch (e: Exception) {
         toast(e.message)
@@ -76,16 +86,18 @@ fun Context.openInBrowser(uri: Uri, forceDefaultBrowser: Boolean = false) {
 
 private fun Context.defaultBrowserPackageName(): String? {
     val browserIntent = Intent(Intent.ACTION_VIEW, "http://".toUri())
-    val resolveInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-        packageManager.resolveActivity(
-            browserIntent,
-            PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()),
-        )
-    } else {
-        packageManager.resolveActivity(browserIntent, PackageManager.MATCH_DEFAULT_ONLY)
-    }
+    val resolveInfo =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.resolveActivity(
+                browserIntent,
+                PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()),
+            )
+        } else {
+            packageManager.resolveActivity(browserIntent, PackageManager.MATCH_DEFAULT_ONLY)
+        }
     return resolveInfo
-        ?.activityInfo?.packageName
+        ?.activityInfo
+        ?.packageName
         ?.takeUnless { it in DeviceUtil.invalidDefaultBrowsers }
 }
 
@@ -108,14 +120,16 @@ fun Context.createReaderThemeContext(): Context {
     val preferences = Injekt.get<UiPreferences>()
     val readerPreferences = Injekt.get<ReaderPreferences>()
     val themeMode = preferences.themeMode().get()
-    val isDarkBackground = when (readerPreferences.readerTheme().get()) {
-        1, 2 -> true // Black, Gray
-        3 -> when (themeMode) { // Automatic bg uses activity background by default
-            ThemeMode.SYSTEM -> applicationContext.isNightMode()
-            else -> themeMode == ThemeMode.DARK
+    val isDarkBackground =
+        when (readerPreferences.readerTheme().get()) {
+            1, 2 -> true // Black, Gray
+            3 ->
+                when (themeMode) { // Automatic bg uses activity background by default
+                    ThemeMode.SYSTEM -> applicationContext.isNightMode()
+                    else -> themeMode == ThemeMode.DARK
+                }
+            else -> false // White
         }
-        else -> false // White
-    }
     val expected = if (isDarkBackground) Configuration.UI_MODE_NIGHT_YES else Configuration.UI_MODE_NIGHT_NO
     if (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK != expected) {
         val overrideConf = Configuration()
@@ -124,7 +138,8 @@ fun Context.createReaderThemeContext(): Context {
 
         val wrappedContext = ContextThemeWrapper(this, R.style.Theme_Tachiyomi)
         wrappedContext.applyOverrideConfiguration(overrideConf)
-        ThemingDelegate.getThemeResIds(preferences.appTheme().get(), preferences.themeDarkAmoled().get())
+        ThemingDelegate
+            .getThemeResIds(preferences.appTheme().get(), preferences.themeDarkAmoled().get())
             .forEach { wrappedContext.theme.applyStyle(it, true) }
         return wrappedContext
     }
@@ -136,21 +151,18 @@ fun Context.createReaderThemeContext(): Context {
  *
  * @return document size of [uri] or null if size can't be obtained
  */
-fun Context.getUriSize(uri: Uri): Long? {
-    return UniFile.fromUri(this, uri)?.length()?.takeIf { it >= 0 }
-}
+fun Context.getUriSize(uri: Uri): Long? = UniFile.fromUri(this, uri)?.length()?.takeIf { it >= 0 }
 
 /**
  * Returns true if [packageName] is installed.
  */
-fun Context.isPackageInstalled(packageName: String): Boolean {
-    return try {
+fun Context.isPackageInstalled(packageName: String): Boolean =
+    try {
         packageManager.getApplicationInfo(packageName, 0)
         true
     } catch (e: PackageManager.NameNotFoundException) {
         false
     }
-}
 
 val Context.hasMiuiPackageInstaller get() = isPackageInstalled("com.miui.packageinstaller")
 
@@ -162,3 +174,4 @@ fun Context.launchRequestPackageInstallsPermission() {
         startActivity(this)
     }
 }
+

@@ -18,26 +18,23 @@ class WidgetManager(
     private val getUpdates: GetUpdates,
     private val securityPreferences: SecurityPreferences,
 ) {
-
     fun Context.init(scope: LifecycleCoroutineScope) {
         combine(
             getUpdates.subscribe(read = false, after = BaseUpdatesGridGlanceWidget.DateLimit.toEpochMilli()),
             securityPreferences.useAuthenticator().changes(),
             transform = { a, b -> a to b },
-        )
-            .distinctUntilChanged { old, new ->
-                old.second == new.second &&
-                    old.first.map { it.chapterId }.toSet() == new.first.map { it.chapterId }.toSet()
+        ).distinctUntilChanged { old, new ->
+            old.second == new.second &&
+                old.first.map { it.chapterId }.toSet() == new.first.map { it.chapterId }.toSet()
+        }.onEach {
+            try {
+                UpdatesGridGlanceWidget().updateAll(this)
+                UpdatesGridCoverScreenGlanceWidget().updateAll(this)
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Failed to update widget" }
             }
-            .onEach {
-                try {
-                    UpdatesGridGlanceWidget().updateAll(this)
-                    UpdatesGridCoverScreenGlanceWidget().updateAll(this)
-                } catch (e: Exception) {
-                    logcat(LogPriority.ERROR, e) { "Failed to update widget" }
-                }
-            }
-            .flowOn(Dispatchers.Default)
+        }.flowOn(Dispatchers.Default)
             .launchIn(scope)
     }
 }
+

@@ -15,7 +15,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class SourcesFilterScreen : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -46,3 +45,4 @@ class SourcesFilterScreen : Screen() {
         )
     }
 }
+

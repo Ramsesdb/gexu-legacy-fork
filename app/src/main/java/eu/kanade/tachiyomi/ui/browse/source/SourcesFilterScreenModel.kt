@@ -23,7 +23,6 @@ class SourcesFilterScreenModel(
     private val toggleSource: ToggleSource = Injekt.get(),
     private val toggleLanguage: ToggleLanguage = Injekt.get(),
 ) : StateScreenModel<SourcesFilterScreenModel.State>(State.Loading) {
-
     init {
         screenModelScope.launch {
             combine(
@@ -37,8 +36,7 @@ class SourcesFilterScreenModel(
                             throwable = throwable,
                         )
                     }
-                }
-                .collectLatest { (languagesWithSources, enabledLanguages, disabledSources) ->
+                }.collectLatest { (languagesWithSources, enabledLanguages, disabledSources) ->
                     mutableState.update {
                         State.Success(
                             items = languagesWithSources,
@@ -59,7 +57,6 @@ class SourcesFilterScreenModel(
     }
 
     sealed interface State {
-
         @Immutable
         data object Loading : State
 
@@ -74,9 +71,9 @@ class SourcesFilterScreenModel(
             val enabledLanguages: Set<String>,
             val disabledSources: Set<String>,
         ) : State {
-
             val isEmpty: Boolean
                 get() = items.isEmpty()
         }
     }
 }
+

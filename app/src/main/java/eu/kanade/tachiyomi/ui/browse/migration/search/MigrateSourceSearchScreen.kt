@@ -45,7 +45,6 @@ data class MigrateSourceSearchScreen(
     private val sourceId: Long,
     private val query: String?,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         if (!ifSourcesLoaded()) {
@@ -84,9 +83,10 @@ data class MigrateSourceSearchScreen(
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
         ) { paddingValues ->
             val openMigrateDialog: (Manga) -> Unit = {
-                val migrateListScreen = navigator.items
-                    .filterIsInstance<MigrationListScreen>()
-                    .lastOrNull()
+                val migrateListScreen =
+                    navigator.items
+                        .filterIsInstance<MigrationListScreen>()
+                        .lastOrNull()
 
                 if (migrateListScreen == null) {
                     screenModel.setDialog(BrowseSourceScreenModel.Dialog.Migrate(target = it, current = currentManga))
@@ -150,3 +150,4 @@ data class MigrateSourceSearchScreen(
         }
     }
 }
+

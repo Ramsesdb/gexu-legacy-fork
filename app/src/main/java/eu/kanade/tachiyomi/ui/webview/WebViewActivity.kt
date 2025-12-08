@@ -26,7 +26,6 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 
 class WebViewActivity : BaseActivity() {
-
     private val sourceManager: SourceManager by injectLazy()
     private val network: NetworkHelper by injectLazy()
 
@@ -122,13 +121,18 @@ class WebViewActivity : BaseActivity() {
         private const val SOURCE_KEY = "source_key"
         private const val TITLE_KEY = "title_key"
 
-        fun newIntent(context: Context, url: String, sourceId: Long? = null, title: String? = null): Intent {
-            return Intent(context, WebViewActivity::class.java).apply {
+        fun newIntent(
+            context: Context,
+            url: String,
+            sourceId: Long? = null,
+            title: String? = null,
+        ): Intent =
+            Intent(context, WebViewActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
                 putExtra(URL_KEY, url)
                 putExtra(SOURCE_KEY, sourceId)
                 putExtra(TITLE_KEY, title)
             }
-        }
     }
 }
+

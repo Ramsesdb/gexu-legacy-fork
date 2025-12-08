@@ -70,7 +70,6 @@ class BrowseSourceScreenModel(
     private val addTracks: AddTracks = Injekt.get(),
     private val getIncognitoState: GetIncognitoState = Injekt.get(),
 ) : StateScreenModel<BrowseSourceScreenModel.State>(State(Listing.valueOf(listingQuery))) {
-
     var displayMode by sourcePreferences.sourceDisplayMode().asState(screenModelScope)
 
     val source = sourceManager.getOrStub(sourceId)
@@ -103,30 +102,33 @@ class BrowseSourceScreenModel(
      * Flow of Pager flow tied to [State.listing]
      */
     private val hideInLibraryItems = sourcePreferences.hideInLibraryItems().get()
-    val mangaPagerFlowFlow = state.map { it.listing }
-        .distinctUntilChanged()
-        .map { listing ->
-            Pager(PagingConfig(pageSize = 25)) {
-                getRemoteManga(sourceId, listing.query ?: "", listing.filters)
-            }.flow.map { pagingData ->
-                pagingData.map { manga ->
-                    getManga.subscribe(manga.url, manga.source)
-                        .map { it ?: manga }
-                        .stateIn(ioCoroutineScope)
-                }
-                    .filter { !hideInLibraryItems || !it.value.favorite }
-            }
-                .cachedIn(ioCoroutineScope)
-        }
-        .stateIn(ioCoroutineScope, SharingStarted.Lazily, emptyFlow())
+    val mangaPagerFlowFlow =
+        state
+            .map { it.listing }
+            .distinctUntilChanged()
+            .map { listing ->
+                Pager(PagingConfig(pageSize = 25)) {
+                    getRemoteManga(sourceId, listing.query ?: "", listing.filters)
+                }.flow
+                    .map { pagingData ->
+                        pagingData
+                            .map { manga ->
+                                getManga
+                                    .subscribe(manga.url, manga.source)
+                                    .map { it ?: manga }
+                                    .stateIn(ioCoroutineScope)
+                            }.filter { !hideInLibraryItems || !it.value.favorite }
+                    }.cachedIn(ioCoroutineScope)
+            }.stateIn(ioCoroutineScope, SharingStarted.Lazily, emptyFlow())
 
     fun getColumnsPreference(orientation: Int): GridCells {
         val isLandscape = orientation == Configuration.ORIENTATION_LANDSCAPE
-        val columns = if (isLandscape) {
-            libraryPreferences.landscapeColumns()
-        } else {
-            libraryPreferences.portraitColumns()
-        }.get()
+        val columns =
+            if (isLandscape) {
+                libraryPreferences.landscapeColumns()
+            } else {
+                libraryPreferences.portraitColumns()
+            }.get()
         return if (columns == 0) GridCells.Adaptive(128.dp) else GridCells.Fixed(columns)
     }
 
@@ -150,18 +152,23 @@ class BrowseSourceScreenModel(
         }
     }
 
-    fun search(query: String? = null, filters: FilterList? = null) {
+    fun search(
+        query: String? = null,
+        filters: FilterList? = null,
+    ) {
         if (source !is CatalogueSource) return
 
-        val input = state.value.listing as? Listing.Search
-            ?: Listing.Search(query = null, filters = source.getFilterList())
+        val input =
+            state.value.listing as? Listing.Search
+                ?: Listing.Search(query = null, filters = source.getFilterList())
 
         mutableState.update {
             it.copy(
-                listing = input.copy(
-                    query = query ?: input.query,
-                    filters = filters ?: input.filters,
-                ),
+                listing =
+                    input.copy(
+                        query = query ?: input.query,
+                        filters = filters ?: input.filters,
+                    ),
                 toolbarQuery = query ?: input.query,
             )
         }
@@ -187,8 +194,10 @@ class BrowseSourceScreenModel(
                     }
                 }
             } else if (sourceFilter is SourceModelFilter.Select<*>) {
-                val index = sourceFilter.values.filterIsInstance<String>()
-                    .indexOfFirst { it.equals(genreName, true) }
+                val index =
+                    sourceFilter.values
+                        .filterIsInstance<String>()
+                        .indexOfFirst { it.equals(genreName, true) }
 
                 if (index != -1) {
                     sourceFilter.state = index
@@ -199,11 +208,12 @@ class BrowseSourceScreenModel(
         }
 
         mutableState.update {
-            val listing = if (genreExists) {
-                Listing.Search(query = null, filters = defaultFilters)
-            } else {
-                Listing.Search(query = genreName, filters = defaultFilters)
-            }
+            val listing =
+                if (genreExists) {
+                    Listing.Search(query = null, filters = defaultFilters)
+                } else {
+                    Listing.Search(query = genreName, filters = defaultFilters)
+                }
             it.copy(
                 filters = defaultFilters,
                 listing = listing,
@@ -219,13 +229,15 @@ class BrowseSourceScreenModel(
      */
     fun changeMangaFavorite(manga: Manga) {
         screenModelScope.launch {
-            var new = manga.copy(
-                favorite = !manga.favorite,
-                dateAdded = when (manga.favorite) {
-                    true -> 0
-                    false -> Instant.now().toEpochMilli()
-                },
-            )
+            var new =
+                manga.copy(
+                    favorite = !manga.favorite,
+                    dateAdded =
+                        when (manga.favorite) {
+                            true -> 0
+                            false -> Instant.now().toEpochMilli()
+                        },
+                )
 
             if (!new.favorite) {
                 new = new.removeCovers(coverCache)
@@ -278,22 +290,26 @@ class BrowseSourceScreenModel(
      *
      * @return List of categories, not including the default category
      */
-    suspend fun getCategories(): List<Category> {
-        return getCategories.subscribe()
+    suspend fun getCategories(): List<Category> =
+        getCategories
+            .subscribe()
             .firstOrNull()
             ?.filterNot { it.isSystemCategory }
             .orEmpty()
-    }
 
-    suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> {
-        return getDuplicateLibraryManga.invoke(manga)
-    }
+    suspend fun getDuplicateLibraryManga(manga: Manga): List<MangaWithChapterCount> = getDuplicateLibraryManga.invoke(manga)
 
-    private fun moveMangaToCategories(manga: Manga, vararg categories: Category) {
+    private fun moveMangaToCategories(
+        manga: Manga,
+        vararg categories: Category,
+    ) {
         moveMangaToCategories(manga, categories.filter { it.id != 0L }.map { it.id })
     }
 
-    fun moveMangaToCategories(manga: Manga, categoryIds: List<Long>) {
+    fun moveMangaToCategories(
+        manga: Manga,
+        categoryIds: List<Long>,
+    ) {
         screenModelScope.launchIO {
             setMangaCategories.await(
                 mangaId = manga.id,
@@ -314,34 +330,50 @@ class BrowseSourceScreenModel(
         mutableState.update { it.copy(toolbarQuery = query) }
     }
 
-    sealed class Listing(open val query: String?, open val filters: FilterList) {
+    sealed class Listing(
+        open val query: String?,
+        open val filters: FilterList,
+    ) {
         data object Popular : Listing(query = GetRemoteManga.QUERY_POPULAR, filters = FilterList())
+
         data object Latest : Listing(query = GetRemoteManga.QUERY_LATEST, filters = FilterList())
+
         data class Search(
             override val query: String?,
             override val filters: FilterList,
         ) : Listing(query = query, filters = filters)
 
         companion object {
-            fun valueOf(query: String?): Listing {
-                return when (query) {
+            fun valueOf(query: String?): Listing =
+                when (query) {
                     GetRemoteManga.QUERY_POPULAR -> Popular
                     GetRemoteManga.QUERY_LATEST -> Latest
                     else -> Search(query = query, filters = FilterList()) // filters are filled in later
                 }
-            }
         }
     }
 
     sealed interface Dialog {
         data object Filter : Dialog
-        data class RemoveManga(val manga: Manga) : Dialog
-        data class AddDuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+
+        data class RemoveManga(
+            val manga: Manga,
+        ) : Dialog
+
+        data class AddDuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+        ) : Dialog
+
         data class ChangeMangaCategory(
             val manga: Manga,
             val initialSelection: ImmutableList<CheckboxState.State<Category>>,
         ) : Dialog
-        data class Migrate(val target: Manga, val current: Manga) : Dialog
+
+        data class Migrate(
+            val target: Manga,
+            val current: Manga,
+        ) : Dialog
     }
 
     @Immutable
@@ -354,3 +386,4 @@ class BrowseSourceScreenModel(
         val isUserQuery get() = listing is Listing.Search && !listing.query.isNullOrEmpty()
     }
 }
+

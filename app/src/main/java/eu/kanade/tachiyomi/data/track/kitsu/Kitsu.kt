@@ -16,8 +16,10 @@ import uy.kohesive.injekt.injectLazy
 import java.text.DecimalFormat
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
-
+class Kitsu(
+    id: Long,
+) : BaseTracker(id, "Kitsu"),
+    DeletableTracker {
     companion object {
         const val READING = 1L
         const val COMPLETED = 2L
@@ -40,18 +42,17 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     override fun getLogoColor() = Color.rgb(51, 37, 50)
 
-    override fun getStatusList(): List<Long> {
-        return listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
-    }
+    override fun getStatusList(): List<Long> = listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        COMPLETED -> MR.strings.completed
-        ON_HOLD -> MR.strings.on_hold
-        DROPPED -> MR.strings.dropped
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            READING -> MR.strings.reading
+            PLAN_TO_READ -> MR.strings.plan_to_read
+            COMPLETED -> MR.strings.completed
+            ON_HOLD -> MR.strings.on_hold
+            DROPPED -> MR.strings.dropped
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -64,20 +65,19 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         return (listOf("0") + IntRange(2, 20).map { df.format(it / 2f) }).toImmutableList()
     }
 
-    override fun indexToScore(index: Int): Double {
-        return if (index > 0) (index + 1) / 2.0 else 0.0
-    }
+    override fun indexToScore(index: Int): Double = if (index > 0) (index + 1) / 2.0 else 0.0
 
     override fun displayScore(track: DomainTrack): String {
         val df = DecimalFormat("0.#")
         return df.format(track.score)
     }
 
-    private suspend fun add(track: Track): Track {
-        return api.addLibManga(track, getUserId())
-    }
+    private suspend fun add(track: Track): Track = api.addLibManga(track, getUserId())
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -99,7 +99,10 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         api.removeLibManga(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track {
         val remoteTrack = api.findLibManga(track, getUserId())
         return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack, copyRemotePrivate = false)
@@ -117,9 +120,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         }
     }
 
-    override suspend fun search(query: String): List<TrackSearch> {
-        return api.search(query)
-    }
+    override suspend fun search(query: String): List<TrackSearch> = api.search(query)
 
     override suspend fun refresh(track: Track): Track {
         val remoteTrack = api.getLibManga(track)
@@ -128,7 +129,10 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         return track
     }
 
-    override suspend fun login(username: String, password: String) {
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) {
         val token = api.login(username, password)
         interceptor.newAuth(token)
         val userId = api.getCurrentUser()
@@ -140,19 +144,17 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         interceptor.newAuth(null)
     }
 
-    private fun getUserId(): String {
-        return getPassword()
-    }
+    private fun getUserId(): String = getPassword()
 
     fun saveToken(oauth: KitsuOAuth?) {
         trackPreferences.trackToken(this).set(json.encodeToString(oauth))
     }
 
-    fun restoreToken(): KitsuOAuth? {
-        return try {
+    fun restoreToken(): KitsuOAuth? =
+        try {
             json.decodeFromString<KitsuOAuth>(trackPreferences.trackToken(this).get())
         } catch (_: Exception) {
             null
         }
-    }
 }
+

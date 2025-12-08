@@ -40,7 +40,11 @@ class MigrateMangaUseCase(
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
-    suspend operator fun invoke(current: Manga, target: Manga, replace: Boolean) {
+    suspend operator fun invoke(
+        current: Manga,
+        target: Manga,
+        replace: Boolean,
+    ) {
         val targetSource = sourceManager.get(target.source) ?: return
         val currentSource = sourceManager.get(current.source)
         val flags = sourcePreferences.migrationFlags().get()
@@ -59,30 +63,34 @@ class MigrateMangaUseCase(
                 val prevMangaChapters = getChaptersByMangaId.await(current.id)
                 val mangaChapters = getChaptersByMangaId.await(target.id)
 
-                val maxChapterRead = prevMangaChapters
-                    .filter { it.read }
-                    .maxOfOrNull { it.chapterNumber }
+                val maxChapterRead =
+                    prevMangaChapters
+                        .filter { it.read }
+                        .maxOfOrNull { it.chapterNumber }
 
-                val updatedMangaChapters = mangaChapters.map { mangaChapter ->
-                    var updatedChapter = mangaChapter
-                    if (updatedChapter.isRecognizedNumber) {
-                        val prevChapter = prevMangaChapters
-                            .find { it.isRecognizedNumber && it.chapterNumber == updatedChapter.chapterNumber }
+                val updatedMangaChapters =
+                    mangaChapters.map { mangaChapter ->
+                        var updatedChapter = mangaChapter
+                        if (updatedChapter.isRecognizedNumber) {
+                            val prevChapter =
+                                prevMangaChapters
+                                    .find { it.isRecognizedNumber && it.chapterNumber == updatedChapter.chapterNumber }
 
-                        if (prevChapter != null) {
-                            updatedChapter = updatedChapter.copy(
-                                dateFetch = prevChapter.dateFetch,
-                                bookmark = prevChapter.bookmark,
-                            )
+                            if (prevChapter != null) {
+                                updatedChapter =
+                                    updatedChapter.copy(
+                                        dateFetch = prevChapter.dateFetch,
+                                        bookmark = prevChapter.bookmark,
+                                    )
+                            }
+
+                            if (maxChapterRead != null && updatedChapter.chapterNumber <= maxChapterRead) {
+                                updatedChapter = updatedChapter.copy(read = true)
+                            }
                         }
 
-                        if (maxChapterRead != null && updatedChapter.chapterNumber <= maxChapterRead) {
-                            updatedChapter = updatedChapter.copy(read = true)
-                        }
+                        updatedChapter
                     }
-
-                    updatedChapter
-                }
 
                 val chapterUpdates = updatedMangaChapters.map { it.toChapterUpdate() }
                 updateChapter.awaitAll(chapterUpdates)
@@ -95,19 +103,21 @@ class MigrateMangaUseCase(
             }
 
             // Update track
-            getTracks.await(current.id).mapNotNull { track ->
-                val updatedTrack = track.copy(mangaId = target.id)
+            getTracks
+                .await(current.id)
+                .mapNotNull { track ->
+                    val updatedTrack = track.copy(mangaId = target.id)
 
-                val service = enhancedServices
-                    .firstOrNull { it.isTrackFrom(updatedTrack, current, currentSource) }
+                    val service =
+                        enhancedServices
+                            .firstOrNull { it.isTrackFrom(updatedTrack, current, currentSource) }
 
-                if (service != null) {
-                    service.migrateTrack(updatedTrack, target, targetSource)
-                } else {
-                    updatedTrack
-                }
-            }
-                .takeIf { it.isNotEmpty() }
+                    if (service != null) {
+                        service.migrateTrack(updatedTrack, target, targetSource)
+                    } else {
+                        updatedTrack
+                    }
+                }.takeIf { it.isNotEmpty() }
                 ?.let { insertTrack.awaitAll(it) }
 
             // Delete downloaded
@@ -120,20 +130,21 @@ class MigrateMangaUseCase(
                 coverCache.setCustomCoverToCache(target, coverCache.getCustomCoverFile(current.id).inputStream())
             }
 
-            val currentMangaUpdate = MangaUpdate(
-                id = current.id,
-                favorite = false,
-                dateAdded = 0,
-            )
-                .takeIf { replace }
-            val targetMangaUpdate = MangaUpdate(
-                id = target.id,
-                favorite = true,
-                chapterFlags = current.chapterFlags,
-                viewerFlags = current.viewerFlags,
-                dateAdded = if (replace) current.dateAdded else Instant.now().toEpochMilli(),
-                notes = if (MigrationFlag.NOTES in flags) current.notes else null,
-            )
+            val currentMangaUpdate =
+                MangaUpdate(
+                    id = current.id,
+                    favorite = false,
+                    dateAdded = 0,
+                ).takeIf { replace }
+            val targetMangaUpdate =
+                MangaUpdate(
+                    id = target.id,
+                    favorite = true,
+                    chapterFlags = current.chapterFlags,
+                    viewerFlags = current.viewerFlags,
+                    dateAdded = if (replace) current.dateAdded else Instant.now().toEpochMilli(),
+                    notes = if (MigrationFlag.NOTES in flags) current.notes else null,
+                )
 
             updateManga.awaitAll(listOfNotNull(currentMangaUpdate, targetMangaUpdate))
         } catch (e: Throwable) {
@@ -143,3 +154,4 @@ class MigrateMangaUseCase(
         }
     }
 }
+

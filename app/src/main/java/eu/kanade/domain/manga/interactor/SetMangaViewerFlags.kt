@@ -8,8 +8,10 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class SetMangaViewerFlags(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend fun awaitSetReadingMode(id: Long, flag: Long) {
+    suspend fun awaitSetReadingMode(
+        id: Long,
+        flag: Long,
+    ) {
         val manga = mangaRepository.getMangaById(id)
         mangaRepository.update(
             MangaUpdate(
@@ -19,7 +21,10 @@ class SetMangaViewerFlags(
         )
     }
 
-    suspend fun awaitSetOrientation(id: Long, flag: Long) {
+    suspend fun awaitSetOrientation(
+        id: Long,
+        flag: Long,
+    ) {
         val manga = mangaRepository.getMangaById(id)
         mangaRepository.update(
             MangaUpdate(
@@ -29,7 +34,9 @@ class SetMangaViewerFlags(
         )
     }
 
-    private fun Long.setFlag(flag: Long, mask: Long): Long {
-        return this and mask.inv() or (flag and mask)
-    }
+    private fun Long.setFlag(
+        flag: Long,
+        mask: Long,
+    ): Long = this and mask.inv() or (flag and mask)
 }
+

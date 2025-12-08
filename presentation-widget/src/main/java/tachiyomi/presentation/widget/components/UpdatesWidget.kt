@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.widget.components
 
 import android.content.Intent
@@ -96,3 +98,4 @@ fun UpdatesWidget(
         }
     }
 }
+

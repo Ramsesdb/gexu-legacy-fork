@@ -12,7 +12,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 internal class ThemeStep : OnboardingStep {
-
     override val isComplete: Boolean = true
 
     private val uiPreferences: UiPreferences = Injekt.get()
@@ -45,3 +44,4 @@ internal class ThemeStep : OnboardingStep {
         }
     }
 }
+

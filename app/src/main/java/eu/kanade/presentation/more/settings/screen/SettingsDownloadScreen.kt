@@ -26,7 +26,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 object SettingsDownloadScreen : SearchableSettings {
-
     @ReadOnlyComposable
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_downloads
@@ -67,51 +66,52 @@ object SettingsDownloadScreen : SearchableSettings {
     private fun getDeleteChaptersGroup(
         downloadPreferences: DownloadPreferences,
         categories: List<Category>,
-    ): Preference.PreferenceGroup {
-        return Preference.PreferenceGroup(
+    ): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_delete_chapters),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = downloadPreferences.removeAfterMarkedAsRead(),
-                    title = stringResource(MR.strings.pref_remove_after_marked_as_read),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = downloadPreferences.removeAfterReadSlots(),
-                    entries = persistentMapOf(
-                        -1 to stringResource(MR.strings.disabled),
-                        0 to stringResource(MR.strings.last_read_chapter),
-                        1 to stringResource(MR.strings.second_to_last),
-                        2 to stringResource(MR.strings.third_to_last),
-                        3 to stringResource(MR.strings.fourth_to_last),
-                        4 to stringResource(MR.strings.fifth_to_last),
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = downloadPreferences.removeAfterMarkedAsRead(),
+                        title = stringResource(MR.strings.pref_remove_after_marked_as_read),
                     ),
-                    title = stringResource(MR.strings.pref_remove_after_read),
+                    Preference.PreferenceItem.ListPreference(
+                        preference = downloadPreferences.removeAfterReadSlots(),
+                        entries =
+                            persistentMapOf(
+                                -1 to stringResource(MR.strings.disabled),
+                                0 to stringResource(MR.strings.last_read_chapter),
+                                1 to stringResource(MR.strings.second_to_last),
+                                2 to stringResource(MR.strings.third_to_last),
+                                3 to stringResource(MR.strings.fourth_to_last),
+                                4 to stringResource(MR.strings.fifth_to_last),
+                            ),
+                        title = stringResource(MR.strings.pref_remove_after_read),
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = downloadPreferences.removeBookmarkedChapters(),
+                        title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
+                    ),
+                    getExcludedCategoriesPreference(
+                        downloadPreferences = downloadPreferences,
+                        categories = { categories },
+                    ),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = downloadPreferences.removeBookmarkedChapters(),
-                    title = stringResource(MR.strings.pref_remove_bookmarked_chapters),
-                ),
-                getExcludedCategoriesPreference(
-                    downloadPreferences = downloadPreferences,
-                    categories = { categories },
-                ),
-            ),
         )
-    }
 
     @Composable
     private fun getExcludedCategoriesPreference(
         downloadPreferences: DownloadPreferences,
         categories: () -> List<Category>,
-    ): Preference.PreferenceItem.MultiSelectListPreference {
-        return Preference.PreferenceItem.MultiSelectListPreference(
+    ): Preference.PreferenceItem.MultiSelectListPreference =
+        Preference.PreferenceItem.MultiSelectListPreference(
             preference = downloadPreferences.removeExcludeCategories(),
-            entries = categories()
-                .associate { it.id.toString() to it.visualName }
-                .toImmutableMap(),
+            entries =
+                categories()
+                    .associate { it.id.toString() to it.visualName }
+                    .toImmutableMap(),
             title = stringResource(MR.strings.pref_remove_exclude_categories),
         )
-    }
 
     @Composable
     private fun getAutoDownloadGroup(
@@ -147,52 +147,53 @@ object SettingsDownloadScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_auto_download),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = downloadNewChaptersPref,
-                    title = stringResource(MR.strings.pref_download_new),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = downloadNewUnreadChaptersOnlyPref,
-                    title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
-                    enabled = downloadNewChapters,
-                ),
-                Preference.PreferenceItem.TextPreference(
-                    title = stringResource(MR.strings.categories),
-                    subtitle = getCategoriesLabel(
-                        allCategories = allCategories,
-                        included = included,
-                        excluded = excluded,
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = downloadNewChaptersPref,
+                        title = stringResource(MR.strings.pref_download_new),
                     ),
-                    enabled = downloadNewChapters,
-                    onClick = { showDialog = true },
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = downloadNewUnreadChaptersOnlyPref,
+                        title = stringResource(MR.strings.pref_download_new_unread_chapters_only),
+                        enabled = downloadNewChapters,
+                    ),
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.categories),
+                        subtitle =
+                            getCategoriesLabel(
+                                allCategories = allCategories,
+                                included = included,
+                                excluded = excluded,
+                            ),
+                        enabled = downloadNewChapters,
+                        onClick = { showDialog = true },
+                    ),
                 ),
-            ),
         )
     }
 
     @Composable
-    private fun getDownloadAheadGroup(
-        downloadPreferences: DownloadPreferences,
-    ): Preference.PreferenceGroup {
-        return Preference.PreferenceGroup(
+    private fun getDownloadAheadGroup(downloadPreferences: DownloadPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
             title = stringResource(MR.strings.download_ahead),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.ListPreference(
-                    preference = downloadPreferences.autoDownloadWhileReading(),
-                    entries = listOf(0, 2, 3, 5, 10)
-                        .associateWith {
-                            if (it == 0) {
-                                stringResource(MR.strings.disabled)
-                            } else {
-                                pluralStringResource(MR.plurals.next_unread_chapters, count = it, it)
-                            }
-                        }
-                        .toImmutableMap(),
-                    title = stringResource(MR.strings.auto_download_while_reading),
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.ListPreference(
+                        preference = downloadPreferences.autoDownloadWhileReading(),
+                        entries =
+                            listOf(0, 2, 3, 5, 10)
+                                .associateWith {
+                                    if (it == 0) {
+                                        stringResource(MR.strings.disabled)
+                                    } else {
+                                        pluralStringResource(MR.plurals.next_unread_chapters, count = it, it)
+                                    }
+                                }.toImmutableMap(),
+                        title = stringResource(MR.strings.auto_download_while_reading),
+                    ),
+                    Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.download_ahead_info)),
                 ),
-                Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.download_ahead_info)),
-            ),
         )
-    }
 }
+

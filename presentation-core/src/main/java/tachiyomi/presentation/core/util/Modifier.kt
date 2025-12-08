@@ -52,23 +52,24 @@ fun Modifier.clickableNoIndication(
  *
  * Naturally, the TextField should be set to single line only.
  */
-fun Modifier.runOnEnterKeyPressed(action: () -> Unit): Modifier = this.onPreviewKeyEvent {
-    when (it.key) {
-        Key.Enter, Key.NumPadEnter -> {
-            // Physical keyboards generate two event types:
-            // - KeyDown when the key is pressed
-            // - KeyUp when the key is released
-            if (it.type == KeyEventType.KeyDown) {
-                action()
-                true
-            } else {
-                false
+fun Modifier.runOnEnterKeyPressed(action: () -> Unit): Modifier =
+    this.onPreviewKeyEvent {
+        when (it.key) {
+            Key.Enter, Key.NumPadEnter -> {
+                // Physical keyboards generate two event types:
+                // - KeyDown when the key is pressed
+                // - KeyUp when the key is released
+                if (it.type == KeyEventType.KeyDown) {
+                    action()
+                    true
+                } else {
+                    false
+                }
             }
-        }
 
-        else -> false
+            else -> false
+        }
     }
-}
 
 /**
  * For TextField on AppBar, this modifier will request focus
@@ -93,9 +94,7 @@ fun Modifier.showSoftKeyboard(show: Boolean): Modifier {
  * keyboard is hidden.
  */
 @Composable
-fun Modifier.clearFocusOnSoftKeyboardHide(
-    onFocusCleared: (() -> Unit)? = null,
-): Modifier {
+fun Modifier.clearFocusOnSoftKeyboardHide(onFocusCleared: (() -> Unit)? = null): Modifier {
     var isFocused by remember { mutableStateOf(false) }
     var keyboardShowedSinceFocused by remember { mutableStateOf(false) }
     if (isFocused) {
@@ -120,3 +119,4 @@ fun Modifier.clearFocusOnSoftKeyboardHide(
         }
     }
 }
+

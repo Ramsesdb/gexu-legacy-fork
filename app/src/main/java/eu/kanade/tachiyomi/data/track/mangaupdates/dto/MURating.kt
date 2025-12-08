@@ -8,8 +8,8 @@ data class MURating(
     val rating: Double? = null,
 )
 
-fun MURating.copyTo(track: Track): Track {
-    return track.apply {
+fun MURating.copyTo(track: Track): Track =
+    track.apply {
         this.score = rating ?: 0.0
     }
-}
+

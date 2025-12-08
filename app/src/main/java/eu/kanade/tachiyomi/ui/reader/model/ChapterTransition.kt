@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.ui.reader.model
 
 sealed class ChapterTransition {
-
     abstract val from: ReaderChapter
     abstract val to: ReaderChapter?
 
@@ -29,7 +28,6 @@ sealed class ChapterTransition {
         return result
     }
 
-    override fun toString(): String {
-        return "${javaClass.simpleName}(from=${from.chapter.url}, to=${to?.chapter?.url})"
-    }
+    override fun toString(): String = "${javaClass.simpleName}(from=${from.chapter.url}, to=${to?.chapter?.url})"
 }
+

@@ -43,7 +43,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 class RestoreBackupScreen(
     private val uri: String,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -98,62 +97,61 @@ class RestoreBackupScreen(
         }
     }
 
-    private fun LazyListScope.errorMessageItem(
-        error: Any?,
-    ) {
+    private fun LazyListScope.errorMessageItem(error: Any?) {
         item {
             SectionCard {
                 Column(
                     modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                     verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
                 ) {
-                    val msg = buildAnnotatedString {
-                        when (error) {
-                            is MissingRestoreComponents -> {
-                                appendLine(stringResource(MR.strings.backup_restore_content_full))
-                                if (error.sources.isNotEmpty()) {
-                                    appendLine()
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                        appendLine(stringResource(MR.strings.backup_restore_missing_sources))
+                    val msg =
+                        buildAnnotatedString {
+                            when (error) {
+                                is MissingRestoreComponents -> {
+                                    appendLine(stringResource(MR.strings.backup_restore_content_full))
+                                    if (error.sources.isNotEmpty()) {
+                                        appendLine()
+                                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                            appendLine(stringResource(MR.strings.backup_restore_missing_sources))
+                                        }
+                                        error.sources.joinTo(
+                                            this,
+                                            separator = "\n- ",
+                                            prefix = "- ",
+                                        )
                                     }
-                                    error.sources.joinTo(
-                                        this,
-                                        separator = "\n- ",
-                                        prefix = "- ",
-                                    )
-                                }
-                                if (error.trackers.isNotEmpty()) {
-                                    appendLine()
-                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                        appendLine(stringResource(MR.strings.backup_restore_missing_trackers))
+                                    if (error.trackers.isNotEmpty()) {
+                                        appendLine()
+                                        withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                            appendLine(stringResource(MR.strings.backup_restore_missing_trackers))
+                                        }
+                                        error.trackers.joinTo(
+                                            this,
+                                            separator = "\n- ",
+                                            prefix = "- ",
+                                        )
                                     }
-                                    error.trackers.joinTo(
-                                        this,
-                                        separator = "\n- ",
-                                        prefix = "- ",
-                                    )
                                 }
-                            }
 
-                            is InvalidRestore -> {
-                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                    appendLine(stringResource(MR.strings.invalid_backup_file))
+                                is InvalidRestore -> {
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendLine(stringResource(MR.strings.invalid_backup_file))
+                                    }
+                                    appendLine(error.uri.toString())
+
+                                    appendLine()
+
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendLine(stringResource(MR.strings.invalid_backup_file_error))
+                                    }
+                                    appendLine(error.message)
                                 }
-                                appendLine(error.uri.toString())
 
-                                appendLine()
-
-                                withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
-                                    appendLine(stringResource(MR.strings.invalid_backup_file_error))
+                                else -> {
+                                    appendLine(error.toString())
                                 }
-                                appendLine(error.message)
-                            }
-
-                            else -> {
-                                appendLine(error.toString())
                             }
                         }
-                    }
 
                     SelectionContainer {
                         Text(text = msg)
@@ -168,12 +166,14 @@ private class RestoreBackupScreenModel(
     private val context: Context,
     private val uri: String,
 ) : StateScreenModel<RestoreBackupScreenModel.State>(State()) {
-
     init {
         validate(uri.toUri())
     }
 
-    fun toggle(setter: (RestoreOptions, Boolean) -> RestoreOptions, enabled: Boolean) {
+    fun toggle(
+        setter: (RestoreOptions, Boolean) -> RestoreOptions,
+        enabled: Boolean,
+    ) {
         mutableState.update {
             it.copy(
                 options = setter(it.options, enabled),
@@ -190,15 +190,16 @@ private class RestoreBackupScreenModel(
     }
 
     private fun validate(uri: Uri) {
-        val results = try {
-            BackupFileValidator(context).validate(uri)
-        } catch (e: Exception) {
-            setError(
-                error = InvalidRestore(uri, e.message.toString()),
-                canRestore = false,
-            )
-            return
-        }
+        val results =
+            try {
+                BackupFileValidator(context).validate(uri)
+            } catch (e: Exception) {
+                setError(
+                    error = InvalidRestore(uri, e.message.toString()),
+                    canRestore = false,
+                )
+                return
+            }
 
         if (results.missingSources.isNotEmpty() || results.missingTrackers.isNotEmpty()) {
             setError(
@@ -211,7 +212,10 @@ private class RestoreBackupScreenModel(
         setError(error = null, canRestore = true)
     }
 
-    private fun setError(error: Any?, canRestore: Boolean) {
+    private fun setError(
+        error: Any?,
+        canRestore: Boolean,
+    ) {
         mutableState.update {
             it.copy(
                 error = error,
@@ -238,3 +242,4 @@ private data class InvalidRestore(
     val uri: Uri? = null,
     val message: String,
 )
+

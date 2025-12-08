@@ -25,18 +25,25 @@ fun Context.activeNetworkState(): NetworkState {
     )
 }
 
-fun Context.networkStateFlow() = callbackFlow {
-    val networkCallback = object : NetworkCallback() {
-        override fun onCapabilitiesChanged(network: Network, networkCapabilities: NetworkCapabilities) {
-            trySend(activeNetworkState())
-        }
-        override fun onLost(network: Network) {
-            trySend(activeNetworkState())
+fun Context.networkStateFlow() =
+    callbackFlow {
+        val networkCallback =
+            object : NetworkCallback() {
+                override fun onCapabilitiesChanged(
+                    network: Network,
+                    networkCapabilities: NetworkCapabilities,
+                ) {
+                    trySend(activeNetworkState())
+                }
+
+                override fun onLost(network: Network) {
+                    trySend(activeNetworkState())
+                }
+            }
+
+        connectivityManager.registerDefaultNetworkCallback(networkCallback)
+        awaitClose {
+            connectivityManager.unregisterNetworkCallback(networkCallback)
         }
     }
 
-    connectivityManager.registerDefaultNetworkCallback(networkCallback)
-    awaitClose {
-        connectivityManager.unregisterNetworkCallback(networkCallback)
-    }
-}

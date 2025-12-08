@@ -21,7 +21,6 @@ class GlobalSearchScreen(
     val searchQuery: String = "",
     private val extensionFilter: String? = null,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         if (!ifSourcesLoaded()) {
@@ -31,12 +30,13 @@ class GlobalSearchScreen(
 
         val navigator = LocalNavigator.currentOrThrow
 
-        val screenModel = rememberScreenModel {
-            GlobalSearchScreenModel(
-                initialQuery = searchQuery,
-                initialExtensionFilter = extensionFilter,
-            )
-        }
+        val screenModel =
+            rememberScreenModel {
+                GlobalSearchScreenModel(
+                    initialQuery = searchQuery,
+                    initialExtensionFilter = extensionFilter,
+                )
+            }
         val state by screenModel.state.collectAsState()
         var showSingleLoadingScreen by remember {
             mutableStateOf(searchQuery.isNotEmpty() && !extensionFilter.isNullOrEmpty() && state.total == 1)
@@ -78,3 +78,4 @@ class GlobalSearchScreen(
         }
     }
 }
+

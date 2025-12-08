@@ -19,11 +19,15 @@ import androidx.core.graphics.drawable.toBitmap
  * @return the bitmap associated with the resource
  */
 @Composable
-fun rememberResourceBitmapPainter(@DrawableRes id: Int): BitmapPainter {
+fun rememberResourceBitmapPainter(
+    @DrawableRes id: Int,
+): BitmapPainter {
     val context = LocalContext.current
     return remember(id) {
-        val drawable = ContextCompat.getDrawable(context, id)
-            ?: throw Resources.NotFoundException()
+        val drawable =
+            ContextCompat.getDrawable(context, id)
+                ?: throw Resources.NotFoundException()
         BitmapPainter(drawable.toBitmap().asImageBitmap())
     }
 }
+

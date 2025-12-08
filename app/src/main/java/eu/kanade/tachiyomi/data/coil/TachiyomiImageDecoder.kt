@@ -17,12 +17,15 @@ import tachiyomi.decoder.ImageDecoder
 /**
  * A [Decoder] that uses built-in [ImageDecoder] to decode images that is not supported by the system.
  */
-class TachiyomiImageDecoder(private val resources: ImageSource, private val options: Options) : Decoder {
-
+class TachiyomiImageDecoder(
+    private val resources: ImageSource,
+    private val options: Options,
+) : Decoder {
     override suspend fun decode(): DecodeResult {
-        val decoder = resources.sourceOrNull()?.use {
-            ImageDecoder.newInstance(it.inputStream(), options.cropBorders, displayProfile)
-        }
+        val decoder =
+            resources.sourceOrNull()?.use {
+                ImageDecoder.newInstance(it.inputStream(), options.cropBorders, displayProfile)
+            }
 
         check(decoder != null && decoder.width > 0 && decoder.height > 0) { "Failed to initialize decoder" }
 
@@ -32,13 +35,14 @@ class TachiyomiImageDecoder(private val resources: ImageSource, private val opti
         val dstWidth = options.size.widthPx(options.scale) { srcWidth }
         val dstHeight = options.size.heightPx(options.scale) { srcHeight }
 
-        val sampleSize = DecodeUtils.calculateInSampleSize(
-            srcWidth = srcWidth,
-            srcHeight = srcHeight,
-            dstWidth = dstWidth,
-            dstHeight = dstHeight,
-            scale = options.scale,
-        )
+        val sampleSize =
+            DecodeUtils.calculateInSampleSize(
+                srcWidth = srcWidth,
+                srcHeight = srcHeight,
+                dstWidth = dstWidth,
+                dstHeight = dstHeight,
+                scale = options.scale,
+            )
 
         var bitmap = decoder.decode(sampleSize = sampleSize)
         decoder.recycle()
@@ -60,19 +64,22 @@ class TachiyomiImageDecoder(private val resources: ImageSource, private val opti
     }
 
     class Factory : Decoder.Factory {
-
-        override fun create(result: SourceFetchResult, options: Options, imageLoader: ImageLoader): Decoder? {
-            return if (options.customDecoder || isApplicable(result.source.source())) {
+        override fun create(
+            result: SourceFetchResult,
+            options: Options,
+            imageLoader: ImageLoader,
+        ): Decoder? =
+            if (options.customDecoder || isApplicable(result.source.source())) {
                 TachiyomiImageDecoder(result.source, options)
             } else {
                 null
             }
-        }
 
         private fun isApplicable(source: BufferedSource): Boolean {
-            val type = source.peek().inputStream().use {
-                ImageUtil.findImageType(it)
-            }
+            val type =
+                source.peek().inputStream().use {
+                    ImageUtil.findImageType(it)
+                }
             return when (type) {
                 ImageUtil.ImageType.AVIF, ImageUtil.ImageType.JXL, ImageUtil.ImageType.HEIF -> true
                 else -> false
@@ -88,3 +95,4 @@ class TachiyomiImageDecoder(private val resources: ImageSource, private val opti
         var displayProfile: ByteArray? = null
     }
 }
+

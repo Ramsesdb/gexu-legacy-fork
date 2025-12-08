@@ -29,7 +29,6 @@ class ExtensionFilterScreenModel(
     private val getExtensionLanguages: GetExtensionLanguages = Injekt.get(),
     private val toggleLanguage: ToggleLanguage = Injekt.get(),
 ) : StateScreenModel<ExtensionFilterState>(ExtensionFilterState.Loading) {
-
     private val _events: Channel<ExtensionFilterEvent> = Channel()
     val events: Flow<ExtensionFilterEvent> = _events.receiveAsFlow()
 
@@ -42,8 +41,7 @@ class ExtensionFilterScreenModel(
                 .catch { throwable ->
                     logcat(LogPriority.ERROR, throwable)
                     _events.send(ExtensionFilterEvent.FailedFetchingLanguages)
-                }
-                .collectLatest { (extensionLanguages, enabledLanguages) ->
+                }.collectLatest { (extensionLanguages, enabledLanguages) ->
                     mutableState.update {
                         ExtensionFilterState.Success(
                             languages = extensionLanguages.toImmutableList(),
@@ -64,7 +62,6 @@ sealed interface ExtensionFilterEvent {
 }
 
 sealed interface ExtensionFilterState {
-
     @Immutable
     data object Loading : ExtensionFilterState
 
@@ -73,8 +70,8 @@ sealed interface ExtensionFilterState {
         val languages: ImmutableList<String>,
         val enabledLanguages: ImmutableSet<String> = persistentSetOf(),
     ) : ExtensionFilterState {
-
         val isEmpty: Boolean
             get() = languages.isEmpty()
     }
 }
+

@@ -29,55 +29,57 @@ class SourcesScreenModel(
     private val toggleSource: ToggleSource = Injekt.get(),
     private val toggleSourcePin: ToggleSourcePin = Injekt.get(),
 ) : StateScreenModel<SourcesScreenModel.State>(State()) {
-
     private val _events = Channel<Event>(Int.MAX_VALUE)
     val events = _events.receiveAsFlow()
 
     init {
         screenModelScope.launchIO {
-            getEnabledSources.subscribe()
+            getEnabledSources
+                .subscribe()
                 .catch {
                     logcat(LogPriority.ERROR, it)
                     _events.send(Event.FailedFetchingSources)
-                }
-                .collectLatest(::collectLatestSources)
+                }.collectLatest(::collectLatestSources)
         }
     }
 
     private fun collectLatestSources(sources: List<Source>) {
         mutableState.update { state ->
-            val map = TreeMap<String, MutableList<Source>> { d1, d2 ->
-                // Sources without a lang defined will be placed at the end
-                when {
-                    d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
-                    d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
-                    d1 == PINNED_KEY && d2 != PINNED_KEY -> -1
-                    d2 == PINNED_KEY && d1 != PINNED_KEY -> 1
-                    d1 == "" && d2 != "" -> 1
-                    d2 == "" && d1 != "" -> -1
-                    else -> d1.compareTo(d2)
+            val map =
+                TreeMap<String, MutableList<Source>> { d1, d2 ->
+                    // Sources without a lang defined will be placed at the end
+                    when {
+                        d1 == LAST_USED_KEY && d2 != LAST_USED_KEY -> -1
+                        d2 == LAST_USED_KEY && d1 != LAST_USED_KEY -> 1
+                        d1 == PINNED_KEY && d2 != PINNED_KEY -> -1
+                        d2 == PINNED_KEY && d1 != PINNED_KEY -> 1
+                        d1 == "" && d2 != "" -> 1
+                        d2 == "" && d1 != "" -> -1
+                        else -> d1.compareTo(d2)
+                    }
                 }
-            }
-            val byLang = sources.groupByTo(map) {
-                when {
-                    it.isUsedLast -> LAST_USED_KEY
-                    Pin.Actual in it.pin -> PINNED_KEY
-                    else -> it.lang
+            val byLang =
+                sources.groupByTo(map) {
+                    when {
+                        it.isUsedLast -> LAST_USED_KEY
+                        Pin.Actual in it.pin -> PINNED_KEY
+                        else -> it.lang
+                    }
                 }
-            }
 
             state.copy(
                 isLoading = false,
-                items = byLang
-                    .flatMap {
-                        listOf(
-                            SourceUiModel.Header(it.key),
-                            *it.value.map { source ->
-                                SourceUiModel.Item(source)
-                            }.toTypedArray(),
-                        )
-                    }
-                    .toImmutableList(),
+                items =
+                    byLang
+                        .flatMap {
+                            listOf(
+                                SourceUiModel.Header(it.key),
+                                *it.value
+                                    .map { source ->
+                                        SourceUiModel.Item(source)
+                                    }.toTypedArray(),
+                            )
+                        }.toImmutableList(),
             )
         }
     }
@@ -102,7 +104,9 @@ class SourcesScreenModel(
         data object FailedFetchingSources : Event
     }
 
-    data class Dialog(val source: Source)
+    data class Dialog(
+        val source: Source,
+    )
 
     @Immutable
     data class State(
@@ -118,3 +122,4 @@ class SourcesScreenModel(
         const val LAST_USED_KEY = "last_used"
     }
 }
+

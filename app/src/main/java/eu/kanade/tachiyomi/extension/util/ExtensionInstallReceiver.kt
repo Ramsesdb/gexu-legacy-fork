@@ -21,29 +21,34 @@ import tachiyomi.core.common.util.system.logcat
  *
  * @param listener The listener that should be notified of extension installation events.
  */
-internal class ExtensionInstallReceiver(private val listener: Listener) : BroadcastReceiver() {
-
+internal class ExtensionInstallReceiver(
+    private val listener: Listener,
+) : BroadcastReceiver() {
     val scope = CoroutineScope(SupervisorJob())
 
     fun register(context: Context) {
         ContextCompat.registerReceiver(context, this, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
 
-    private val filter = IntentFilter().apply {
-        addAction(Intent.ACTION_PACKAGE_ADDED)
-        addAction(Intent.ACTION_PACKAGE_REPLACED)
-        addAction(Intent.ACTION_PACKAGE_REMOVED)
-        addAction(ACTION_EXTENSION_ADDED)
-        addAction(ACTION_EXTENSION_REPLACED)
-        addAction(ACTION_EXTENSION_REMOVED)
-        addDataScheme("package")
-    }
+    private val filter =
+        IntentFilter().apply {
+            addAction(Intent.ACTION_PACKAGE_ADDED)
+            addAction(Intent.ACTION_PACKAGE_REPLACED)
+            addAction(Intent.ACTION_PACKAGE_REMOVED)
+            addAction(ACTION_EXTENSION_ADDED)
+            addAction(ACTION_EXTENSION_REPLACED)
+            addAction(ACTION_EXTENSION_REMOVED)
+            addDataScheme("package")
+        }
 
     /**
      * Called when one of the events of the [filter] is received. When the package is an extension,
      * it's loaded in background and it notifies the [listener] when finished.
      */
-    override fun onReceive(context: Context, intent: Intent?) {
+    override fun onReceive(
+        context: Context,
+        intent: Intent?,
+    ) {
         if (intent == null) return
 
         when (intent.action) {
@@ -83,9 +88,7 @@ internal class ExtensionInstallReceiver(private val listener: Listener) : Broadc
      *
      * @param intent The intent that triggered the event.
      */
-    private fun isReplacing(intent: Intent): Boolean {
-        return intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
-    }
+    private fun isReplacing(intent: Intent): Boolean = intent.getBooleanExtra(Intent.EXTRA_REPLACING, false)
 
     /**
      * Returns the extension triggered by the given intent.
@@ -93,7 +96,10 @@ internal class ExtensionInstallReceiver(private val listener: Listener) : Broadc
      * @param context The application context.
      * @param intent The intent containing the package name of the extension.
      */
-    private suspend fun getExtensionFromIntent(context: Context, intent: Intent?): LoadResult {
+    private suspend fun getExtensionFromIntent(
+        context: Context,
+        intent: Intent?,
+    ): LoadResult {
         val pkgName = getPackageNameFromIntent(intent)
         if (pkgName == null) {
             logcat(LogPriority.WARN) { "Package name not found" }
@@ -114,8 +120,11 @@ internal class ExtensionInstallReceiver(private val listener: Listener) : Broadc
      */
     interface Listener {
         fun onExtensionInstalled(extension: Extension.Installed)
+
         fun onExtensionUpdated(extension: Extension.Installed)
+
         fun onExtensionUntrusted(extension: Extension.Untrusted)
+
         fun onPackageUninstalled(pkgName: String)
     }
 
@@ -124,19 +133,32 @@ internal class ExtensionInstallReceiver(private val listener: Listener) : Broadc
         private const val ACTION_EXTENSION_REPLACED = "${BuildConfig.APPLICATION_ID}.ACTION_EXTENSION_REPLACED"
         private const val ACTION_EXTENSION_REMOVED = "${BuildConfig.APPLICATION_ID}.ACTION_EXTENSION_REMOVED"
 
-        fun notifyAdded(context: Context, pkgName: String) {
+        fun notifyAdded(
+            context: Context,
+            pkgName: String,
+        ) {
             notify(context, pkgName, ACTION_EXTENSION_ADDED)
         }
 
-        fun notifyReplaced(context: Context, pkgName: String) {
+        fun notifyReplaced(
+            context: Context,
+            pkgName: String,
+        ) {
             notify(context, pkgName, ACTION_EXTENSION_REPLACED)
         }
 
-        fun notifyRemoved(context: Context, pkgName: String) {
+        fun notifyRemoved(
+            context: Context,
+            pkgName: String,
+        ) {
             notify(context, pkgName, ACTION_EXTENSION_REMOVED)
         }
 
-        private fun notify(context: Context, pkgName: String, action: String) {
+        private fun notify(
+            context: Context,
+            pkgName: String,
+            action: String,
+        ) {
             Intent(action).apply {
                 data = "package:$pkgName".toUri()
                 `package` = context.packageName
@@ -145,3 +167,4 @@ internal class ExtensionInstallReceiver(private val listener: Listener) : Broadc
         }
     }
 }
+

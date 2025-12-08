@@ -8,27 +8,29 @@ import nl.adaptivity.xmlutil.serialization.XmlValue
 
 const val COMIC_INFO_FILE = "ComicInfo.xml"
 
-fun SManga.getComicInfo() = ComicInfo(
-    series = ComicInfo.Series(title),
-    summary = description?.let { ComicInfo.Summary(it) },
-    writer = author?.let { ComicInfo.Writer(it) },
-    penciller = artist?.let { ComicInfo.Penciller(it) },
-    genre = genre?.let { ComicInfo.Genre(it) },
-    publishingStatus = ComicInfo.PublishingStatusTachiyomi(
-        ComicInfoPublishingStatus.toComicInfoValue(status.toLong()),
-    ),
-    title = null,
-    number = null,
-    web = null,
-    translator = null,
-    inker = null,
-    colorist = null,
-    letterer = null,
-    coverArtist = null,
-    tags = null,
-    categories = null,
-    source = null,
-)
+fun SManga.getComicInfo() =
+    ComicInfo(
+        series = ComicInfo.Series(title),
+        summary = description?.let { ComicInfo.Summary(it) },
+        writer = author?.let { ComicInfo.Writer(it) },
+        penciller = artist?.let { ComicInfo.Penciller(it) },
+        genre = genre?.let { ComicInfo.Genre(it) },
+        publishingStatus =
+            ComicInfo.PublishingStatusTachiyomi(
+                ComicInfoPublishingStatus.toComicInfoValue(status.toLong()),
+            ),
+        title = null,
+        number = null,
+        web = null,
+        translator = null,
+        inker = null,
+        colorist = null,
+        letterer = null,
+        coverArtist = null,
+        tags = null,
+        categories = null,
+        source = null,
+    )
 
 fun SManga.copyFromComicInfo(comicInfo: ComicInfo) {
     comicInfo.series?.let { title = it.value }
@@ -39,8 +41,7 @@ fun SManga.copyFromComicInfo(comicInfo: ComicInfo) {
         comicInfo.genre?.value,
         comicInfo.tags?.value,
         comicInfo.categories?.value,
-    )
-        .distinct()
+    ).distinct()
         .joinToString(", ") { it.trim() }
         .takeIf { it.isNotEmpty() }
         ?.let { genre = it }
@@ -51,8 +52,7 @@ fun SManga.copyFromComicInfo(comicInfo: ComicInfo) {
         comicInfo.colorist?.value,
         comicInfo.letterer?.value,
         comicInfo.coverArtist?.value,
-    )
-        .flatMap { it.split(", ") }
+    ).flatMap { it.split(", ") }
         .distinct()
         .joinToString(", ") { it.trim() }
         .takeIf { it.isNotEmpty() }
@@ -94,72 +94,106 @@ data class ComicInfo(
 
     @Serializable
     @XmlSerialName("Title", "", "")
-    data class Title(@XmlValue(true) val value: String = "")
+    data class Title(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Series", "", "")
-    data class Series(@XmlValue(true) val value: String = "")
+    data class Series(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Number", "", "")
-    data class Number(@XmlValue(true) val value: String = "")
+    data class Number(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Summary", "", "")
-    data class Summary(@XmlValue(true) val value: String = "")
+    data class Summary(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Writer", "", "")
-    data class Writer(@XmlValue(true) val value: String = "")
+    data class Writer(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Penciller", "", "")
-    data class Penciller(@XmlValue(true) val value: String = "")
+    data class Penciller(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Inker", "", "")
-    data class Inker(@XmlValue(true) val value: String = "")
+    data class Inker(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Colorist", "", "")
-    data class Colorist(@XmlValue(true) val value: String = "")
+    data class Colorist(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Letterer", "", "")
-    data class Letterer(@XmlValue(true) val value: String = "")
+    data class Letterer(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("CoverArtist", "", "")
-    data class CoverArtist(@XmlValue(true) val value: String = "")
+    data class CoverArtist(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Translator", "", "")
-    data class Translator(@XmlValue(true) val value: String = "")
+    data class Translator(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Genre", "", "")
-    data class Genre(@XmlValue(true) val value: String = "")
+    data class Genre(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Tags", "", "")
-    data class Tags(@XmlValue(true) val value: String = "")
+    data class Tags(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Web", "", "")
-    data class Web(@XmlValue(true) val value: String = "")
+    data class Web(
+        @XmlValue(true) val value: String = "",
+    )
 
     // The spec doesn't have a good field for this
     @Serializable
     @XmlSerialName("PublishingStatusTachiyomi", "http://www.w3.org/2001/XMLSchema", "ty")
-    data class PublishingStatusTachiyomi(@XmlValue(true) val value: String = "")
+    data class PublishingStatusTachiyomi(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("Categories", "http://www.w3.org/2001/XMLSchema", "ty")
-    data class CategoriesTachiyomi(@XmlValue(true) val value: String = "")
+    data class CategoriesTachiyomi(
+        @XmlValue(true) val value: String = "",
+    )
 
     @Serializable
     @XmlSerialName("SourceMihon", "http://www.w3.org/2001/XMLSchema", "mh")
-    data class SourceMihon(@XmlValue(true) val value: String = "")
+    data class SourceMihon(
+        @XmlValue(true) val value: String = "",
+    )
 }
 
 enum class ComicInfoPublishingStatus(
@@ -176,14 +210,13 @@ enum class ComicInfoPublishingStatus(
     ;
 
     companion object {
-        fun toComicInfoValue(value: Long): String {
-            return entries.firstOrNull { it.sMangaModelValue == value.toInt() }?.comicInfoValue
+        fun toComicInfoValue(value: Long): String =
+            entries.firstOrNull { it.sMangaModelValue == value.toInt() }?.comicInfoValue
                 ?: UNKNOWN.comicInfoValue
-        }
 
-        fun toSMangaValue(value: String?): Int {
-            return entries.firstOrNull { it.comicInfoValue == value }?.sMangaModelValue
+        fun toSMangaValue(value: String?): Int =
+            entries.firstOrNull { it.comicInfoValue == value }?.sMangaModelValue
                 ?: UNKNOWN.sMangaModelValue
-        }
     }
 }
+

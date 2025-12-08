@@ -11,7 +11,6 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 import uy.kohesive.injekt.injectLazy
 
 abstract class BaseOAuthLoginActivity : BaseActivity() {
-
     internal val trackerManager: TrackerManager by injectLazy()
 
     abstract fun handleResult(data: Uri?)
@@ -29,9 +28,11 @@ abstract class BaseOAuthLoginActivity : BaseActivity() {
     internal fun returnToSettings() {
         finish()
 
-        val intent = Intent(this, MainActivity::class.java).apply {
-            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        }
+        val intent =
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP)
+            }
         startActivity(intent)
     }
 }
+

@@ -43,7 +43,6 @@ abstract class SearchScreenModel(
     private val getManga: GetManga = Injekt.get(),
     private val preferences: SourcePreferences = Injekt.get(),
 ) : StateScreenModel<SearchScreenModel.State>(initialState) {
-
     private val coroutineDispatcher = Executors.newFixedThreadPool(5).asCoroutineDispatcher()
     private var searchJob: Job? = null
 
@@ -73,18 +72,19 @@ abstract class SearchScreenModel(
     }
 
     @Composable
-    fun getManga(initialManga: Manga): androidx.compose.runtime.State<Manga> {
-        return produceState(initialValue = initialManga) {
-            getManga.subscribe(initialManga.url, initialManga.source)
+    fun getManga(initialManga: Manga): androidx.compose.runtime.State<Manga> =
+        produceState(initialValue = initialManga) {
+            getManga
+                .subscribe(initialManga.url, initialManga.source)
                 .filterNotNull()
                 .collectLatest { manga ->
                     value = manga
                 }
         }
-    }
 
-    open fun getEnabledSources(): List<CatalogueSource> {
-        return sourceManager.getCatalogueSources()
+    open fun getEnabledSources(): List<CatalogueSource> =
+        sourceManager
+            .getCatalogueSources()
             .filter { it.lang in enabledLanguages && "${it.id}" !in disabledSources }
             .sortedWith(
                 compareBy(
@@ -92,7 +92,6 @@ abstract class SearchScreenModel(
                     { "${it.name.lowercase()} (${it.lang})" },
                 ),
             )
-    }
 
     private fun getSelectedSources(): List<CatalogueSource> {
         val enabledSources = getEnabledSources()
@@ -154,55 +153,66 @@ abstract class SearchScreenModel(
             )
         }
 
-        searchJob = ioCoroutineScope.launch {
-            sources.map { source ->
-                async {
-                    if (state.value.items[source] !is SearchItemResult.Loading) {
-                        return@async
-                    }
+        searchJob =
+            ioCoroutineScope.launch {
+                sources
+                    .map { source ->
+                        async {
+                            if (state.value.items[source] !is SearchItemResult.Loading) {
+                                return@async
+                            }
 
-                    try {
-                        val page = withContext(coroutineDispatcher) {
-                            source.getSearchManga(1, query, source.getFilterList())
-                        }
+                            try {
+                                val page =
+                                    withContext(coroutineDispatcher) {
+                                        source.getSearchManga(1, query, source.getFilterList())
+                                    }
 
-                        val titles = page.mangas
-                            .map { it.toDomainManga(source.id) }
-                            .distinctBy { it.url }
-                            .let { networkToLocalManga(it) }
+                                val titles =
+                                    page.mangas
+                                        .map { it.toDomainManga(source.id) }
+                                        .distinctBy { it.url }
+                                        .let { networkToLocalManga(it) }
 
-                        if (isActive) {
-                            updateItem(source, SearchItemResult.Success(titles))
+                                if (isActive) {
+                                    updateItem(source, SearchItemResult.Success(titles))
+                                }
+                            } catch (e: Exception) {
+                                if (isActive) {
+                                    updateItem(source, SearchItemResult.Error(e))
+                                }
+                            }
                         }
-                    } catch (e: Exception) {
-                        if (isActive) {
-                            updateItem(source, SearchItemResult.Error(e))
-                        }
-                    }
-                }
+                    }.awaitAll()
             }
-                .awaitAll()
-        }
     }
 
     private fun updateItems(items: PersistentMap<CatalogueSource, SearchItemResult>) {
         mutableState.update {
             it.copy(
-                items = items
-                    .toSortedMap(sortComparator(items))
-                    .toPersistentMap(),
+                items =
+                    items
+                        .toSortedMap(sortComparator(items))
+                        .toPersistentMap(),
             )
         }
     }
 
-    private fun updateItem(source: CatalogueSource, result: SearchItemResult) {
-        val newItems = state.value.items.mutate {
-            it[source] = result
-        }
+    private fun updateItem(
+        source: CatalogueSource,
+        result: SearchItemResult,
+    ) {
+        val newItems =
+            state.value.items.mutate {
+                it[source] = result
+            }
         updateItems(newItems)
     }
 
-    fun setMigrateDialog(currentId: Long, target: Manga) {
+    fun setMigrateDialog(
+        currentId: Long,
+        target: Manga,
+    ) {
         screenModelScope.launchIO {
             val current = getManga.await(currentId) ?: return@launchIO
             mutableState.update { it.copy(dialog = Dialog.Migrate(target, current)) }
@@ -228,7 +238,10 @@ abstract class SearchScreenModel(
     }
 
     sealed interface Dialog {
-        data class Migrate(val target: Manga, val current: Manga) : Dialog
+        data class Migrate(
+            val target: Manga,
+            val current: Manga,
+        ) : Dialog
     }
 }
 
@@ -251,7 +264,6 @@ sealed interface SearchItemResult {
             get() = result.isEmpty()
     }
 
-    fun isVisible(onlyShowHasResults: Boolean): Boolean {
-        return !onlyShowHasResults || (this is Success && !this.isEmpty)
-    }
+    fun isVisible(onlyShowHasResults: Boolean): Boolean = !onlyShowHasResults || (this is Success && !this.isEmpty)
 }
+

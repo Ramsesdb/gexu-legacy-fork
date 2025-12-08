@@ -59,7 +59,6 @@ class UpdatesScreenModel(
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<UpdatesScreenModel.State>(State()) {
-
     private val _events: Channel<Event> = Channel(Int.MAX_VALUE)
     val events: Flow<Event> = _events.receiveAsFlow()
 
@@ -82,8 +81,7 @@ class UpdatesScreenModel(
                 .catch {
                     logcat(LogPriority.ERROR, it)
                     _events.send(Event.InternalError)
-                }
-                .collectLatest { updates ->
+                }.collectLatest { updates ->
                     mutableState.update {
                         it.copy(
                             isLoading = false,
@@ -100,31 +98,31 @@ class UpdatesScreenModel(
         }
     }
 
-    private fun List<UpdatesWithRelations>.toUpdateItems(): PersistentList<UpdatesItem> {
-        return this
+    private fun List<UpdatesWithRelations>.toUpdateItems(): PersistentList<UpdatesItem> =
+        this
             .map { update ->
                 val activeDownload = downloadManager.getQueuedDownloadOrNull(update.chapterId)
-                val downloaded = downloadManager.isChapterDownloaded(
-                    update.chapterName,
-                    update.scanlator,
-                    update.chapterUrl,
-                    update.mangaTitle,
-                    update.sourceId,
-                )
-                val downloadState = when {
-                    activeDownload != null -> activeDownload.status
-                    downloaded -> Download.State.DOWNLOADED
-                    else -> Download.State.NOT_DOWNLOADED
-                }
+                val downloaded =
+                    downloadManager.isChapterDownloaded(
+                        update.chapterName,
+                        update.scanlator,
+                        update.chapterUrl,
+                        update.mangaTitle,
+                        update.sourceId,
+                    )
+                val downloadState =
+                    when {
+                        activeDownload != null -> activeDownload.status
+                        downloaded -> Download.State.DOWNLOADED
+                        else -> Download.State.NOT_DOWNLOADED
+                    }
                 UpdatesItem(
                     update = update,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { activeDownload?.progress ?: 0 },
                     selected = update.chapterId in selectedChapterIds,
                 )
-            }
-            .toPersistentList()
-    }
+            }.toPersistentList()
 
     fun updateLibrary(): Boolean {
         val started = LibraryUpdateJob.startNow(Injekt.get<Application>())
@@ -141,21 +139,26 @@ class UpdatesScreenModel(
      */
     private fun updateDownloadState(download: Download) {
         mutableState.update { state ->
-            val newItems = state.items.mutate { list ->
-                val modifiedIndex = list.indexOfFirst { it.update.chapterId == download.chapter.id }
-                if (modifiedIndex < 0) return@mutate
+            val newItems =
+                state.items.mutate { list ->
+                    val modifiedIndex = list.indexOfFirst { it.update.chapterId == download.chapter.id }
+                    if (modifiedIndex < 0) return@mutate
 
-                val item = list[modifiedIndex]
-                list[modifiedIndex] = item.copy(
-                    downloadStateProvider = { download.status },
-                    downloadProgressProvider = { download.progress },
-                )
-            }
+                    val item = list[modifiedIndex]
+                    list[modifiedIndex] =
+                        item.copy(
+                            downloadStateProvider = { download.status },
+                            downloadProgressProvider = { download.progress },
+                        )
+                }
             state.copy(items = newItems)
         }
     }
 
-    fun downloadChapters(items: List<UpdatesItem>, action: ChapterDownloadAction) {
+    fun downloadChapters(
+        items: List<UpdatesItem>,
+        action: ChapterDownloadAction,
+    ) {
         if (items.isEmpty()) return
         screenModelScope.launch {
             when (action) {
@@ -196,13 +199,17 @@ class UpdatesScreenModel(
      * @param updates the list of selected updates.
      * @param read whether to mark chapters as read or unread.
      */
-    fun markUpdatesRead(updates: List<UpdatesItem>, read: Boolean) {
+    fun markUpdatesRead(
+        updates: List<UpdatesItem>,
+        read: Boolean,
+    ) {
         screenModelScope.launchIO {
             setReadStatus.await(
                 read = read,
-                chapters = updates
-                    .mapNotNull { getChapter.await(it.update.chapterId) }
-                    .toTypedArray(),
+                chapters =
+                    updates
+                        .mapNotNull { getChapter.await(it.update.chapterId) }
+                        .toTypedArray(),
             )
         }
         toggleAllSelection(false)
@@ -212,7 +219,10 @@ class UpdatesScreenModel(
      * Bookmarks the given list of chapters.
      * @param updates the list of chapters to bookmark.
      */
-    fun bookmarkUpdates(updates: List<UpdatesItem>, bookmark: Boolean) {
+    fun bookmarkUpdates(
+        updates: List<UpdatesItem>,
+        bookmark: Boolean,
+    ) {
         screenModelScope.launchIO {
             updates
                 .filterNot { it.update.bookmark == bookmark }
@@ -271,69 +281,71 @@ class UpdatesScreenModel(
         fromLongPress: Boolean = false,
     ) {
         mutableState.update { state ->
-            val newItems = state.items.toMutableList().apply {
-                val selectedIndex = indexOfFirst { it.update.chapterId == item.update.chapterId }
-                if (selectedIndex < 0) return@apply
+            val newItems =
+                state.items.toMutableList().apply {
+                    val selectedIndex = indexOfFirst { it.update.chapterId == item.update.chapterId }
+                    if (selectedIndex < 0) return@apply
 
-                val selectedItem = get(selectedIndex)
-                if (selectedItem.selected == selected) return@apply
+                    val selectedItem = get(selectedIndex)
+                    if (selectedItem.selected == selected) return@apply
 
-                val firstSelection = none { it.selected }
-                set(selectedIndex, selectedItem.copy(selected = selected))
-                selectedChapterIds.addOrRemove(item.update.chapterId, selected)
+                    val firstSelection = none { it.selected }
+                    set(selectedIndex, selectedItem.copy(selected = selected))
+                    selectedChapterIds.addOrRemove(item.update.chapterId, selected)
 
-                if (selected && userSelected && fromLongPress) {
-                    if (firstSelection) {
-                        selectedPositions[0] = selectedIndex
-                        selectedPositions[1] = selectedIndex
-                    } else {
-                        // Try to select the items in-between when possible
-                        val range: IntRange
-                        if (selectedIndex < selectedPositions[0]) {
-                            range = selectedIndex + 1..<selectedPositions[0]
+                    if (selected && userSelected && fromLongPress) {
+                        if (firstSelection) {
                             selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            range = (selectedPositions[1] + 1)..<selectedIndex
                             selectedPositions[1] = selectedIndex
                         } else {
-                            // Just select itself
-                            range = IntRange.EMPTY
-                        }
+                            // Try to select the items in-between when possible
+                            val range: IntRange
+                            if (selectedIndex < selectedPositions[0]) {
+                                range = selectedIndex + 1..<selectedPositions[0]
+                                selectedPositions[0] = selectedIndex
+                            } else if (selectedIndex > selectedPositions[1]) {
+                                range = (selectedPositions[1] + 1)..<selectedIndex
+                                selectedPositions[1] = selectedIndex
+                            } else {
+                                // Just select itself
+                                range = IntRange.EMPTY
+                            }
 
-                        range.forEach {
-                            val inbetweenItem = get(it)
-                            if (!inbetweenItem.selected) {
-                                selectedChapterIds.add(inbetweenItem.update.chapterId)
-                                set(it, inbetweenItem.copy(selected = true))
+                            range.forEach {
+                                val inbetweenItem = get(it)
+                                if (!inbetweenItem.selected) {
+                                    selectedChapterIds.add(inbetweenItem.update.chapterId)
+                                    set(it, inbetweenItem.copy(selected = true))
+                                }
+                            }
+                        }
+                    } else if (userSelected && !fromLongPress) {
+                        if (!selected) {
+                            if (selectedIndex == selectedPositions[0]) {
+                                selectedPositions[0] = indexOfFirst { it.selected }
+                            } else if (selectedIndex == selectedPositions[1]) {
+                                selectedPositions[1] = indexOfLast { it.selected }
+                            }
+                        } else {
+                            if (selectedIndex < selectedPositions[0]) {
+                                selectedPositions[0] = selectedIndex
+                            } else if (selectedIndex > selectedPositions[1]) {
+                                selectedPositions[1] = selectedIndex
                             }
                         }
                     }
-                } else if (userSelected && !fromLongPress) {
-                    if (!selected) {
-                        if (selectedIndex == selectedPositions[0]) {
-                            selectedPositions[0] = indexOfFirst { it.selected }
-                        } else if (selectedIndex == selectedPositions[1]) {
-                            selectedPositions[1] = indexOfLast { it.selected }
-                        }
-                    } else {
-                        if (selectedIndex < selectedPositions[0]) {
-                            selectedPositions[0] = selectedIndex
-                        } else if (selectedIndex > selectedPositions[1]) {
-                            selectedPositions[1] = selectedIndex
-                        }
-                    }
                 }
-            }
             state.copy(items = newItems.toPersistentList())
         }
     }
 
     fun toggleAllSelection(selected: Boolean) {
         mutableState.update { state ->
-            val newItems = state.items.map {
-                selectedChapterIds.addOrRemove(it.update.chapterId, selected)
-                it.copy(selected = selected)
-            }
+            val newItems =
+                state.items.map {
+                    selectedChapterIds.addOrRemove(it.update.chapterId, selected)
+                    it.copy(selected = selected)
+                }
             state.copy(items = newItems.toPersistentList())
         }
 
@@ -343,10 +355,11 @@ class UpdatesScreenModel(
 
     fun invertSelection() {
         mutableState.update { state ->
-            val newItems = state.items.map {
-                selectedChapterIds.addOrRemove(it.update.chapterId, !it.selected)
-                it.copy(selected = !it.selected)
-            }
+            val newItems =
+                state.items.map {
+                    selectedChapterIds.addOrRemove(it.update.chapterId, !it.selected)
+                    it.copy(selected = !it.selected)
+                }
             state.copy(items = newItems.toPersistentList())
         }
         selectedPositions[0] = -1
@@ -370,28 +383,42 @@ class UpdatesScreenModel(
         val selected = items.filter { it.selected }
         val selectionMode = selected.isNotEmpty()
 
-        fun getUiModel(): List<UpdatesUiModel> {
-            return items
+        fun getUiModel(): List<UpdatesUiModel> =
+            items
                 .map { UpdatesUiModel.Item(it) }
                 .insertSeparators { before, after ->
-                    val beforeDate = before?.item?.update?.dateFetch?.toLocalDate()
-                    val afterDate = after?.item?.update?.dateFetch?.toLocalDate()
+                    val beforeDate =
+                        before
+                            ?.item
+                            ?.update
+                            ?.dateFetch
+                            ?.toLocalDate()
+                    val afterDate =
+                        after
+                            ?.item
+                            ?.update
+                            ?.dateFetch
+                            ?.toLocalDate()
                     when {
                         beforeDate != afterDate && afterDate != null -> UpdatesUiModel.Header(afterDate)
                         // Return null to avoid adding a separator between two items.
                         else -> null
                     }
                 }
-        }
     }
 
     sealed interface Dialog {
-        data class DeleteConfirmation(val toDelete: List<UpdatesItem>) : Dialog
+        data class DeleteConfirmation(
+            val toDelete: List<UpdatesItem>,
+        ) : Dialog
     }
 
     sealed interface Event {
         data object InternalError : Event
-        data class LibraryUpdateTriggered(val started: Boolean) : Event
+
+        data class LibraryUpdateTriggered(
+            val started: Boolean,
+        ) : Event
     }
 }
 
@@ -402,3 +429,4 @@ data class UpdatesItem(
     val downloadProgressProvider: () -> Int,
     val selected: Boolean = false,
 )
+

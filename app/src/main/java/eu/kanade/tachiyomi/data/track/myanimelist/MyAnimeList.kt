@@ -16,8 +16,10 @@ import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
-
+class MyAnimeList(
+    id: Long,
+) : BaseTracker(id, "MyAnimeList"),
+    DeletableTracker {
     companion object {
         const val READING = 1L
         const val COMPLETED = 2L
@@ -29,9 +31,10 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         private const val SEARCH_ID_PREFIX = "id:"
         private const val SEARCH_LIST_PREFIX = "my:"
 
-        private val SCORE_LIST = IntRange(0, 10)
-            .map(Int::toString)
-            .toImmutableList()
+        private val SCORE_LIST =
+            IntRange(0, 10)
+                .map(Int::toString)
+                .toImmutableList()
     }
 
     private val json: Json by injectLazy()
@@ -45,19 +48,18 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
     override fun getLogoColor() = Color.rgb(46, 81, 162)
 
-    override fun getStatusList(): List<Long> {
-        return listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ, REREADING)
-    }
+    override fun getStatusList(): List<Long> = listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ, REREADING)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        COMPLETED -> MR.strings.completed
-        ON_HOLD -> MR.strings.on_hold
-        DROPPED -> MR.strings.dropped
-        REREADING -> MR.strings.repeating
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            READING -> MR.strings.reading
+            PLAN_TO_READ -> MR.strings.plan_to_read
+            COMPLETED -> MR.strings.completed
+            ON_HOLD -> MR.strings.on_hold
+            DROPPED -> MR.strings.dropped
+            REREADING -> MR.strings.repeating
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -67,15 +69,14 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
 
     override fun getScoreList(): ImmutableList<String> = SCORE_LIST
 
-    override fun displayScore(track: DomainTrack): String {
-        return track.score.toInt().toString()
-    }
+    override fun displayScore(track: DomainTrack): String = track.score.toInt().toString()
 
-    private suspend fun add(track: Track): Track {
-        return api.updateItem(track)
-    }
+    private suspend fun add(track: Track): Track = api.updateItem(track)
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -97,7 +98,10 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         api.deleteItem(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track {
         val remoteTrack = api.findListItem(track)
         return if (remoteTrack != null) {
             track.copyPersonalFrom(remoteTrack)
@@ -133,11 +137,12 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         return api.search(query)
     }
 
-    override suspend fun refresh(track: Track): Track {
-        return api.findListItem(track) ?: add(track)
-    }
+    override suspend fun refresh(track: Track): Track = api.findListItem(track) ?: add(track)
 
-    override suspend fun login(username: String, password: String) = login(password)
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) = login(password)
 
     suspend fun login(authCode: String) {
         try {
@@ -156,9 +161,7 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         interceptor.setAuth(null)
     }
 
-    fun getIfAuthExpired(): Boolean {
-        return trackPreferences.trackAuthExpired(this).get()
-    }
+    fun getIfAuthExpired(): Boolean = trackPreferences.trackAuthExpired(this).get()
 
     fun setAuthExpired() {
         trackPreferences.trackAuthExpired(this).set(true)
@@ -168,11 +171,11 @@ class MyAnimeList(id: Long) : BaseTracker(id, "MyAnimeList"), DeletableTracker {
         trackPreferences.trackToken(this).set(json.encodeToString(oAuth))
     }
 
-    fun loadOAuth(): MALOAuth? {
-        return try {
+    fun loadOAuth(): MALOAuth? =
+        try {
             json.decodeFromString<MALOAuth>(trackPreferences.trackToken(this).get())
         } catch (e: Exception) {
             null
         }
-    }
 }
+

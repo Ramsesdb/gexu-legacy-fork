@@ -18,14 +18,16 @@ class ReaderSettingsScreenModel(
     val onChangeOrientation: (ReaderOrientation) -> Unit,
     val preferences: ReaderPreferences = Injekt.get(),
 ) : ScreenModel {
+    val viewerFlow =
+        readerState
+            .map { it.viewer }
+            .distinctUntilChanged()
+            .stateIn(ioCoroutineScope, SharingStarted.Lazily, null)
 
-    val viewerFlow = readerState
-        .map { it.viewer }
-        .distinctUntilChanged()
-        .stateIn(ioCoroutineScope, SharingStarted.Lazily, null)
-
-    val mangaFlow = readerState
-        .map { it.manga }
-        .distinctUntilChanged()
-        .stateIn(ioCoroutineScope, SharingStarted.Lazily, null)
+    val mangaFlow =
+        readerState
+            .map { it.manga }
+            .distinctUntilChanged()
+            .stateIn(ioCoroutineScope, SharingStarted.Lazily, null)
 }
+

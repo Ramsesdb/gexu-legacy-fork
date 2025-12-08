@@ -35,8 +35,8 @@ data class KitsuAlgoliaSearchItem(
     val startDate: Long?,
     val endDate: Long?,
 ) {
-    fun toTrack(): TrackSearch {
-        return TrackSearch.create(TrackerManager.KITSU).apply {
+    fun toTrack(): TrackSearch =
+        TrackSearch.create(TrackerManager.KITSU).apply {
             remote_id = this@KitsuAlgoliaSearchItem.id
             title = canonicalTitle
             total_chapters = chapterCount ?: 0
@@ -51,5 +51,5 @@ data class KitsuAlgoliaSearchItem(
                 outputDf.format(Date(it * 1000))
             } ?: ""
         }
-    }
 }
+

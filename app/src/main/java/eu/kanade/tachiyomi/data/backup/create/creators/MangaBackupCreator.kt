@@ -19,31 +19,36 @@ class MangaBackupCreator(
     private val getCategories: GetCategories = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
 ) {
-
-    suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
-        return mangas.map {
+    suspend operator fun invoke(
+        mangas: List<Manga>,
+        options: BackupOptions,
+    ): List<BackupManga> =
+        mangas.map {
             backupManga(it, options)
         }
-    }
 
-    private suspend fun backupManga(manga: Manga, options: BackupOptions): BackupManga {
+    private suspend fun backupManga(
+        manga: Manga,
+        options: BackupOptions,
+    ): BackupManga {
         // Entry for this manga
         val mangaObject = manga.toBackupManga()
 
-        mangaObject.excludedScanlators = handler.awaitList {
-            excluded_scanlatorsQueries.getExcludedScanlatorsByMangaId(manga.id)
-        }
+        mangaObject.excludedScanlators =
+            handler.awaitList {
+                excluded_scanlatorsQueries.getExcludedScanlatorsByMangaId(manga.id)
+            }
 
         if (options.chapters) {
             // Backup all the chapters
-            handler.awaitList {
-                chaptersQueries.getChaptersByMangaId(
-                    mangaId = manga.id,
-                    applyScanlatorFilter = 0, // false
-                    mapper = backupChapterMapper,
-                )
-            }
-                .takeUnless(List<BackupChapter>::isEmpty)
+            handler
+                .awaitList {
+                    chaptersQueries.getChaptersByMangaId(
+                        mangaId = manga.id,
+                        applyScanlatorFilter = 0, // false
+                        mapper = backupChapterMapper,
+                    )
+                }.takeUnless(List<BackupChapter>::isEmpty)
                 ?.let { mangaObject.chapters = it }
         }
 
@@ -65,10 +70,11 @@ class MangaBackupCreator(
         if (options.history) {
             val historyByMangaId = getHistory.await(manga.id)
             if (historyByMangaId.isNotEmpty()) {
-                val history = historyByMangaId.map { history ->
-                    val chapter = handler.awaitOne { chaptersQueries.getChapterById(history.chapterId) }
-                    BackupHistory(chapter.url, history.readAt?.time ?: 0L, history.readDuration)
-                }
+                val history =
+                    historyByMangaId.map { history ->
+                        val chapter = handler.awaitOne { chaptersQueries.getChapterById(history.chapterId) }
+                        BackupHistory(chapter.url, history.readAt?.time ?: 0L, history.readDuration)
+                    }
                 if (history.isNotEmpty()) {
                     mangaObject.history = history
                 }
@@ -102,3 +108,4 @@ private fun Manga.toBackupManga() =
         notes = this.notes,
         initialized = this.initialized,
     )
+

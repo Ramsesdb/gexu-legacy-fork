@@ -32,16 +32,20 @@ import uy.kohesive.injekt.api.get
  * This worker is used to manage the downloader. The system can decide to stop the worker, in
  * which case the downloader is also stopped. It's also stopped while there's no network available.
  */
-class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineWorker(context, workerParams) {
-
+class DownloadJob(
+    context: Context,
+    workerParams: WorkerParameters,
+) : CoroutineWorker(context, workerParams) {
     private val downloadManager: DownloadManager = Injekt.get()
     private val downloadPreferences: DownloadPreferences = Injekt.get()
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = applicationContext.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
-            setContentTitle(applicationContext.getString(R.string.download_notifier_downloader_title))
-            setSmallIcon(android.R.drawable.stat_sys_download)
-        }.build()
+        val notification =
+            applicationContext
+                .notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
+                    setContentTitle(applicationContext.getString(R.string.download_notifier_downloader_title))
+                    setSmallIcon(android.R.drawable.stat_sys_download)
+                }.build()
         return ForegroundInfo(
             Notifications.ID_DOWNLOAD_CHAPTER_PROGRESS,
             notification,
@@ -54,10 +58,11 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
     }
 
     override suspend fun doWork(): Result {
-        var networkCheck = checkNetworkState(
-            applicationContext.activeNetworkState(),
-            downloadPreferences.downloadOnlyOverWifi().get(),
-        )
+        var networkCheck =
+            checkNetworkState(
+                applicationContext.activeNetworkState(),
+                downloadPreferences.downloadOnlyOverWifi().get(),
+            )
         var active = networkCheck && downloadManager.downloaderStart()
 
         if (!active) {
@@ -71,8 +76,7 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
                 applicationContext.networkStateFlow(),
                 downloadPreferences.downloadOnlyOverWifi().changes(),
                 transform = { a, b -> emit(checkNetworkState(a, b)) },
-            )
-                .onEach { networkCheck = it }
+            ).onEach { networkCheck = it }
                 .launchIn(this)
         }
 
@@ -84,8 +88,11 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
         return Result.success()
     }
 
-    private fun checkNetworkState(state: NetworkState, requireWifi: Boolean): Boolean {
-        return if (state.isOnline) {
+    private fun checkNetworkState(
+        state: NetworkState,
+        requireWifi: Boolean,
+    ): Boolean =
+        if (state.isOnline) {
             val noWifi = requireWifi && !state.isWifi
             if (noWifi) {
                 downloadManager.downloaderStop(
@@ -97,36 +104,39 @@ class DownloadJob(context: Context, workerParams: WorkerParameters) : CoroutineW
             downloadManager.downloaderStop(applicationContext.getString(R.string.download_notifier_no_network))
             false
         }
-    }
 
     companion object {
         private const val TAG = "Downloader"
 
         fun start(context: Context) {
-            val request = OneTimeWorkRequestBuilder<DownloadJob>()
-                .addTag(TAG)
-                .build()
-            WorkManager.getInstance(context)
+            val request =
+                OneTimeWorkRequestBuilder<DownloadJob>()
+                    .addTag(TAG)
+                    .build()
+            WorkManager
+                .getInstance(context)
                 .enqueueUniqueWork(TAG, ExistingWorkPolicy.REPLACE, request)
         }
 
         fun stop(context: Context) {
-            WorkManager.getInstance(context)
+            WorkManager
+                .getInstance(context)
                 .cancelUniqueWork(TAG)
         }
 
-        fun isRunning(context: Context): Boolean {
-            return WorkManager.getInstance(context)
+        fun isRunning(context: Context): Boolean =
+            WorkManager
+                .getInstance(context)
                 .getWorkInfosForUniqueWork(TAG)
                 .get()
                 .let { list -> list.count { it.state == WorkInfo.State.RUNNING } == 1 }
-        }
 
-        fun isRunningFlow(context: Context): Flow<Boolean> {
-            return WorkManager.getInstance(context)
+        fun isRunningFlow(context: Context): Flow<Boolean> =
+            WorkManager
+                .getInstance(context)
                 .getWorkInfosForUniqueWorkLiveData(TAG)
                 .asFlow()
                 .map { list -> list.count { it.state == WorkInfo.State.RUNNING } == 1 }
-        }
     }
 }
+

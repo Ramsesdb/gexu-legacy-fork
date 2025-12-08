@@ -44,15 +44,14 @@ import java.text.NumberFormat
 
 class LibraryUpdateNotifier(
     private val context: Context,
-
     private val securityPreferences: SecurityPreferences = Injekt.get(),
     private val sourceManager: SourceManager = Injekt.get(),
 ) {
-
-    private val percentFormatter = NumberFormat.getPercentInstance().apply {
-        roundingMode = RoundingMode.DOWN
-        maximumFractionDigits = 0
-    }
+    private val percentFormatter =
+        NumberFormat.getPercentInstance().apply {
+            roundingMode = RoundingMode.DOWN
+            maximumFractionDigits = 0
+        }
 
     /**
      * Pending intent of action that cancels the library update
@@ -89,7 +88,11 @@ class LibraryUpdateNotifier(
      * @param current the current progress.
      * @param total the total progress.
      */
-    fun showProgressNotification(manga: List<Manga>, current: Int, total: Int) {
+    fun showProgressNotification(
+        manga: List<Manga>,
+        current: Int,
+        total: Int,
+    ) {
         progressNotificationBuilder
             .setContentTitle(
                 context.stringResource(
@@ -115,10 +118,11 @@ class LibraryUpdateNotifier(
      * Warn when excessively checking any single source.
      */
     fun showQueueSizeWarningNotificationIfNeeded(mangaToUpdate: List<LibraryManga>) {
-        val maxUpdatesFromSource = mangaToUpdate
-            .groupBy { it.manga.source }
-            .filterKeys { sourceManager.get(it) !is UnmeteredSource }
-            .maxOfOrNull { it.value.size } ?: 0
+        val maxUpdatesFromSource =
+            mangaToUpdate
+                .groupBy { it.manga.source }
+                .filterKeys { sourceManager.get(it) !is UnmeteredSource }
+                .maxOfOrNull { it.value.size } ?: 0
 
         if (maxUpdatesFromSource <= MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD) {
             return
@@ -144,7 +148,10 @@ class LibraryUpdateNotifier(
      * @param failed Number of entries that failed to update.
      * @param uri Uri for error log file containing all titles that failed.
      */
-    fun showUpdateErrorNotification(failed: Int, uri: Uri) {
+    fun showUpdateErrorNotification(
+        failed: Int,
+        uri: Uri,
+    ) {
         if (failed == 0) {
             return
         }
@@ -174,7 +181,12 @@ class LibraryUpdateNotifier(
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
             if (updates.size == 1 && !securityPreferences.hideNotificationContent().get()) {
-                setContentText(updates.first().first.title.chop(NOTIF_TITLE_MAX_LEN))
+                setContentText(
+                    updates
+                        .first()
+                        .first.title
+                        .chop(NOTIF_TITLE_MAX_LEN),
+                )
             } else {
                 setContentText(
                     context.pluralStringResource(
@@ -222,65 +234,69 @@ class LibraryUpdateNotifier(
         }
     }
 
-    private suspend fun createNewChaptersNotification(manga: Manga, chapters: Array<Chapter>): Notification {
+    private suspend fun createNewChaptersNotification(
+        manga: Manga,
+        chapters: Array<Chapter>,
+    ): Notification {
         val icon = getMangaIcon(manga)
-        return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
-            setContentTitle(manga.title)
+        return context
+            .notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
+                setContentTitle(manga.title)
 
-            val description = getNewChaptersDescription(chapters)
-            setContentText(description)
-            setStyle(NotificationCompat.BigTextStyle().bigText(description))
+                val description = getNewChaptersDescription(chapters)
+                setContentText(description)
+                setStyle(NotificationCompat.BigTextStyle().bigText(description))
 
-            setSmallIcon(R.drawable.ic_mihon)
+                setSmallIcon(R.drawable.ic_mihon)
 
-            if (icon != null) {
-                setLargeIcon(icon)
-            }
+                if (icon != null) {
+                    setLargeIcon(icon)
+                }
 
-            setGroup(Notifications.GROUP_NEW_CHAPTERS)
-            setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
-            priority = NotificationCompat.PRIORITY_HIGH
+                setGroup(Notifications.GROUP_NEW_CHAPTERS)
+                setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                priority = NotificationCompat.PRIORITY_HIGH
 
-            // Open first chapter on tap
-            setContentIntent(NotificationReceiver.openChapterPendingActivity(context, manga, chapters.first()))
-            setAutoCancel(true)
+                // Open first chapter on tap
+                setContentIntent(NotificationReceiver.openChapterPendingActivity(context, manga, chapters.first()))
+                setAutoCancel(true)
 
-            // Mark chapters as read action
-            addAction(
-                R.drawable.ic_done_24dp,
-                context.stringResource(MR.strings.action_mark_as_read),
-                NotificationReceiver.markAsReadPendingBroadcast(
-                    context,
-                    manga,
-                    chapters,
-                    Notifications.ID_NEW_CHAPTERS,
-                ),
-            )
-            // View chapters action
-            addAction(
-                R.drawable.ic_book_24dp,
-                context.stringResource(MR.strings.action_view_chapters),
-                NotificationReceiver.openChapterPendingActivity(
-                    context,
-                    manga,
-                    Notifications.ID_NEW_CHAPTERS,
-                ),
-            )
-            // Download chapters action
-            // Only add the action when chapters is within threshold
-            if (chapters.size <= Downloader.CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD) {
+                // Mark chapters as read action
                 addAction(
-                    android.R.drawable.stat_sys_download_done,
-                    context.stringResource(MR.strings.action_download),
-                    NotificationReceiver.downloadChaptersPendingBroadcast(
+                    R.drawable.ic_done_24dp,
+                    context.stringResource(MR.strings.action_mark_as_read),
+                    NotificationReceiver.markAsReadPendingBroadcast(
                         context,
                         manga,
                         chapters,
                         Notifications.ID_NEW_CHAPTERS,
                     ),
                 )
-            }
-        }.build()
+                // View chapters action
+                addAction(
+                    R.drawable.ic_book_24dp,
+                    context.stringResource(MR.strings.action_view_chapters),
+                    NotificationReceiver.openChapterPendingActivity(
+                        context,
+                        manga,
+                        Notifications.ID_NEW_CHAPTERS,
+                    ),
+                )
+                // Download chapters action
+                // Only add the action when chapters is within threshold
+                if (chapters.size <= Downloader.CHAPTERS_PER_SOURCE_QUEUE_WARNING_THRESHOLD) {
+                    addAction(
+                        android.R.drawable.stat_sys_download_done,
+                        context.stringResource(MR.strings.action_download),
+                        NotificationReceiver.downloadChaptersPendingBroadcast(
+                            context,
+                            manga,
+                            chapters,
+                            Notifications.ID_NEW_CHAPTERS,
+                        ),
+                    )
+                }
+            }.build()
     }
 
     /**
@@ -291,21 +307,28 @@ class LibraryUpdateNotifier(
     }
 
     private suspend fun getMangaIcon(manga: Manga): Bitmap? {
-        val request = ImageRequest.Builder(context)
-            .data(manga)
-            .transformations(CircleCropTransformation())
-            .size(NOTIF_ICON_SIZE)
-            .build()
-        val drawable = context.imageLoader.execute(request).image?.asDrawable(context.resources)
+        val request =
+            ImageRequest
+                .Builder(context)
+                .data(manga)
+                .transformations(CircleCropTransformation())
+                .size(NOTIF_ICON_SIZE)
+                .build()
+        val drawable =
+            context.imageLoader
+                .execute(request)
+                .image
+                ?.asDrawable(context.resources)
         return drawable?.getBitmapOrNull()
     }
 
     private fun getNewChaptersDescription(chapters: Array<Chapter>): String {
-        val displayableChapterNumbers = chapters
-            .filter { it.isRecognizedNumber }
-            .sortedBy { it.chapterNumber }
-            .map { formatChapterNumber(it.chapterNumber) }
-            .toSet()
+        val displayableChapterNumbers =
+            chapters
+                .filter { it.isRecognizedNumber }
+                .sortedBy { it.chapterNumber }
+                .map { formatChapterNumber(it.chapterNumber) }
+                .toSet()
 
         return when (displayableChapterNumbers.size) {
             // No sensible chapter numbers to show (i.e. no chapters have parsed chapter number)
@@ -341,9 +364,10 @@ class LibraryUpdateNotifier(
                 if (shouldTruncate) {
                     // "Chapters 1, 2.5, 3, 4, 5 and 10 more"
                     val remaining = displayableChapterNumbers.size - NOTIF_MAX_CHAPTERS
-                    val joinedChapterNumbers = displayableChapterNumbers
-                        .take(NOTIF_MAX_CHAPTERS)
-                        .joinToString(", ")
+                    val joinedChapterNumbers =
+                        displayableChapterNumbers
+                            .take(NOTIF_MAX_CHAPTERS)
+                            .joinToString(", ")
                     context.pluralStringResource(
                         MR.plurals.notification_chapters_multiple_and_more,
                         remaining,
@@ -365,10 +389,11 @@ class LibraryUpdateNotifier(
      * Returns an intent to open the main activity.
      */
     private fun getNotificationIntent(): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            action = Constants.SHORTCUT_UPDATES
-        }
+        val intent =
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                action = Constants.SHORTCUT_UPDATES
+            }
         return PendingIntent.getActivity(
             context,
             0,
@@ -387,3 +412,4 @@ private const val NOTIF_MAX_CHAPTERS = 5
 private const val NOTIF_TITLE_MAX_LEN = 45
 private const val NOTIF_ICON_SIZE = 192
 private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
+

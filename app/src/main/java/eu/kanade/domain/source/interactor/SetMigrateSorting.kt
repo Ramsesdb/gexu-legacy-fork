@@ -5,8 +5,10 @@ import eu.kanade.domain.source.service.SourcePreferences
 class SetMigrateSorting(
     private val preferences: SourcePreferences,
 ) {
-
-    fun await(mode: Mode, direction: Direction) {
+    fun await(
+        mode: Mode,
+        direction: Direction,
+    ) {
         preferences.migrationSortingMode().set(mode)
         preferences.migrationSortingDirection().set(direction)
     }
@@ -21,3 +23,4 @@ class SetMigrateSorting(
         DESCENDING,
     }
 }
+

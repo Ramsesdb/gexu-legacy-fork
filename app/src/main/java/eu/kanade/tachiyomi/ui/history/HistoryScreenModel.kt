@@ -59,46 +59,55 @@ class HistoryScreenModel(
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
     private val sourceManager: SourceManager = Injekt.get(),
 ) : StateScreenModel<HistoryScreenModel.State>(State()) {
-
     private val _events: Channel<Event> = Channel(Channel.UNLIMITED)
     val events: Flow<Event> = _events.receiveAsFlow()
 
     init {
         screenModelScope.launch {
-            state.map { it.searchQuery }
+            state
+                .map { it.searchQuery }
                 .distinctUntilChanged()
                 .flatMapLatest { query ->
-                    getHistory.subscribe(query ?: "")
+                    getHistory
+                        .subscribe(query ?: "")
                         .distinctUntilChanged()
                         .catch { error ->
                             logcat(LogPriority.ERROR, error)
                             _events.send(Event.InternalError)
-                        }
-                        .map { it.toHistoryUiModels() }
+                        }.map { it.toHistoryUiModels() }
                         .flowOn(Dispatchers.IO)
-                }
-                .collect { newList -> mutableState.update { it.copy(list = newList) } }
+                }.collect { newList -> mutableState.update { it.copy(list = newList) } }
         }
     }
 
-    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> {
-        return map { HistoryUiModel.Item(it) }
+    private fun List<HistoryWithRelations>.toHistoryUiModels(): List<HistoryUiModel> =
+        map { HistoryUiModel.Item(it) }
             .insertSeparators { before, after ->
-                val beforeDate = before?.item?.readAt?.time?.toLocalDate()
-                val afterDate = after?.item?.readAt?.time?.toLocalDate()
+                val beforeDate =
+                    before
+                        ?.item
+                        ?.readAt
+                        ?.time
+                        ?.toLocalDate()
+                val afterDate =
+                    after
+                        ?.item
+                        ?.readAt
+                        ?.time
+                        ?.toLocalDate()
                 when {
                     beforeDate != afterDate && afterDate != null -> HistoryUiModel.Header(afterDate)
                     // Return null to avoid adding a separator between two items.
                     else -> null
                 }
             }
-    }
 
-    suspend fun getNextChapter(): Chapter? {
-        return withIOContext { getNextChapters.await(onlyUnread = false).firstOrNull() }
-    }
+    suspend fun getNextChapter(): Chapter? = withIOContext { getNextChapters.await(onlyUnread = false).firstOrNull() }
 
-    fun getNextChapterForManga(mangaId: Long, chapterId: Long) {
+    fun getNextChapterForManga(
+        mangaId: Long,
+        chapterId: Long,
+    ) {
         screenModelScope.launchIO {
             sendNextChapterEvent(getNextChapters.await(mangaId, chapterId, onlyUnread = false))
         }
@@ -142,22 +151,29 @@ class HistoryScreenModel(
      *
      * @return List of categories, not including the default category
      */
-    suspend fun getCategories(): List<Category> {
-        return getCategories.await().filterNot { it.isSystemCategory }
-    }
+    suspend fun getCategories(): List<Category> = getCategories.await().filterNot { it.isSystemCategory }
 
-    private fun moveMangaToCategory(mangaId: Long, categories: Category?) {
+    private fun moveMangaToCategory(
+        mangaId: Long,
+        categories: Category?,
+    ) {
         val categoryIds = listOfNotNull(categories).map { it.id }
         moveMangaToCategory(mangaId, categoryIds)
     }
 
-    private fun moveMangaToCategory(mangaId: Long, categoryIds: List<Long>) {
+    private fun moveMangaToCategory(
+        mangaId: Long,
+        categoryIds: List<Long>,
+    ) {
         screenModelScope.launchIO {
             setMangaCategories.await(mangaId, categoryIds)
         }
     }
 
-    fun moveMangaToCategoriesAndAddToLibrary(manga: Manga, categories: List<Long>) {
+    fun moveMangaToCategoriesAndAddToLibrary(
+        manga: Manga,
+        categories: List<Long>,
+    ) {
         moveMangaToCategory(manga.id, categories)
         if (manga.favorite) return
 
@@ -166,10 +182,10 @@ class HistoryScreenModel(
         }
     }
 
-    private suspend fun getMangaCategoryIds(manga: Manga): List<Long> {
-        return getCategories.await(manga.id)
+    private suspend fun getMangaCategoryIds(manga: Manga): List<Long> =
+        getCategories
+            .await(manga.id)
             .map { it.id }
-    }
 
     fun addFavorite(mangaId: Long) {
         screenModelScope.launchIO {
@@ -216,7 +232,10 @@ class HistoryScreenModel(
         }
     }
 
-    fun showMigrateDialog(target: Manga, current: Manga) {
+    fun showMigrateDialog(
+        target: Manga,
+        current: Manga,
+    ) {
         mutableState.update { currentState ->
             currentState.copy(dialog = Dialog.Migrate(target = target, current = current))
         }
@@ -228,10 +247,11 @@ class HistoryScreenModel(
             val selection = getMangaCategoryIds(manga)
             mutableState.update { currentState ->
                 currentState.copy(
-                    dialog = Dialog.ChangeCategory(
-                        manga = manga,
-                        initialSelection = categories.mapAsCheckboxState { it.id in selection }.toImmutableList(),
-                    ),
+                    dialog =
+                        Dialog.ChangeCategory(
+                            manga = manga,
+                            initialSelection = categories.mapAsCheckboxState { it.id in selection }.toImmutableList(),
+                        ),
                 )
             }
         }
@@ -246,18 +266,35 @@ class HistoryScreenModel(
 
     sealed interface Dialog {
         data object DeleteAll : Dialog
-        data class Delete(val history: HistoryWithRelations) : Dialog
-        data class DuplicateManga(val manga: Manga, val duplicates: List<MangaWithChapterCount>) : Dialog
+
+        data class Delete(
+            val history: HistoryWithRelations,
+        ) : Dialog
+
+        data class DuplicateManga(
+            val manga: Manga,
+            val duplicates: List<MangaWithChapterCount>,
+        ) : Dialog
+
         data class ChangeCategory(
             val manga: Manga,
             val initialSelection: ImmutableList<CheckboxState<Category>>,
         ) : Dialog
-        data class Migrate(val target: Manga, val current: Manga) : Dialog
+
+        data class Migrate(
+            val target: Manga,
+            val current: Manga,
+        ) : Dialog
     }
 
     sealed interface Event {
-        data class OpenChapter(val chapter: Chapter?) : Event
+        data class OpenChapter(
+            val chapter: Chapter?,
+        ) : Event
+
         data object InternalError : Event
+
         data object HistoryCleared : Event
     }
 }
+

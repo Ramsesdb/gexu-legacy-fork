@@ -6,7 +6,6 @@ class GlobalSearchScreenModel(
     initialQuery: String = "",
     initialExtensionFilter: String? = null,
 ) : SearchScreenModel(State(searchQuery = initialQuery)) {
-
     init {
         extensionFilter = initialExtensionFilter
         if (initialQuery.isNotBlank() || !initialExtensionFilter.isNullOrBlank()) {
@@ -18,8 +17,9 @@ class GlobalSearchScreenModel(
         }
     }
 
-    override fun getEnabledSources(): List<CatalogueSource> {
-        return super.getEnabledSources()
+    override fun getEnabledSources(): List<CatalogueSource> =
+        super
+            .getEnabledSources()
             .filter { state.value.sourceFilter != SourceFilter.PinnedOnly || "${it.id}" in pinnedSources }
-    }
 }
+

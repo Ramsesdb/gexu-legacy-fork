@@ -31,7 +31,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 data object BrowseTab : Tab {
-
     override val options: TabOptions
         @Composable
         get() {
@@ -62,11 +61,12 @@ data object BrowseTab : Tab {
         val extensionsScreenModel = rememberScreenModel { ExtensionsScreenModel() }
         val extensionsState by extensionsScreenModel.state.collectAsState()
 
-        val tabs = persistentListOf(
-            sourcesTab(),
-            extensionsTab(extensionsScreenModel),
-            migrateSourceTab(),
-        )
+        val tabs =
+            persistentListOf(
+                sourcesTab(),
+                extensionsTab(extensionsScreenModel),
+                migrateSourceTab(),
+            )
 
         val state = rememberPagerState { tabs.size }
 
@@ -78,7 +78,8 @@ data object BrowseTab : Tab {
             onChangeSearchQuery = extensionsScreenModel::search,
         )
         LaunchedEffect(Unit) {
-            switchToExtensionTabChannel.receiveAsFlow()
+            switchToExtensionTabChannel
+                .receiveAsFlow()
                 .collectLatest { state.scrollToPage(1) }
         }
 
@@ -87,3 +88,4 @@ data object BrowseTab : Tab {
         }
     }
 }
+

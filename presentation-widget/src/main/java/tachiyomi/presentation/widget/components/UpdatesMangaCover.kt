@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.widget.components
 
 import android.graphics.Bitmap
@@ -46,3 +48,4 @@ fun UpdatesMangaCover(
         }
     }
 }
+

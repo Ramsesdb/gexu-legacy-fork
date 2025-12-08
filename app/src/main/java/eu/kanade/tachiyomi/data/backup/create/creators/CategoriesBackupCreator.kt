@@ -10,10 +10,10 @@ import uy.kohesive.injekt.api.get
 class CategoriesBackupCreator(
     private val getCategories: GetCategories = Injekt.get(),
 ) {
-
-    suspend operator fun invoke(): List<BackupCategory> {
-        return getCategories.await()
+    suspend operator fun invoke(): List<BackupCategory> =
+        getCategories
+            .await()
             .filterNot(Category::isSystemCategory)
             .map(backupCategoryMapper)
-    }
 }
+

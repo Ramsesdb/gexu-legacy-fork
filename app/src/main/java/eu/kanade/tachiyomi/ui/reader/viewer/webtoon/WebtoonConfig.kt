@@ -23,7 +23,6 @@ class WebtoonConfig(
     scope: CoroutineScope,
     readerPreferences: ReaderPreferences = Injekt.get(),
 ) : ViewerConfig(readerPreferences, scope) {
-
     var themeChangedListener: (() -> Unit)? = null
 
     var imageCropBorders = false
@@ -45,53 +44,67 @@ class WebtoonConfig(
     val theme = readerPreferences.readerTheme().get()
 
     init {
-        readerPreferences.cropBordersWebtoon()
+        readerPreferences
+            .cropBordersWebtoon()
             .register({ imageCropBorders = it }, { imagePropertyChangedListener?.invoke() })
 
-        readerPreferences.webtoonSidePadding()
+        readerPreferences
+            .webtoonSidePadding()
             .register({ sidePadding = it }, { imagePropertyChangedListener?.invoke() })
 
-        readerPreferences.navigationModeWebtoon()
+        readerPreferences
+            .navigationModeWebtoon()
             .register({ navigationMode = it }, { updateNavigation(it) })
 
-        readerPreferences.webtoonNavInverted()
+        readerPreferences
+            .webtoonNavInverted()
             .register({ tappingInverted = it }, { navigator.invertMode = it })
-        readerPreferences.webtoonNavInverted().changes()
+        readerPreferences
+            .webtoonNavInverted()
+            .changes()
             .drop(1)
             .onEach { navigationModeChangedListener?.invoke() }
             .launchIn(scope)
 
-        readerPreferences.dualPageSplitWebtoon()
+        readerPreferences
+            .dualPageSplitWebtoon()
             .register({ dualPageSplit = it }, { imagePropertyChangedListener?.invoke() })
 
-        readerPreferences.dualPageInvertWebtoon()
+        readerPreferences
+            .dualPageInvertWebtoon()
             .register({ dualPageInvert = it }, { imagePropertyChangedListener?.invoke() })
 
-        readerPreferences.dualPageRotateToFitWebtoon()
+        readerPreferences
+            .dualPageRotateToFitWebtoon()
             .register(
                 { dualPageRotateToFit = it },
                 { imagePropertyChangedListener?.invoke() },
             )
 
-        readerPreferences.dualPageRotateToFitInvertWebtoon()
+        readerPreferences
+            .dualPageRotateToFitInvertWebtoon()
             .register(
                 { dualPageRotateToFitInvert = it },
                 { imagePropertyChangedListener?.invoke() },
             )
 
-        readerPreferences.webtoonDisableZoomOut()
+        readerPreferences
+            .webtoonDisableZoomOut()
             .register(
                 { zoomOutDisabled = it },
                 { zoomPropertyChangedListener?.invoke(it) },
             )
 
-        readerPreferences.webtoonDoubleTapZoomEnabled()
+        readerPreferences
+            .webtoonDoubleTapZoomEnabled()
             .register(
                 { doubleTapZoom = it },
                 { doubleTapZoomChangedListener?.invoke(it) },
             )
 
-        readerPreferences.readerTheme().changes()
+        readerPreferences
+            .readerTheme()
+            .changes()
             .drop(1)
             .distinctUntilChanged()
             .onEach { themeChangedListener?.invoke() }
@@ -103,20 +116,20 @@ class WebtoonConfig(
             field = value.also { it.invertMode = tappingInverted }
         }
 
-    override fun defaultNavigation(): ViewerNavigation {
-        return LNavigation()
-    }
+    override fun defaultNavigation(): ViewerNavigation = LNavigation()
 
     override fun updateNavigation(navigationMode: Int) {
-        this.navigator = when (navigationMode) {
-            0 -> defaultNavigation()
-            1 -> LNavigation()
-            2 -> KindlishNavigation()
-            3 -> EdgeNavigation()
-            4 -> RightAndLeftNavigation()
-            5 -> DisabledNavigation()
-            else -> defaultNavigation()
-        }
+        this.navigator =
+            when (navigationMode) {
+                0 -> defaultNavigation()
+                1 -> LNavigation()
+                2 -> KindlishNavigation()
+                3 -> EdgeNavigation()
+                4 -> RightAndLeftNavigation()
+                5 -> DisabledNavigation()
+                else -> defaultNavigation()
+            }
         navigationModeChangedListener?.invoke()
     }
 }
+

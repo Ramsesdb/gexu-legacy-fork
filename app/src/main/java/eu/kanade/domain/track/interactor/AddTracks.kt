@@ -26,9 +26,12 @@ class AddTracks(
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val trackerManager: TrackerManager,
 ) {
-
     // TODO: update all trackers based on common data
-    suspend fun bind(tracker: Tracker, item: Track, mangaId: Long) = withNonCancellableContext {
+    suspend fun bind(
+        tracker: Tracker,
+        item: Track,
+        mangaId: Long,
+    ) = withNonCancellableContext {
         withIOContext {
             val allChapters = getChaptersByMangaId.await(mangaId)
             val hasReadChapters = allChapters.any { it.read }
@@ -41,33 +44,40 @@ class AddTracks(
             // TODO: merge into [SyncChapterProgressWithTrack]?
             // Update chapter progress if newer chapters marked read locally
             if (hasReadChapters) {
-                val latestLocalReadChapterNumber = allChapters
-                    .sortedBy { it.chapterNumber }
-                    .takeWhile { it.read }
-                    .lastOrNull()
-                    ?.chapterNumber ?: -1.0
+                val latestLocalReadChapterNumber =
+                    allChapters
+                        .sortedBy { it.chapterNumber }
+                        .takeWhile { it.read }
+                        .lastOrNull()
+                        ?.chapterNumber ?: -1.0
 
                 if (latestLocalReadChapterNumber > track.lastChapterRead) {
-                    track = track.copy(
-                        lastChapterRead = latestLocalReadChapterNumber,
-                    )
+                    track =
+                        track.copy(
+                            lastChapterRead = latestLocalReadChapterNumber,
+                        )
                     tracker.setRemoteLastChapterRead(track.toDbTrack(), latestLocalReadChapterNumber.toInt())
                 }
 
                 if (track.startDate <= 0) {
-                    val firstReadChapterDate = Injekt.get<GetHistory>().await(mangaId)
-                        .sortedBy { it.readAt }
-                        .firstOrNull()
-                        ?.readAt
+                    val firstReadChapterDate =
+                        Injekt
+                            .get<GetHistory>()
+                            .await(mangaId)
+                            .sortedBy { it.readAt }
+                            .firstOrNull()
+                            ?.readAt
 
                     firstReadChapterDate?.let {
-                        val startDate = firstReadChapterDate.time.convertEpochMillisZone(
-                            ZoneOffset.systemDefault(),
-                            ZoneOffset.UTC,
-                        )
-                        track = track.copy(
-                            startDate = startDate,
-                        )
+                        val startDate =
+                            firstReadChapterDate.time.convertEpochMillisZone(
+                                ZoneOffset.systemDefault(),
+                                ZoneOffset.UTC,
+                            )
+                        track =
+                            track.copy(
+                                startDate = startDate,
+                            )
                         tracker.setRemoteStartDate(track.toDbTrack(), startDate)
                     }
                 }
@@ -77,9 +87,13 @@ class AddTracks(
         }
     }
 
-    suspend fun bindEnhancedTrackers(manga: Manga, source: Source) = withNonCancellableContext {
+    suspend fun bindEnhancedTrackers(
+        manga: Manga,
+        source: Source,
+    ) = withNonCancellableContext {
         withIOContext {
-            trackerManager.loggedInTrackers()
+            trackerManager
+                .loggedInTrackers()
                 .filterIsInstance<EnhancedTracker>()
                 .filter { it.accept(source) }
                 .forEach { service ->
@@ -105,3 +119,4 @@ class AddTracks(
         }
     }
 }
+

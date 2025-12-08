@@ -16,10 +16,11 @@ afterEvaluate {
     // Configurar la extensión vía reflexión para no depender del accessor generado por el DSL de plugins
     extensions.findByName("shortcutHelper")?.let { ext ->
         runCatching {
-            ext.javaClass.methods.firstOrNull {
-                it.name == "setFilePath" &&
-                    it.parameterCount == 1
-            }?.invoke(ext, "./shortcuts.xml")
+            ext.javaClass.methods
+                .firstOrNull {
+                    it.name == "setFilePath" &&
+                        it.parameterCount == 1
+                }?.invoke(ext, "./shortcuts.xml")
         }
     }
 }
@@ -119,29 +120,30 @@ android {
 
     packaging {
         jniLibs {
-            keepDebugSymbols += listOf(
-                "libandroidx.graphics.path",
-                "libarchive-jni",
-                "libconscrypt_jni",
-                "libimagedecoder",
-                "libquickjs",
-                "libsqlite3x",
-            )
-                .map { "**/$it.so" }
+            keepDebugSymbols +=
+                listOf(
+                    "libandroidx.graphics.path",
+                    "libarchive-jni",
+                    "libconscrypt_jni",
+                    "libimagedecoder",
+                    "libquickjs",
+                    "libsqlite3x",
+                ).map { "**/$it.so" }
         }
         resources {
-            excludes += setOf(
-                "kotlin-tooling-metadata.json",
-                "LICENSE.txt",
-                "META-INF/**/*.properties",
-                "META-INF/**/LICENSE.txt",
-                "META-INF/*.properties",
-                "META-INF/*.version",
-                "META-INF/DEPENDENCIES",
-                "META-INF/LICENSE",
-                "META-INF/NOTICE",
-                "META-INF/README.md",
-            )
+            excludes +=
+                setOf(
+                    "kotlin-tooling-metadata.json",
+                    "LICENSE.txt",
+                    "META-INF/**/*.properties",
+                    "META-INF/**/LICENSE.txt",
+                    "META-INF/*.properties",
+                    "META-INF/*.version",
+                    "META-INF/DEPENDENCIES",
+                    "META-INF/LICENSE",
+                    "META-INF/NOTICE",
+                    "META-INF/README.md",
+                )
         }
     }
 
@@ -311,7 +313,8 @@ androidComponents {
     onVariants(selector().withFlavor("default" to "standard")) {
         // Only excluding in standard flavor because this breaks
         // Layout Inspector's Compose tree
-        it.packaging.resources.excludes.add("META-INF/*.version")
+        it.packaging.resources.excludes
+            .add("META-INF/*.version")
     }
 }
 
@@ -320,3 +323,4 @@ buildscript {
         classpath(kotlinx.gradle)
     }
 }
+

@@ -19,11 +19,16 @@ import mihon.feature.migration.list.components.MigrationMangaDialog
 import mihon.feature.migration.list.components.MigrationProgressDialog
 import tachiyomi.i18n.MR
 
-class MigrationListScreen(private val mangaIds: Collection<Long>, private val extraSearchQuery: String?) : Screen() {
-
+class MigrationListScreen(
+    private val mangaIds: Collection<Long>,
+    private val extraSearchQuery: String?,
+) : Screen() {
     private var matchOverride: Pair<Long, Long>? = null
 
-    fun addMatchOverride(current: Long, target: Long) {
+    fun addMatchOverride(
+        current: Long,
+        target: Long,
+    ) {
         matchOverride = current to target
     }
 
@@ -103,3 +108,4 @@ class MigrationListScreen(private val mangaIds: Collection<Long>, private val ex
         }
     }
 }
+

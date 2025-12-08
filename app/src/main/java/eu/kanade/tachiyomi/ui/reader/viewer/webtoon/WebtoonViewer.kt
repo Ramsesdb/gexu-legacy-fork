@@ -31,8 +31,10 @@ import kotlin.math.min
 /**
  * Implementation of a [Viewer] to display pages with a [RecyclerView].
  */
-class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = true) : Viewer {
-
+class WebtoonViewer(
+    val activity: ReaderActivity,
+    val isContinuous: Boolean = true,
+) : Viewer {
     val downloadManager: DownloadManager by injectLazy()
 
     private val scope = MainScope()
@@ -73,7 +75,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     private var currentPage: Any? = null
 
     private val threshold: Int =
-        Injekt.get<ReaderPreferences>()
+        Injekt
+            .get<ReaderPreferences>()
             .readerHideThreshold()
             .get()
             .threshold
@@ -88,7 +91,11 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         recycler.adapter = adapter
         recycler.addOnScrollListener(
             object : RecyclerView.OnScrollListener() {
-                override fun onScrolled(recyclerView: RecyclerView, dx: Int, dy: Int) {
+                override fun onScrolled(
+                    recyclerView: RecyclerView,
+                    dx: Int,
+                    dy: Int,
+                ) {
                     onScrolled()
 
                     if ((dy > threshold || dy < -threshold) && activity.viewModel.state.value.menuVisible) {
@@ -116,10 +123,11 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             recycler.getLocationOnScreen(viewPosition)
             val viewPositionRelativeToWindow = IntArray(2)
             recycler.getLocationInWindow(viewPositionRelativeToWindow)
-            val pos = PointF(
-                (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
-                (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
-            )
+            val pos =
+                PointF(
+                    (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
+                    (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
+                )
             when (config.navigator.getAction(pos)) {
                 NavigationRegion.MENU -> activity.toggleMenu()
                 NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
@@ -189,9 +197,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     /**
      * Returns the view this viewer uses.
      */
-    override fun getView(): View {
-        return frame
-    }
+    override fun getView(): View = frame
 
     /**
      * Destroys this viewer. Called when leaving the reader or swapping viewers.
@@ -205,7 +211,10 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      * Called from the RecyclerView listener when a [page] is marked as active. It notifies the
      * activity of the change and requests the preload of the next chapter if this is the last page.
      */
-    private fun onPageSelected(page: ReaderPage, allowPreload: Boolean) {
+    private fun onPageSelected(
+        page: ReaderPage,
+        allowPreload: Boolean,
+    ) {
         val pages = page.chapter.pages ?: return
         logcat { "onPageSelected: ${page.number}/${pages.size}" }
         activity.onPageSelected(page)
@@ -343,9 +352,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      * Called from the containing activity when a generic motion [event] is received. It should
      * return true if the event was handled, false otherwise.
      */
-    override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
-        return false
-    }
+    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
 
     /**
      * Notifies adapter of changes around the current page to trigger a relayout in the recycler.
@@ -363,3 +370,4 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
 
 // Double the cache size to reduce rebinds/recycles incurred by the extra layout space on scroll direction changes
 private const val RECYCLER_VIEW_CACHE_SIZE = 4
+

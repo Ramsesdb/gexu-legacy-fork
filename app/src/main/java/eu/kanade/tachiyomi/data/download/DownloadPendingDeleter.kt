@@ -19,7 +19,6 @@ class DownloadPendingDeleter(
     context: Context,
     private val json: Json = Injekt.get(),
 ) {
-
     /**
      * Preferences used to store the list of chapters to delete.
      */
@@ -37,36 +36,40 @@ class DownloadPendingDeleter(
      * @param manga the manga of the chapters.
      */
     @Synchronized
-    fun addChapters(chapters: List<Chapter>, manga: Manga) {
+    fun addChapters(
+        chapters: List<Chapter>,
+        manga: Manga,
+    ) {
         val lastEntry = lastAddedEntry
 
-        val newEntry = if (lastEntry != null && lastEntry.manga.id == manga.id) {
-            // Append new chapters
-            val newChapters = lastEntry.chapters.addUniqueById(chapters)
-
-            // If no chapters were added, do nothing
-            if (newChapters.size == lastEntry.chapters.size) return
-
-            // Last entry matches the manga, reuse it to avoid decoding json from preferences
-            lastEntry.copy(chapters = newChapters)
-        } else {
-            val existingEntry = preferences.getString(manga.id.toString(), null)
-            if (existingEntry != null) {
-                // Existing entry found on preferences, decode json and add the new chapter
-                val savedEntry = json.decodeFromString<Entry>(existingEntry)
-
+        val newEntry =
+            if (lastEntry != null && lastEntry.manga.id == manga.id) {
                 // Append new chapters
-                val newChapters = savedEntry.chapters.addUniqueById(chapters)
+                val newChapters = lastEntry.chapters.addUniqueById(chapters)
 
                 // If no chapters were added, do nothing
-                if (newChapters.size == savedEntry.chapters.size) return
+                if (newChapters.size == lastEntry.chapters.size) return
 
-                savedEntry.copy(chapters = newChapters)
+                // Last entry matches the manga, reuse it to avoid decoding json from preferences
+                lastEntry.copy(chapters = newChapters)
             } else {
-                // No entry has been found yet, create a new one
-                Entry(chapters.map { it.toEntry() }, manga.toEntry())
+                val existingEntry = preferences.getString(manga.id.toString(), null)
+                if (existingEntry != null) {
+                    // Existing entry found on preferences, decode json and add the new chapter
+                    val savedEntry = json.decodeFromString<Entry>(existingEntry)
+
+                    // Append new chapters
+                    val newChapters = savedEntry.chapters.addUniqueById(chapters)
+
+                    // If no chapters were added, do nothing
+                    if (newChapters.size == savedEntry.chapters.size) return
+
+                    savedEntry.copy(chapters = newChapters)
+                } else {
+                    // No entry has been found yet, create a new one
+                    Entry(chapters.map { it.toEntry() }, manga.toEntry())
+                }
             }
-        }
 
         // Save current state
         val json = json.encodeToString(newEntry)
@@ -98,15 +101,14 @@ class DownloadPendingDeleter(
     /**
      * Decodes all the chapters from preferences.
      */
-    private fun decodeAll(): List<Entry> {
-        return preferences.all.values.mapNotNull { rawEntry ->
+    private fun decodeAll(): List<Entry> =
+        preferences.all.values.mapNotNull { rawEntry ->
             try {
                 (rawEntry as? String)?.let { json.decodeFromString<Entry>(it) }
             } catch (e: Exception) {
                 null
             }
         }
-    }
 
     /**
      * Returns a copy of chapter entries ensuring no duplicates by chapter id.
@@ -134,22 +136,24 @@ class DownloadPendingDeleter(
     /**
      * Returns a manga model from a manga entry.
      */
-    private fun MangaEntry.toModel() = Manga.create().copy(
-        url = url,
-        title = title,
-        source = source,
-        id = id,
-    )
+    private fun MangaEntry.toModel() =
+        Manga.create().copy(
+            url = url,
+            title = title,
+            source = source,
+            id = id,
+        )
 
     /**
      * Returns a chapter model from a chapter entry.
      */
-    private fun ChapterEntry.toModel() = Chapter.create().copy(
-        id = id,
-        url = url,
-        name = name,
-        scanlator = scanlator,
-    )
+    private fun ChapterEntry.toModel() =
+        Chapter.create().copy(
+            id = id,
+            url = url,
+            name = name,
+            scanlator = scanlator,
+        )
 
     /**
      * Class used to save an entry of chapters with their manga into preferences.
@@ -182,3 +186,4 @@ class DownloadPendingDeleter(
         val source: Long,
     )
 }
+

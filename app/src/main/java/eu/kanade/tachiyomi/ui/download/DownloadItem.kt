@@ -12,10 +12,7 @@ class DownloadItem(
     val download: Download,
     header: DownloadHeaderItem,
 ) : AbstractSectionableItem<DownloadHolder, DownloadHeaderItem>(header) {
-
-    override fun getLayoutRes(): Int {
-        return R.layout.download_item
-    }
+    override fun getLayoutRes(): Int = R.layout.download_item
 
     /**
      * Returns a new view holder for this item.
@@ -26,9 +23,7 @@ class DownloadItem(
     override fun createViewHolder(
         view: View,
         adapter: FlexibleAdapter<IFlexible<RecyclerView.ViewHolder>>,
-    ): DownloadHolder {
-        return DownloadHolder(view, adapter as DownloadAdapter)
-    }
+    ): DownloadHolder = DownloadHolder(view, adapter as DownloadAdapter)
 
     /**
      * Binds the given view holder with this item.
@@ -50,9 +45,7 @@ class DownloadItem(
     /**
      * Returns true if this item is draggable.
      */
-    override fun isDraggable(): Boolean {
-        return true
-    }
+    override fun isDraggable(): Boolean = true
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -62,7 +55,6 @@ class DownloadItem(
         return false
     }
 
-    override fun hashCode(): Int {
-        return download.chapter.id.toInt()
-    }
+    override fun hashCode(): Int = download.chapter.id.toInt()
 }
+

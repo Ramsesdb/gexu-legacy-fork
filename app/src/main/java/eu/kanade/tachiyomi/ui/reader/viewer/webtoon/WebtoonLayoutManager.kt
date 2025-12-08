@@ -13,8 +13,10 @@ import androidx.recyclerview.widget.RecyclerView.NO_POSITION
  * This layout manager uses the same package name as the support library in order to use a package
  * protected method.
  */
-class WebtoonLayoutManager(context: Context, private val extraLayoutSpace: Int) : LinearLayoutManager(context) {
-
+class WebtoonLayoutManager(
+    context: Context,
+    private val extraLayoutSpace: Int,
+) : LinearLayoutManager(context) {
     init {
         isItemPrefetchEnabled = false
     }
@@ -23,20 +25,19 @@ class WebtoonLayoutManager(context: Context, private val extraLayoutSpace: Int) 
      * Returns the custom extra layout space.
      */
     @Deprecated("Deprecated in Java")
-    override fun getExtraLayoutSpace(state: RecyclerView.State): Int {
-        return extraLayoutSpace
-    }
+    override fun getExtraLayoutSpace(state: RecyclerView.State): Int = extraLayoutSpace
 
     /**
      * Returns the position of the last item whose end side is visible on screen.
      */
     fun findLastEndVisibleItemPosition(): Int {
         ensureLayoutState()
-        val callback = if (mOrientation == HORIZONTAL) {
-            mHorizontalBoundCheck
-        } else {
-            mVerticalBoundCheck
-        }.mCallback
+        val callback =
+            if (mOrientation == HORIZONTAL) {
+                mHorizontalBoundCheck
+            } else {
+                mVerticalBoundCheck
+            }.mCallback
         val start = callback.parentStart
         val end = callback.parentEnd
         for (i in childCount - 1 downTo 0) {
@@ -50,3 +51,4 @@ class WebtoonLayoutManager(context: Context, private val extraLayoutSpace: Int) 
         return NO_POSITION
     }
 }
+

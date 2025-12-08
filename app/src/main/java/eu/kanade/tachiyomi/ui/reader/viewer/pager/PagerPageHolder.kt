@@ -37,8 +37,8 @@ class PagerPageHolder(
     readerThemedContext: Context,
     val viewer: PagerViewer,
     val page: ReaderPage,
-) : ReaderPageImageView(readerThemedContext), ViewPagerAdapter.PositionableView {
-
+) : ReaderPageImageView(readerThemedContext),
+    ViewPagerAdapter.PositionableView {
     /**
      * Item that identifies this view. Needed by the adapter to not recreate views.
      */
@@ -150,16 +150,18 @@ class PagerPageHolder(
         val streamFn = page.stream ?: return
 
         try {
-            val (source, isAnimated, background) = withIOContext {
-                val source = streamFn().use { process(item, Buffer().readFrom(it)) }
-                val isAnimated = ImageUtil.isAnimatedAndSupported(source)
-                val background = if (!isAnimated && viewer.config.automaticBackground) {
-                    ImageUtil.chooseBackground(context, source.peek().inputStream())
-                } else {
-                    null
+            val (source, isAnimated, background) =
+                withIOContext {
+                    val source = streamFn().use { process(item, Buffer().readFrom(it)) }
+                    val isAnimated = ImageUtil.isAnimatedAndSupported(source)
+                    val background =
+                        if (!isAnimated && viewer.config.automaticBackground) {
+                            ImageUtil.chooseBackground(context, source.peek().inputStream())
+                        } else {
+                            null
+                        }
+                    Triple(source, isAnimated, background)
                 }
-                Triple(source, isAnimated, background)
-            }
             withUIContext {
                 setImage(
                     source,
@@ -185,7 +187,10 @@ class PagerPageHolder(
         }
     }
 
-    private fun process(page: ReaderPage, imageSource: BufferedSource): BufferedSource {
+    private fun process(
+        page: ReaderPage,
+        imageSource: BufferedSource,
+    ): BufferedSource {
         if (viewer.config.dualPageRotateToFit) {
             return rotateDualPage(imageSource)
         }
@@ -219,19 +224,21 @@ class PagerPageHolder(
     }
 
     private fun splitInHalf(imageSource: BufferedSource): BufferedSource {
-        var side = when {
-            viewer is L2RPagerViewer && page is InsertPage -> ImageUtil.Side.RIGHT
-            viewer !is L2RPagerViewer && page is InsertPage -> ImageUtil.Side.LEFT
-            viewer is L2RPagerViewer && page !is InsertPage -> ImageUtil.Side.LEFT
-            viewer !is L2RPagerViewer && page !is InsertPage -> ImageUtil.Side.RIGHT
-            else -> error("We should choose a side!")
-        }
+        var side =
+            when {
+                viewer is L2RPagerViewer && page is InsertPage -> ImageUtil.Side.RIGHT
+                viewer !is L2RPagerViewer && page is InsertPage -> ImageUtil.Side.LEFT
+                viewer is L2RPagerViewer && page !is InsertPage -> ImageUtil.Side.LEFT
+                viewer !is L2RPagerViewer && page !is InsertPage -> ImageUtil.Side.RIGHT
+                else -> error("We should choose a side!")
+            }
 
         if (viewer.config.dualPageInvert) {
-            side = when (side) {
-                ImageUtil.Side.RIGHT -> ImageUtil.Side.LEFT
-                ImageUtil.Side.LEFT -> ImageUtil.Side.RIGHT
-            }
+            side =
+                when (side) {
+                    ImageUtil.Side.RIGHT -> ImageUtil.Side.LEFT
+                    ImageUtil.Side.LEFT -> ImageUtil.Side.RIGHT
+                }
         }
 
         return ImageUtil.splitInHalf(imageSource, side)
@@ -286,7 +293,9 @@ class PagerPageHolder(
             if (imageUrl.startsWith("http", true)) {
                 errorLayout?.actionOpenInWebView?.viewer = viewer
                 errorLayout?.actionOpenInWebView?.setOnClickListener {
-                    val sourceId = viewer.activity.viewModel.manga?.source
+                    val sourceId =
+                        viewer.activity.viewModel.manga
+                            ?.source
 
                     val intent = WebViewActivity.newIntent(context, imageUrl, sourceId)
                     context.startActivity(intent)
@@ -309,3 +318,4 @@ class PagerPageHolder(
         errorLayout = null
     }
 }
+

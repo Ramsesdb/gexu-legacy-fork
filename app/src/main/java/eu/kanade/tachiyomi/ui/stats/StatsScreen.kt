@@ -16,7 +16,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class StatsScreen : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -45,3 +44,4 @@ class StatsScreen : Screen() {
         }
     }
 }
+

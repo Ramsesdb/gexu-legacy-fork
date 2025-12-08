@@ -45,7 +45,6 @@ class WebtoonPageHolder(
     private val frame: ReaderPageImageView,
     viewer: WebtoonViewer,
 ) : WebtoonBaseHolder(frame, viewer) {
-
     /**
      * Loading progress bar to indicate the current progress.
      */
@@ -99,15 +98,16 @@ class WebtoonPageHolder(
     }
 
     private fun refreshLayoutParams() {
-        frame.layoutParams = FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
-            if (!viewer.isContinuous) {
-                bottomMargin = 15.dpToPx
-            }
+        frame.layoutParams =
+            FrameLayout.LayoutParams(MATCH_PARENT, WRAP_CONTENT).apply {
+                if (!viewer.isContinuous) {
+                    bottomMargin = 15.dpToPx
+                }
 
-            val margin = Resources.getSystem().displayMetrics.widthPixels * (viewer.config.sidePadding / 100f)
-            marginEnd = margin.toInt()
-            marginStart = margin.toInt()
-        }
+                val margin = Resources.getSystem().displayMetrics.widthPixels * (viewer.config.sidePadding / 100f)
+                marginEnd = margin.toInt()
+                marginStart = margin.toInt()
+            }
     }
 
     /**
@@ -190,11 +190,12 @@ class WebtoonPageHolder(
         val streamFn = page?.stream ?: return
 
         try {
-            val (source, isAnimated) = withIOContext {
-                val source = streamFn().use { process(Buffer().readFrom(it)) }
-                val isAnimated = ImageUtil.isAnimatedAndSupported(source)
-                Pair(source, isAnimated)
-            }
+            val (source, isAnimated) =
+                withIOContext {
+                    val source = streamFn().use { process(Buffer().readFrom(it)) }
+                    val isAnimated = ImageUtil.isAnimatedAndSupported(source)
+                    Pair(source, isAnimated)
+                }
             withUIContext {
                 frame.setImage(
                     source,
@@ -264,11 +265,12 @@ class WebtoonPageHolder(
         progressContainer = FrameLayout(context)
         frame.addView(progressContainer, MATCH_PARENT, parentHeight)
 
-        val progress = ReaderProgressIndicator(context).apply {
-            updateLayoutParams<FrameLayout.LayoutParams> {
-                updateMargins(top = parentHeight / 4)
+        val progress =
+            ReaderProgressIndicator(context).apply {
+                updateLayoutParams<FrameLayout.LayoutParams> {
+                    updateMargins(top = parentHeight / 4)
+                }
             }
-        }
         progressContainer.addView(progress)
         return progress
     }
@@ -290,7 +292,9 @@ class WebtoonPageHolder(
         if (imageUrl != null) {
             if (imageUrl.startsWith("http", true)) {
                 errorLayout?.actionOpenInWebView?.setOnClickListener {
-                    val sourceId = viewer.activity.viewModel.manga?.source
+                    val sourceId =
+                        viewer.activity.viewModel.manga
+                            ?.source
 
                     val intent = WebViewActivity.newIntent(context, imageUrl, sourceId)
                     context.startActivity(intent)
@@ -314,3 +318,4 @@ class WebtoonPageHolder(
         }
     }
 }
+

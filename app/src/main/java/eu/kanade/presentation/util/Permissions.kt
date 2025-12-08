@@ -19,11 +19,12 @@ fun rememberRequestPackageInstallsPermissionState(initialValue: Boolean = false)
     var installGranted by remember { mutableStateOf(initialValue) }
 
     DisposableEffect(lifecycleOwner.lifecycle) {
-        val observer = object : DefaultLifecycleObserver {
-            override fun onResume(owner: LifecycleOwner) {
-                installGranted = context.packageManager.canRequestPackageInstalls()
+        val observer =
+            object : DefaultLifecycleObserver {
+                override fun onResume(owner: LifecycleOwner) {
+                    installGranted = context.packageManager.canRequestPackageInstalls()
+                }
             }
-        }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
             lifecycleOwner.lifecycle.removeObserver(observer)
@@ -32,3 +33,4 @@ fun rememberRequestPackageInstallsPermissionState(initialValue: Boolean = false)
 
     return installGranted
 }
+

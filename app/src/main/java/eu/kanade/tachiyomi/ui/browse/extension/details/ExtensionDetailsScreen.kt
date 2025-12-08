@@ -16,7 +16,6 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 data class ExtensionDetailsScreen(
     private val pkgName: String,
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -51,3 +50,4 @@ data class ExtensionDetailsScreen(
         }
     }
 }
+

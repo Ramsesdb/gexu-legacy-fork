@@ -16,7 +16,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class ExtensionFilterScreen : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -48,3 +47,4 @@ class ExtensionFilterScreen : Screen() {
         }
     }
 }
+

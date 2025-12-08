@@ -28,13 +28,13 @@ class ExtensionReposScreenModel(
     private val replaceExtensionRepo: ReplaceExtensionRepo = Injekt.get(),
     private val updateExtensionRepo: UpdateExtensionRepo = Injekt.get(),
 ) : StateScreenModel<RepoScreenState>(RepoScreenState.Loading) {
-
     private val _events: Channel<RepoEvent> = Channel(Int.MAX_VALUE)
     val events = _events.receiveAsFlow()
 
     init {
         screenModelScope.launchIO {
-            getExtensionRepo.subscribeAll()
+            getExtensionRepo
+                .subscribeAll()
                 .collectLatest { repos ->
                     mutableState.update {
                         RepoScreenState.Success(
@@ -116,20 +116,33 @@ class ExtensionReposScreenModel(
 }
 
 sealed class RepoEvent {
-    sealed class LocalizedMessage(val stringRes: StringResource) : RepoEvent()
+    sealed class LocalizedMessage(
+        val stringRes: StringResource,
+    ) : RepoEvent()
+
     data object InvalidUrl : LocalizedMessage(MR.strings.invalid_repo_name)
+
     data object RepoAlreadyExists : LocalizedMessage(MR.strings.error_repo_exists)
 }
 
 sealed class RepoDialog {
     data object Create : RepoDialog()
-    data class Delete(val repo: String) : RepoDialog()
-    data class Conflict(val oldRepo: ExtensionRepo, val newRepo: ExtensionRepo) : RepoDialog()
-    data class Confirm(val url: String) : RepoDialog()
+
+    data class Delete(
+        val repo: String,
+    ) : RepoDialog()
+
+    data class Conflict(
+        val oldRepo: ExtensionRepo,
+        val newRepo: ExtensionRepo,
+    ) : RepoDialog()
+
+    data class Confirm(
+        val url: String,
+    ) : RepoDialog()
 }
 
 sealed class RepoScreenState {
-
     @Immutable
     data object Loading : RepoScreenState()
 
@@ -139,8 +152,8 @@ sealed class RepoScreenState {
         val oldRepos: ImmutableSet<String>? = null,
         val dialog: RepoDialog? = null,
     ) : RepoScreenState() {
-
         val isEmpty: Boolean
             get() = repos.isEmpty()
     }
 }
+

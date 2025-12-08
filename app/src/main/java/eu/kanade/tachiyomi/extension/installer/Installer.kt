@@ -19,19 +19,24 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
  * Base implementation class for extension installer. To be used inside a foreground [Service].
  */
 @OptIn(ExperimentalAtomicApi::class)
-abstract class Installer(private val service: Service) {
-
+abstract class Installer(
+    private val service: Service,
+) {
     private val extensionManager: ExtensionManager by injectLazy()
 
     private var waitingInstall = AtomicReference<Entry?>(null)
     private val queue = Collections.synchronizedList(mutableListOf<Entry>())
 
-    private val cancelReceiver = object : BroadcastReceiver() {
-        override fun onReceive(context: Context, intent: Intent) {
-            val downloadId = intent.getLongExtra(EXTRA_DOWNLOAD_ID, -1).takeIf { it >= 0 } ?: return
-            cancelQueue(downloadId)
+    private val cancelReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(
+                context: Context,
+                intent: Intent,
+            ) {
+                val downloadId = intent.getLongExtra(EXTRA_DOWNLOAD_ID, -1).takeIf { it >= 0 } ?: return
+                cancelQueue(downloadId)
+            }
         }
-    }
 
     /**
      * Installer readiness. If false, queue check will not run.
@@ -46,7 +51,10 @@ abstract class Installer(private val service: Service) {
      * @param downloadId Download ID as known by [ExtensionManager]
      * @param uri Uri of APK to install
      */
-    fun addToQueue(downloadId: Long, uri: Uri) {
+    fun addToQueue(
+        downloadId: Long,
+        uri: Uri,
+    ) {
         queue.add(Entry(downloadId, uri))
         checkQueue()
     }
@@ -69,9 +77,7 @@ abstract class Installer(private val service: Service) {
      *
      * @return true if this entry can be removed from queue.
      */
-    open fun cancelEntry(entry: Entry): Boolean {
-        return true
-    }
+    open fun cancelEntry(entry: Entry): Boolean = true
 
     /**
      * Tells the queue to continue processing the next entry and updates the install step
@@ -147,7 +153,10 @@ abstract class Installer(private val service: Service) {
      * @param downloadId Download ID as known by [ExtensionManager]
      * @param uri Uri of APK to install
      */
-    data class Entry(val downloadId: Long, val uri: Uri)
+    data class Entry(
+        val downloadId: Long,
+        val uri: Uri,
+    )
 
     init {
         val filter = IntentFilter(ACTION_CANCEL_QUEUE)
@@ -163,10 +172,14 @@ abstract class Installer(private val service: Service) {
          *
          * @param downloadId Download ID as known by [ExtensionManager]
          */
-        fun cancelInstallQueue(context: Context, downloadId: Long) {
+        fun cancelInstallQueue(
+            context: Context,
+            downloadId: Long,
+        ) {
             val intent = Intent(ACTION_CANCEL_QUEUE)
             intent.putExtra(EXTRA_DOWNLOAD_ID, downloadId)
             LocalBroadcastManager.getInstance(context).sendBroadcast(intent)
         }
     }
 }
+

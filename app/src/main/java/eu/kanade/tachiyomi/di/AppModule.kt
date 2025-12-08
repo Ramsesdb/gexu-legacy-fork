@@ -45,8 +45,9 @@ import uy.kohesive.injekt.api.addSingleton
 import uy.kohesive.injekt.api.addSingletonFactory
 import uy.kohesive.injekt.api.get
 
-class AppModule(val app: Application) : InjektModule {
-
+class AppModule(
+    val app: Application,
+) : InjektModule {
     override fun InjektRegistrar.registerInjectables() {
         addSingleton(app)
 
@@ -55,37 +56,45 @@ class AppModule(val app: Application) : InjektModule {
                 schema = Database.Schema,
                 context = app,
                 name = "tachiyomi.db",
-                factory = if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Support database inspector in Android Studio
-                    FrameworkSQLiteOpenHelperFactory()
-                } else {
-                    RequerySQLiteOpenHelperFactory()
-                },
-                callback = object : AndroidSqliteDriver.Callback(Database.Schema) {
-                    override fun onOpen(db: SupportSQLiteDatabase) {
-                        super.onOpen(db)
-                        setPragma(db, "foreign_keys = ON")
-                        setPragma(db, "journal_mode = WAL")
-                        setPragma(db, "synchronous = NORMAL")
-                    }
-                    private fun setPragma(db: SupportSQLiteDatabase, pragma: String) {
-                        val cursor = db.query("PRAGMA $pragma")
-                        cursor.moveToFirst()
-                        cursor.close()
-                    }
-                },
+                factory =
+                    if (BuildConfig.DEBUG && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                        // Support database inspector in Android Studio
+                        FrameworkSQLiteOpenHelperFactory()
+                    } else {
+                        RequerySQLiteOpenHelperFactory()
+                    },
+                callback =
+                    object : AndroidSqliteDriver.Callback(Database.Schema) {
+                        override fun onOpen(db: SupportSQLiteDatabase) {
+                            super.onOpen(db)
+                            setPragma(db, "foreign_keys = ON")
+                            setPragma(db, "journal_mode = WAL")
+                            setPragma(db, "synchronous = NORMAL")
+                        }
+
+                        private fun setPragma(
+                            db: SupportSQLiteDatabase,
+                            pragma: String,
+                        ) {
+                            val cursor = db.query("PRAGMA $pragma")
+                            cursor.moveToFirst()
+                            cursor.close()
+                        }
+                    },
             )
         }
         addSingletonFactory {
             Database(
                 driver = get(),
-                historyAdapter = History.Adapter(
-                    last_readAdapter = DateColumnAdapter,
-                ),
-                mangasAdapter = Mangas.Adapter(
-                    genreAdapter = StringListColumnAdapter,
-                    update_strategyAdapter = UpdateStrategyColumnAdapter,
-                ),
+                historyAdapter =
+                    History.Adapter(
+                        last_readAdapter = DateColumnAdapter,
+                    ),
+                mangasAdapter =
+                    Mangas.Adapter(
+                        genreAdapter = StringListColumnAdapter,
+                        update_strategyAdapter = UpdateStrategyColumnAdapter,
+                    ),
             )
         }
         addSingletonFactory<DatabaseHandler> { AndroidDatabaseHandler(get(), get()) }
@@ -146,3 +155,4 @@ class AppModule(val app: Application) : InjektModule {
         }
     }
 }
+

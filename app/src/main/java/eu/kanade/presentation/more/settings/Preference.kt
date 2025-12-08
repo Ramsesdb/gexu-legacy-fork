@@ -77,11 +77,14 @@ sealed class Preference {
             override val onValueChanged: suspend (value: T) -> Boolean = { true },
         ) : PreferenceItem<T>() {
             internal fun internalSet(value: Any) = preference.set(value as T)
+
             internal suspend fun internalOnValueChanged(value: Any) = onValueChanged(value as T)
 
             @Composable
-            internal fun internalSubtitleProvider(value: Any?, entries: ImmutableMap<out Any?, String>) =
-                subtitleProvider(value as T, entries as ImmutableMap<T, String>)
+            internal fun internalSubtitleProvider(
+                value: Any?,
+                entries: ImmutableMap<out Any?, String>,
+            ) = subtitleProvider(value as T, entries as ImmutableMap<T, String>)
         }
 
         /**
@@ -110,12 +113,14 @@ sealed class Preference {
             override val subtitle: String? = "%s",
             val subtitleProvider: @Composable (value: Set<String>, entries: ImmutableMap<String, String>) -> String? =
                 { v, e ->
-                    val combined = remember(v, e) {
-                        v.mapNotNull { e[it] }
-                            .joinToString()
-                            .takeUnless { it.isBlank() }
-                    }
-                        ?: stringResource(MR.strings.none)
+                    val combined =
+                        remember(v, e) {
+                            v
+                                .mapNotNull { e[it] }
+                                .joinToString()
+                                .takeUnless { it.isBlank() }
+                        }
+                            ?: stringResource(MR.strings.none)
                     subtitle?.format(combined)
                 },
             override val icon: ImageVector? = null,
@@ -174,7 +179,7 @@ sealed class Preference {
     data class PreferenceGroup(
         override val title: String,
         override val enabled: Boolean = true,
-
         val preferenceItems: ImmutableList<PreferenceItem<out Any>>,
     ) : Preference()
 }
+

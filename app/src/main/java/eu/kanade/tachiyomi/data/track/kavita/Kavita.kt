@@ -19,8 +19,10 @@ import uy.kohesive.injekt.injectLazy
 import java.security.MessageDigest
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
-
+class Kavita(
+    id: Long,
+) : BaseTracker(id, "Kavita"),
+    EnhancedTracker {
     companion object {
         const val UNREAD = 1L
         const val READING = 2L
@@ -40,12 +42,13 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
 
     override fun getStatusList(): List<Long> = listOf(UNREAD, READING, COMPLETED)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        UNREAD -> MR.strings.unread
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            UNREAD -> MR.strings.unread
+            READING -> MR.strings.reading
+            COMPLETED -> MR.strings.completed
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -57,7 +60,10 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
 
     override fun displayScore(track: DomainTrack): String = ""
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -70,9 +76,10 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
         return api.updateProgress(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        return track
-    }
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track = track
 
     override suspend fun search(query: String): List<TrackSearch> {
         TODO("Not yet implemented: search")
@@ -85,7 +92,10 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
         return track
     }
 
-    override suspend fun login(username: String, password: String) {
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) {
         saveCredentials("user", "pass")
     }
 
@@ -104,10 +114,17 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
             null
         }
 
-    override fun isTrackFrom(track: DomainTrack, manga: Manga, source: Source?): Boolean =
-        track.remoteUrl == manga.url && source?.let { accept(it) } == true
+    override fun isTrackFrom(
+        track: DomainTrack,
+        manga: Manga,
+        source: Source?,
+    ): Boolean = track.remoteUrl == manga.url && source?.let { accept(it) } == true
 
-    override fun migrateTrack(track: DomainTrack, manga: Manga, newSource: Source): DomainTrack? =
+    override fun migrateTrack(
+        track: DomainTrack,
+        manga: Manga,
+        newSource: Source,
+    ): DomainTrack? =
         if (accept(newSource)) {
             track.copy(remoteUrl = manga.url)
         } else {
@@ -121,7 +138,8 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
             val sourceId by lazy {
                 val key = "kavita_$id/all/1" // Hardcoded versionID to 1
                 val bytes = MessageDigest.getInstance("MD5").digest(key.toByteArray())
-                (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }
+                (0..7)
+                    .map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }
                     .reduce(Long::or) and Long.MAX_VALUE
             }
             val preferences = (sourceManager.get(sourceId) as ConfigurableSource).sourcePreferences()
@@ -145,3 +163,4 @@ class Kavita(id: Long) : BaseTracker(id, "Kavita"), EnhancedTracker {
         authentications = oauth
     }
 }
+

@@ -17,7 +17,6 @@ class SyncChapterProgressWithTrack(
     private val insertTrack: InsertTrack,
     private val getChaptersByMangaId: GetChaptersByMangaId,
 ) {
-
     suspend fun await(
         mangaId: Long,
         remoteTrack: Track,
@@ -27,13 +26,16 @@ class SyncChapterProgressWithTrack(
             return
         }
 
-        val sortedChapters = getChaptersByMangaId.await(mangaId)
-            .sortedBy { it.chapterNumber }
-            .filter { it.isRecognizedNumber }
+        val sortedChapters =
+            getChaptersByMangaId
+                .await(mangaId)
+                .sortedBy { it.chapterNumber }
+                .filter { it.isRecognizedNumber }
 
-        val chapterUpdates = sortedChapters
-            .filter { chapter -> chapter.chapterNumber <= remoteTrack.lastChapterRead && !chapter.read }
-            .map { it.copy(read = true).toChapterUpdate() }
+        val chapterUpdates =
+            sortedChapters
+                .filter { chapter -> chapter.chapterNumber <= remoteTrack.lastChapterRead && !chapter.read }
+                .map { it.copy(read = true).toChapterUpdate() }
 
         // only take into account continuous reading
         val localLastRead = sortedChapters.takeWhile { it.read }.lastOrNull()?.chapterNumber ?: 0F
@@ -49,3 +51,4 @@ class SyncChapterProgressWithTrack(
         }
     }
 }
+

@@ -18,7 +18,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 class OnboardingScreen : Screen() {
-
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
@@ -47,3 +46,4 @@ class OnboardingScreen : Screen() {
         )
     }
 }
+

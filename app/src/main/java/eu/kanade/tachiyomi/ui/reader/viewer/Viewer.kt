@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
  * Interface for implementing a viewer.
  */
 interface Viewer {
-
     /**
      * Returns the view this viewer uses.
      */
@@ -43,3 +42,4 @@ interface Viewer {
      */
     fun handleGenericMotionEvent(event: MotionEvent): Boolean
 }
+

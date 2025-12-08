@@ -13,8 +13,8 @@ class WebViewScreen(
     private val url: String,
     private val initialTitle: String? = null,
     private val sourceId: Long? = null,
-) : Screen(), AssistContentScreen {
-
+) : Screen(),
+    AssistContentScreen {
     private var assistUrl: String? = null
 
     override fun onProvideAssistUrl() = assistUrl
@@ -37,3 +37,4 @@ class WebViewScreen(
         )
     }
 }
+

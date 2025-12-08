@@ -13,7 +13,10 @@ import tachiyomi.source.local.isLocal
  * Applies the view filters to the list of chapters obtained from the database.
  * @return an observable of the list of chapters filtered and sorted.
  */
-fun List<Chapter>.applyFilters(manga: Manga, downloadManager: DownloadManager): List<Chapter> {
+fun List<Chapter>.applyFilters(
+    manga: Manga,
+    downloadManager: DownloadManager,
+): List<Chapter> {
     val isLocalManga = manga.isLocal()
     val unreadFilter = manga.unreadFilter
     val downloadedFilter = manga.downloadedFilter
@@ -23,17 +26,17 @@ fun List<Chapter>.applyFilters(manga: Manga, downloadManager: DownloadManager): 
         .filter { chapter -> applyFilter(bookmarkedFilter) { chapter.bookmark } }
         .filter { chapter ->
             applyFilter(downloadedFilter) {
-                val downloaded = downloadManager.isChapterDownloaded(
-                    chapter.name,
-                    chapter.scanlator,
-                    chapter.url,
-                    manga.title,
-                    manga.source,
-                )
+                val downloaded =
+                    downloadManager.isChapterDownloaded(
+                        chapter.name,
+                        chapter.scanlator,
+                        chapter.url,
+                        manga.title,
+                        manga.source,
+                    )
                 downloaded || isLocalManga
             }
-        }
-        .sortedWith(getChapterSort(manga))
+        }.sortedWith(getChapterSort(manga))
 }
 
 /**
@@ -51,3 +54,4 @@ fun List<ChapterList.Item>.applyFilters(manga: Manga): Sequence<ChapterList.Item
         .filter { applyFilter(downloadedFilter) { it.isDownloaded || isLocalManga } }
         .sortedWith { (chapter1), (chapter2) -> getChapterSort(manga).invoke(chapter1, chapter2) }
 }
+

@@ -21,27 +21,21 @@ fun LocalDateTime.toDateTimestampString(dateTimeFormatter: DateTimeFormatter): S
     return "$date $time"
 }
 
-fun Date.toTimestampString(): String {
-    return DateFormat.getTimeInstance(DateFormat.SHORT).format(this)
-}
+fun Date.toTimestampString(): String = DateFormat.getTimeInstance(DateFormat.SHORT).format(this)
 
 fun Long.convertEpochMillisZone(
     from: ZoneId,
     to: ZoneId,
-): Long {
-    return LocalDateTime.ofInstant(Instant.ofEpochMilli(this), from)
+): Long =
+    LocalDateTime
+        .ofInstant(Instant.ofEpochMilli(this), from)
         .atZone(to)
         .toInstant()
         .toEpochMilli()
-}
 
-fun Long.toLocalDate(): LocalDate {
-    return LocalDate.ofInstant(Instant.ofEpochMilli(this), ZoneId.systemDefault())
-}
+fun Long.toLocalDate(): LocalDate = LocalDate.ofInstant(Instant.ofEpochMilli(this), ZoneId.systemDefault())
 
-fun Instant.toLocalDate(zoneId: ZoneId = ZoneId.systemDefault()): LocalDate {
-    return LocalDate.ofInstant(this, zoneId)
-}
+fun Instant.toLocalDate(zoneId: ZoneId = ZoneId.systemDefault()): LocalDate = LocalDate.ofInstant(this, zoneId)
 
 fun LocalDate.toRelativeString(
     context: Context,
@@ -55,17 +49,20 @@ fun LocalDate.toRelativeString(
     val difference = ChronoUnit.DAYS.between(this, now)
     return when {
         difference < -7 -> dateFormat.format(this)
-        difference < 0 -> context.pluralStringResource(
-            MR.plurals.upcoming_relative_time,
-            difference.toInt().absoluteValue,
-            difference.toInt().absoluteValue,
-        )
+        difference < 0 ->
+            context.pluralStringResource(
+                MR.plurals.upcoming_relative_time,
+                difference.toInt().absoluteValue,
+                difference.toInt().absoluteValue,
+            )
         difference < 1 -> context.stringResource(MR.strings.relative_time_today)
-        difference < 7 -> context.pluralStringResource(
-            MR.plurals.relative_time,
-            difference.toInt(),
-            difference.toInt(),
-        )
+        difference < 7 ->
+            context.pluralStringResource(
+                MR.plurals.relative_time,
+                difference.toInt(),
+                difference.toInt(),
+            )
         else -> dateFormat.format(this)
     }
 }
+

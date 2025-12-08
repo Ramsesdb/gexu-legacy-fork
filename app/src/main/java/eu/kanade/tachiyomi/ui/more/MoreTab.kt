@@ -38,7 +38,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 data object MoreTab : Tab {
-
     override val options: TabOptions
         @Composable
         get() {
@@ -81,7 +80,6 @@ private class MoreScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     preferences: BasePreferences = Injekt.get(),
 ) : ScreenModel {
-
     var downloadedOnly by preferences.downloadedOnly().asState(screenModelScope)
     var incognitoMode by preferences.incognitoMode().asState(screenModelScope)
 
@@ -97,11 +95,12 @@ private class MoreScreenModel(
             ) { isRunning, downloadQueue -> Pair(isRunning, downloadQueue.size) }
                 .collectLatest { (isDownloading, downloadQueueSize) ->
                     val pendingDownloadExists = downloadQueueSize != 0
-                    _downloadQueueState.value = when {
-                        !pendingDownloadExists -> DownloadQueueState.Stopped
-                        !isDownloading -> DownloadQueueState.Paused(downloadQueueSize)
-                        else -> DownloadQueueState.Downloading(downloadQueueSize)
-                    }
+                    _downloadQueueState.value =
+                        when {
+                            !pendingDownloadExists -> DownloadQueueState.Stopped
+                            !isDownloading -> DownloadQueueState.Paused(downloadQueueSize)
+                            else -> DownloadQueueState.Downloading(downloadQueueSize)
+                        }
                 }
         }
     }
@@ -109,6 +108,13 @@ private class MoreScreenModel(
 
 sealed interface DownloadQueueState {
     data object Stopped : DownloadQueueState
-    data class Paused(val pending: Int) : DownloadQueueState
-    data class Downloading(val pending: Int) : DownloadQueueState
+
+    data class Paused(
+        val pending: Int,
+    ) : DownloadQueueState
+
+    data class Downloading(
+        val pending: Int,
+    ) : DownloadQueueState
 }
+

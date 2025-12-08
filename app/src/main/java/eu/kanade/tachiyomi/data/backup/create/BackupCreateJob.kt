@@ -31,9 +31,10 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.util.concurrent.TimeUnit
 
-class BackupCreateJob(private val context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
-
+class BackupCreateJob(
+    private val context: Context,
+    workerParams: WorkerParameters,
+) : CoroutineWorker(context, workerParams) {
     private val notifier = BackupNotifier(context)
 
     override suspend fun doWork(): Result {
@@ -41,14 +42,16 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
 
         if (isAutoBackup && BackupRestoreJob.isRunning(context)) return Result.retry()
 
-        val uri = inputData.getString(LOCATION_URI_KEY)?.toUri()
-            ?: getAutomaticBackupLocation()
-            ?: return Result.failure()
+        val uri =
+            inputData.getString(LOCATION_URI_KEY)?.toUri()
+                ?: getAutomaticBackupLocation()
+                ?: return Result.failure()
 
         setForegroundSafely()
 
-        val options = inputData.getBooleanArray(OPTIONS_KEY)?.let { BackupOptions.fromBooleanArray(it) }
-            ?: BackupOptions()
+        val options =
+            inputData.getBooleanArray(OPTIONS_KEY)?.let { BackupOptions.fromBooleanArray(it) }
+                ?: BackupOptions()
 
         return try {
             val location = BackupCreator(context, isAutoBackup).backup(uri, options)
@@ -65,8 +68,8 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
         }
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        return ForegroundInfo(
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(
             Notifications.ID_BACKUP_PROGRESS,
             notifier.showBackupProgress().build(),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -75,7 +78,6 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
                 0
             },
         )
-    }
 
     private fun getAutomaticBackupLocation(): Uri? {
         val storageManager = Injekt.get<StorageManager>()
@@ -83,29 +85,31 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
     }
 
     companion object {
-        fun isManualJobRunning(context: Context): Boolean {
-            return context.workManager.isRunning(TAG_MANUAL)
-        }
+        fun isManualJobRunning(context: Context): Boolean = context.workManager.isRunning(TAG_MANUAL)
 
-        fun setupTask(context: Context, prefInterval: Int? = null) {
+        fun setupTask(
+            context: Context,
+            prefInterval: Int? = null,
+        ) {
             val backupPreferences = Injekt.get<BackupPreferences>()
             val interval = prefInterval ?: backupPreferences.backupInterval().get()
             if (interval > 0) {
-                val constraints = Constraints(
-                    requiresBatteryNotLow = true,
-                )
+                val constraints =
+                    Constraints(
+                        requiresBatteryNotLow = true,
+                    )
 
-                val request = PeriodicWorkRequestBuilder<BackupCreateJob>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    10,
-                    TimeUnit.MINUTES,
-                )
-                    .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
-                    .addTag(TAG_AUTO)
-                    .setConstraints(constraints)
-                    .setInputData(workDataOf(IS_AUTO_BACKUP_KEY to true))
-                    .build()
+                val request =
+                    PeriodicWorkRequestBuilder<BackupCreateJob>(
+                        interval.toLong(),
+                        TimeUnit.HOURS,
+                        10,
+                        TimeUnit.MINUTES,
+                    ).setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 10, TimeUnit.MINUTES)
+                        .addTag(TAG_AUTO)
+                        .setConstraints(constraints)
+                        .setInputData(workDataOf(IS_AUTO_BACKUP_KEY to true))
+                        .build()
 
                 context.workManager.enqueueUniquePeriodicWork(TAG_AUTO, ExistingPeriodicWorkPolicy.UPDATE, request)
             } else {
@@ -113,16 +117,22 @@ class BackupCreateJob(private val context: Context, workerParams: WorkerParamete
             }
         }
 
-        fun startNow(context: Context, uri: Uri, options: BackupOptions) {
-            val inputData = workDataOf(
-                IS_AUTO_BACKUP_KEY to false,
-                LOCATION_URI_KEY to uri.toString(),
-                OPTIONS_KEY to options.asBooleanArray(),
-            )
-            val request = OneTimeWorkRequestBuilder<BackupCreateJob>()
-                .addTag(TAG_MANUAL)
-                .setInputData(inputData)
-                .build()
+        fun startNow(
+            context: Context,
+            uri: Uri,
+            options: BackupOptions,
+        ) {
+            val inputData =
+                workDataOf(
+                    IS_AUTO_BACKUP_KEY to false,
+                    LOCATION_URI_KEY to uri.toString(),
+                    OPTIONS_KEY to options.asBooleanArray(),
+                )
+            val request =
+                OneTimeWorkRequestBuilder<BackupCreateJob>()
+                    .addTag(TAG_MANUAL)
+                    .setInputData(inputData)
+                    .build()
             context.workManager.enqueueUniqueWork(TAG_MANUAL, ExistingWorkPolicy.KEEP, request)
         }
     }
@@ -134,3 +144,4 @@ private const val TAG_MANUAL = "$TAG_AUTO:manual"
 private const val IS_AUTO_BACKUP_KEY = "is_auto_backup" // Boolean
 private const val LOCATION_URI_KEY = "location_uri" // String
 private const val OPTIONS_KEY = "options" // BooleanArray
+

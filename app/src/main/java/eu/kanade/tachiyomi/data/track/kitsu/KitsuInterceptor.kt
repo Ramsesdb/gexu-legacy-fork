@@ -8,8 +8,9 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import uy.kohesive.injekt.injectLazy
 
-class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
-
+class KitsuInterceptor(
+    private val kitsu: Kitsu,
+) : Interceptor {
     private val json: Json by injectLazy()
 
     /**
@@ -35,12 +36,14 @@ class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
         }
 
         // Add the authorization header to the original request.
-        val authRequest = originalRequest.newBuilder()
-            .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
-            .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
-            .header("Accept", "application/vnd.api+json")
-            .header("Content-Type", "application/vnd.api+json")
-            .build()
+        val authRequest =
+            originalRequest
+                .newBuilder()
+                .addHeader("Authorization", "Bearer ${oauth!!.accessToken}")
+                .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .header("Accept", "application/vnd.api+json")
+                .header("Content-Type", "application/vnd.api+json")
+                .build()
 
         return chain.proceed(authRequest)
     }
@@ -50,3 +53,4 @@ class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
         kitsu.saveToken(oauth)
     }
 }
+

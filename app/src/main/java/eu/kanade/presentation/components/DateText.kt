@@ -14,22 +14,18 @@ import java.time.LocalDate
 import java.time.ZoneId
 
 @Composable
-fun relativeDateText(
-    dateEpochMillis: Long,
-): String {
-    return relativeDateText(
-        localDate = LocalDate.ofInstant(
-            Instant.ofEpochMilli(dateEpochMillis),
-            ZoneId.systemDefault(),
-        )
-            .takeIf { dateEpochMillis > 0L },
+fun relativeDateText(dateEpochMillis: Long): String =
+    relativeDateText(
+        localDate =
+            LocalDate
+                .ofInstant(
+                    Instant.ofEpochMilli(dateEpochMillis),
+                    ZoneId.systemDefault(),
+                ).takeIf { dateEpochMillis > 0L },
     )
-}
 
 @Composable
-fun relativeDateText(
-    localDate: LocalDate?,
-): String {
+fun relativeDateText(localDate: LocalDate?): String {
     val context = LocalContext.current
 
     val preferences = remember { Injekt.get<UiPreferences>() }
@@ -43,3 +39,4 @@ fun relativeDateText(
     )
         ?: stringResource(MR.strings.not_applicable)
 }
+

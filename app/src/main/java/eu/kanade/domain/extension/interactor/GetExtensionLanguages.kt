@@ -10,8 +10,8 @@ class GetExtensionLanguages(
     private val preferences: SourcePreferences,
     private val extensionManager: ExtensionManager,
 ) {
-    fun subscribe(): Flow<List<String>> {
-        return combine(
+    fun subscribe(): Flow<List<String>> =
+        combine(
             preferences.enabledLanguages().changes(),
             extensionManager.availableExtensionsFlow,
         ) { enabledLanguage, availableExtensions ->
@@ -22,11 +22,10 @@ class GetExtensionLanguages(
                     } else {
                         ext.sources.map { it.lang }
                     }
-                }
-                .distinct()
+                }.distinct()
                 .sortedWith(
                     compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator),
                 )
         }
-    }
 }
+

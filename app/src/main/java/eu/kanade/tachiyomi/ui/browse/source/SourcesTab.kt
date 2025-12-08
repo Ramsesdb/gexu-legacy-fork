@@ -31,18 +31,19 @@ fun Screen.sourcesTab(): TabContent {
 
     return TabContent(
         titleRes = MR.strings.label_sources,
-        actions = persistentListOf(
-            AppBar.Action(
-                title = stringResource(MR.strings.action_global_search),
-                icon = Icons.Outlined.TravelExplore,
-                onClick = { navigator.push(GlobalSearchScreen()) },
+        actions =
+            persistentListOf(
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_global_search),
+                    icon = Icons.Outlined.TravelExplore,
+                    onClick = { navigator.push(GlobalSearchScreen()) },
+                ),
+                AppBar.Action(
+                    title = stringResource(MR.strings.action_filter),
+                    icon = Icons.Outlined.FilterList,
+                    onClick = { navigator.push(SourcesFilterScreen()) },
+                ),
             ),
-            AppBar.Action(
-                title = stringResource(MR.strings.action_filter),
-                icon = Icons.Outlined.FilterList,
-                onClick = { navigator.push(SourcesFilterScreen()) },
-            ),
-        ),
         content = { contentPadding, snackbarHostState ->
             SourcesScreen(
                 state = state,
@@ -83,3 +84,4 @@ fun Screen.sourcesTab(): TabContent {
         },
     )
 }
+

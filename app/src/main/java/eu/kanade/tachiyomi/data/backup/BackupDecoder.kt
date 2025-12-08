@@ -21,21 +21,23 @@ class BackupDecoder(
     /**
      * Decode a potentially-gzipped backup.
      */
-    fun decode(uri: Uri): Backup {
-        return context.contentResolver.openInputStream(uri)!!.use { inputStream ->
+    fun decode(uri: Uri): Backup =
+        context.contentResolver.openInputStream(uri)!!.use { inputStream ->
             val source = inputStream.source().buffer()
 
-            val peeked = source.peek().apply {
-                require(2)
-            }
-            val id1id2 = peeked.readShort()
-            val backupString = when (id1id2.toInt()) {
-                0x1f8b -> source.gzip().buffer() // 0x1f8b is gzip magic bytes
-                MAGIC_JSON_SIGNATURE1, MAGIC_JSON_SIGNATURE2, MAGIC_JSON_SIGNATURE3 -> {
-                    throw IOException(context.stringResource(MR.strings.invalid_backup_file_json))
+            val peeked =
+                source.peek().apply {
+                    require(2)
                 }
-                else -> source
-            }.use { it.readByteArray() }
+            val id1id2 = peeked.readShort()
+            val backupString =
+                when (id1id2.toInt()) {
+                    0x1f8b -> source.gzip().buffer() // 0x1f8b is gzip magic bytes
+                    MAGIC_JSON_SIGNATURE1, MAGIC_JSON_SIGNATURE2, MAGIC_JSON_SIGNATURE3 -> {
+                        throw IOException(context.stringResource(MR.strings.invalid_backup_file_json))
+                    }
+                    else -> source
+                }.use { it.readByteArray() }
 
             try {
                 parser.decodeFromByteArray(Backup.serializer(), backupString)
@@ -43,7 +45,6 @@ class BackupDecoder(
                 throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
             }
         }
-    }
 
     companion object {
         private const val MAGIC_JSON_SIGNATURE1 = 0x7b7d // `{}`
@@ -51,3 +52,4 @@ class BackupDecoder(
         private const val MAGIC_JSON_SIGNATURE3 = 0x7b0a // `{\n`
     }
 }
+

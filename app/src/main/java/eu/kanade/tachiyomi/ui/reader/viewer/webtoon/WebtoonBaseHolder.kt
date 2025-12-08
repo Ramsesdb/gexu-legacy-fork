@@ -9,7 +9,6 @@ abstract class WebtoonBaseHolder(
     view: View,
     protected val viewer: WebtoonViewer,
 ) : RecyclerView.ViewHolder(view) {
-
     /**
      * Context getter because it's used often.
      */
@@ -27,3 +26,4 @@ abstract class WebtoonBaseHolder(
         layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
     }
 }
+

@@ -23,35 +23,39 @@ import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
  *
  * By always rotating we give the feedback to the user that the application isn't 'stuck'.
  */
-class ReaderProgressIndicator @JvmOverloads constructor(
-    context: Context,
-    attrs: AttributeSet? = null,
-    defStyleAttr: Int = 0,
-) : AbstractComposeView(context, attrs, defStyleAttr) {
+class ReaderProgressIndicator
+    @JvmOverloads
+    constructor(
+        context: Context,
+        attrs: AttributeSet? = null,
+        defStyleAttr: Int = 0,
+    ) : AbstractComposeView(context, attrs, defStyleAttr) {
+        init {
+            layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
+            setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
+        }
 
-    init {
-        layoutParams = FrameLayout.LayoutParams(WRAP_CONTENT, WRAP_CONTENT, Gravity.CENTER)
-        setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindowOrReleasedFromPool)
-    }
+        private var progress by mutableFloatStateOf(0f)
 
-    private var progress by mutableFloatStateOf(0f)
+        @Composable
+        override fun Content() {
+            TachiyomiTheme {
+                CombinedCircularProgressIndicator(progress = { progress })
+            }
+        }
 
-    @Composable
-    override fun Content() {
-        TachiyomiTheme {
-            CombinedCircularProgressIndicator(progress = { progress })
+        fun show() {
+            isVisible = true
+        }
+
+        fun hide() {
+            isVisible = false
+        }
+
+        fun setProgress(
+            @IntRange(from = 0, to = 100) progress: Int,
+        ) {
+            this.progress = progress / 100f
         }
     }
 
-    fun show() {
-        isVisible = true
-    }
-
-    fun hide() {
-        isVisible = false
-    }
-
-    fun setProgress(@IntRange(from = 0, to = 100) progress: Int) {
-        this.progress = progress / 100f
-    }
-}

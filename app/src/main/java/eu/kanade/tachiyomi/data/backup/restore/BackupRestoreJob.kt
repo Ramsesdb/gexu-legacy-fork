@@ -23,9 +23,10 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 
-class BackupRestoreJob(private val context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
-
+class BackupRestoreJob(
+    private val context: Context,
+    workerParams: WorkerParameters,
+) : CoroutineWorker(context, workerParams) {
     private val notifier = BackupNotifier(context)
 
     override suspend fun doWork(): Result {
@@ -57,8 +58,8 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
         }
     }
 
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        return ForegroundInfo(
+    override suspend fun getForegroundInfo(): ForegroundInfo =
+        ForegroundInfo(
             Notifications.ID_RESTORE_PROGRESS,
             notifier.showRestoreProgress().build(),
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
@@ -67,12 +68,9 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
                 0
             },
         )
-    }
 
     companion object {
-        fun isRunning(context: Context): Boolean {
-            return context.workManager.isRunning(TAG)
-        }
+        fun isRunning(context: Context): Boolean = context.workManager.isRunning(TAG)
 
         fun start(
             context: Context,
@@ -80,15 +78,17 @@ class BackupRestoreJob(private val context: Context, workerParams: WorkerParamet
             options: RestoreOptions,
             sync: Boolean = false,
         ) {
-            val inputData = workDataOf(
-                LOCATION_URI_KEY to uri.toString(),
-                SYNC_KEY to sync,
-                OPTIONS_KEY to options.asBooleanArray(),
-            )
-            val request = OneTimeWorkRequestBuilder<BackupRestoreJob>()
-                .addTag(TAG)
-                .setInputData(inputData)
-                .build()
+            val inputData =
+                workDataOf(
+                    LOCATION_URI_KEY to uri.toString(),
+                    SYNC_KEY to sync,
+                    OPTIONS_KEY to options.asBooleanArray(),
+                )
+            val request =
+                OneTimeWorkRequestBuilder<BackupRestoreJob>()
+                    .addTag(TAG)
+                    .setInputData(inputData)
+                    .build()
             context.workManager.enqueueUniqueWork(TAG, ExistingWorkPolicy.KEEP, request)
         }
 
@@ -103,3 +103,4 @@ private const val TAG = "BackupRestore"
 private const val LOCATION_URI_KEY = "location_uri" // String
 private const val SYNC_KEY = "sync" // Boolean
 private const val OPTIONS_KEY = "options" // BooleanArray
+

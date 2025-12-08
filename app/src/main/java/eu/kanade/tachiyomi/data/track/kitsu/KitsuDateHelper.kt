@@ -5,7 +5,6 @@ import java.util.Date
 import java.util.Locale
 
 object KitsuDateHelper {
-
     private const val PATTERN = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
     private val formatter = SimpleDateFormat(PATTERN, Locale.ENGLISH)
 
@@ -23,3 +22,4 @@ object KitsuDateHelper {
         return dateValue?.time ?: return 0
     }
 }
+

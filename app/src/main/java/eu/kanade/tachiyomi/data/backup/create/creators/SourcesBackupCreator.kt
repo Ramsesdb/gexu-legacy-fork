@@ -10,16 +10,14 @@ import uy.kohesive.injekt.api.get
 class SourcesBackupCreator(
     private val sourceManager: SourceManager = Injekt.get(),
 ) {
-
-    operator fun invoke(mangas: List<BackupManga>): List<BackupSource> {
-        return mangas
+    operator fun invoke(mangas: List<BackupManga>): List<BackupSource> =
+        mangas
             .asSequence()
             .map(BackupManga::source)
             .distinct()
             .map(sourceManager::getOrStub)
             .map { it.toBackupSource() }
             .toList()
-    }
 }
 
 private fun Source.toBackupSource() =
@@ -27,3 +25,4 @@ private fun Source.toBackupSource() =
         name = this.name,
         sourceId = this.id,
     )
+

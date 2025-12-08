@@ -22,8 +22,9 @@ import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addSingletonFactory
 import uy.kohesive.injekt.api.get
 
-class PreferenceModule(val app: Application) : InjektModule {
-
+class PreferenceModule(
+    val app: Application,
+) : InjektModule {
     override fun InjektRegistrar.registerInjectables() {
         addSingletonFactory<PreferenceStore> {
             AndroidPreferenceStore(app)
@@ -72,3 +73,4 @@ class PreferenceModule(val app: Application) : InjektModule {
         }
     }
 }
+

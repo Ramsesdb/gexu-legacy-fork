@@ -10,7 +10,6 @@ import tachiyomi.i18n.MR
 class ReaderPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
-
     // region General
 
     fun pageTransitions() = preferenceStore.getBoolean("pref_enable_transitions_key", true)
@@ -35,15 +34,17 @@ class ReaderPreferences(
 
     fun keepScreenOn() = preferenceStore.getBoolean("pref_keep_screen_on_key", false)
 
-    fun defaultReadingMode() = preferenceStore.getInt(
-        "pref_default_reading_mode_key",
-        ReadingMode.RIGHT_TO_LEFT.flagValue,
-    )
+    fun defaultReadingMode() =
+        preferenceStore.getInt(
+            "pref_default_reading_mode_key",
+            ReadingMode.RIGHT_TO_LEFT.flagValue,
+        )
 
-    fun defaultOrientationType() = preferenceStore.getInt(
-        "pref_default_orientation_type_key",
-        ReaderOrientation.FREE.flagValue,
-    )
+    fun defaultOrientationType() =
+        preferenceStore.getInt(
+            "pref_default_orientation_type_key",
+            ReaderOrientation.FREE.flagValue,
+        )
 
     fun webtoonDoubleTapZoomEnabled() = preferenceStore.getBoolean("pref_enable_double_tap_zoom_webtoon", true)
 
@@ -156,7 +157,9 @@ class ReaderPreferences(
         BOTH(MR.strings.tapping_inverted_both, shouldInvertHorizontal = true, shouldInvertVertical = true),
     }
 
-    enum class ReaderHideThreshold(val threshold: Int) {
+    enum class ReaderHideThreshold(
+        val threshold: Int,
+    ) {
         HIGHEST(5),
         HIGH(13),
         LOW(31),
@@ -169,48 +172,53 @@ class ReaderPreferences(
 
         const val MILLI_CONVERSION = 100
 
-        val TapZones = listOf(
-            MR.strings.label_default,
-            MR.strings.l_nav,
-            MR.strings.kindlish_nav,
-            MR.strings.edge_nav,
-            MR.strings.right_and_left_nav,
-            MR.strings.disabled_nav,
-        )
-
-        val ImageScaleType = listOf(
-            MR.strings.scale_type_fit_screen,
-            MR.strings.scale_type_stretch,
-            MR.strings.scale_type_fit_width,
-            MR.strings.scale_type_fit_height,
-            MR.strings.scale_type_original_size,
-            MR.strings.scale_type_smart_fit,
-        )
-
-        val ZoomStart = listOf(
-            MR.strings.zoom_start_automatic,
-            MR.strings.zoom_start_left,
-            MR.strings.zoom_start_right,
-            MR.strings.zoom_start_center,
-        )
-
-        val ColorFilterMode = buildList {
-            addAll(
-                listOf(
-                    MR.strings.label_default to BlendMode.SrcOver,
-                    MR.strings.filter_mode_multiply to BlendMode.Modulate,
-                    MR.strings.filter_mode_screen to BlendMode.Screen,
-                ),
+        val TapZones =
+            listOf(
+                MR.strings.label_default,
+                MR.strings.l_nav,
+                MR.strings.kindlish_nav,
+                MR.strings.edge_nav,
+                MR.strings.right_and_left_nav,
+                MR.strings.disabled_nav,
             )
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+
+        val ImageScaleType =
+            listOf(
+                MR.strings.scale_type_fit_screen,
+                MR.strings.scale_type_stretch,
+                MR.strings.scale_type_fit_width,
+                MR.strings.scale_type_fit_height,
+                MR.strings.scale_type_original_size,
+                MR.strings.scale_type_smart_fit,
+            )
+
+        val ZoomStart =
+            listOf(
+                MR.strings.zoom_start_automatic,
+                MR.strings.zoom_start_left,
+                MR.strings.zoom_start_right,
+                MR.strings.zoom_start_center,
+            )
+
+        val ColorFilterMode =
+            buildList {
                 addAll(
                     listOf(
-                        MR.strings.filter_mode_overlay to BlendMode.Overlay,
-                        MR.strings.filter_mode_lighten to BlendMode.Lighten,
-                        MR.strings.filter_mode_darken to BlendMode.Darken,
+                        MR.strings.label_default to BlendMode.SrcOver,
+                        MR.strings.filter_mode_multiply to BlendMode.Modulate,
+                        MR.strings.filter_mode_screen to BlendMode.Screen,
                     ),
                 )
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    addAll(
+                        listOf(
+                            MR.strings.filter_mode_overlay to BlendMode.Overlay,
+                            MR.strings.filter_mode_lighten to BlendMode.Lighten,
+                            MR.strings.filter_mode_darken to BlendMode.Darken,
+                        ),
+                    )
+                }
             }
-        }
     }
 }
+

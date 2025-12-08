@@ -36,7 +36,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 
 class AppLanguageScreen : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
@@ -48,11 +47,12 @@ class AppLanguageScreen : Screen() {
         }
 
         LaunchedEffect(currentLanguage) {
-            val locale = if (currentLanguage.isEmpty()) {
-                LocaleListCompat.getEmptyLocaleList()
-            } else {
-                LocaleListCompat.forLanguageTags(currentLanguage)
-            }
+            val locale =
+                if (currentLanguage.isEmpty()) {
+                    LocaleListCompat.getEmptyLocaleList()
+                } else {
+                    LocaleListCompat.forLanguageTags(currentLanguage)
+                }
             AppCompatDelegate.setApplicationLocales(locale)
         }
 
@@ -70,9 +70,10 @@ class AppLanguageScreen : Screen() {
             ) {
                 items(langs) {
                     ListItem(
-                        modifier = Modifier.clickable {
-                            currentLanguage = it.langTag
-                        },
+                        modifier =
+                            Modifier.clickable {
+                                currentLanguage = it.langTag
+                            },
                         headlineContent = { Text(it.displayName) },
                         supportingContent = {
                             it.localizedDisplayName?.let {
@@ -125,3 +126,4 @@ class AppLanguageScreen : Screen() {
         val localizedDisplayName: String?,
     )
 }
+

@@ -12,8 +12,11 @@ data class SMUserListEntry(
     val score: Int,
     val status: String,
 ) {
-    fun toTrack(trackId: Long, manga: SMManga): Track {
-        return Track.create(trackId).apply {
+    fun toTrack(
+        trackId: Long,
+        manga: SMManga,
+    ): Track =
+        Track.create(trackId).apply {
             title = manga.name
             remote_id = this@SMUserListEntry.id
             total_chapters = manga.chapters
@@ -23,5 +26,5 @@ data class SMUserListEntry(
             status = toTrackStatus(this@SMUserListEntry.status)
             tracking_url = ShikimoriApi.BASE_URL + manga.url
         }
-    }
 }
+

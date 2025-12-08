@@ -23,7 +23,6 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 object SettingsSecurityScreen : SearchableSettings {
-
     @ReadOnlyComposable
     @Composable
     override fun getTitleRes() = MR.strings.pref_category_security
@@ -40,9 +39,7 @@ object SettingsSecurityScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getSecurityGroup(
-        securityPreferences: SecurityPreferences,
-    ): Preference.PreferenceGroup {
+    private fun getSecurityGroup(securityPreferences: SecurityPreferences): Preference.PreferenceGroup {
         val context = LocalContext.current
         val authSupported = remember { context.isAuthenticationSupported() }
         val useAuthPref = securityPreferences.useAuthenticator()
@@ -50,81 +47,82 @@ object SettingsSecurityScreen : SearchableSettings {
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_security),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = useAuthPref,
-                    title = stringResource(MR.strings.lock_with_biometrics),
-                    enabled = authSupported,
-                    onValueChanged = {
-                        (context as FragmentActivity).authenticate(
-                            title = context.stringResource(MR.strings.lock_with_biometrics),
-                        )
-                    },
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = useAuthPref,
+                        title = stringResource(MR.strings.lock_with_biometrics),
+                        enabled = authSupported,
+                        onValueChanged = {
+                            (context as FragmentActivity).authenticate(
+                                title = context.stringResource(MR.strings.lock_with_biometrics),
+                            )
+                        },
+                    ),
+                    Preference.PreferenceItem.ListPreference(
+                        preference = securityPreferences.lockAppAfter(),
+                        entries =
+                            LockAfterValues
+                                .associateWith {
+                                    when (it) {
+                                        -1 -> stringResource(MR.strings.lock_never)
+                                        0 -> stringResource(MR.strings.lock_always)
+                                        else -> pluralStringResource(MR.plurals.lock_after_mins, count = it, it)
+                                    }
+                                }.toImmutableMap(),
+                        title = stringResource(MR.strings.lock_when_idle),
+                        enabled = authSupported && useAuth,
+                        onValueChanged = {
+                            (context as FragmentActivity).authenticate(
+                                title = context.stringResource(MR.strings.lock_when_idle),
+                            )
+                        },
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = securityPreferences.hideNotificationContent(),
+                        title = stringResource(MR.strings.hide_notification_content),
+                    ),
+                    Preference.PreferenceItem.ListPreference(
+                        preference = securityPreferences.secureScreen(),
+                        entries =
+                            SecurityPreferences.SecureScreenMode.entries
+                                .associateWith { stringResource(it.titleRes) }
+                                .toImmutableMap(),
+                        title = stringResource(MR.strings.secure_screen),
+                    ),
+                    Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.secure_screen_summary)),
                 ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = securityPreferences.lockAppAfter(),
-                    entries = LockAfterValues
-                        .associateWith {
-                            when (it) {
-                                -1 -> stringResource(MR.strings.lock_never)
-                                0 -> stringResource(MR.strings.lock_always)
-                                else -> pluralStringResource(MR.plurals.lock_after_mins, count = it, it)
-                            }
-                        }
-                        .toImmutableMap(),
-                    title = stringResource(MR.strings.lock_when_idle),
-                    enabled = authSupported && useAuth,
-                    onValueChanged = {
-                        (context as FragmentActivity).authenticate(
-                            title = context.stringResource(MR.strings.lock_when_idle),
-                        )
-                    },
-                ),
-
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = securityPreferences.hideNotificationContent(),
-                    title = stringResource(MR.strings.hide_notification_content),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = securityPreferences.secureScreen(),
-                    entries = SecurityPreferences.SecureScreenMode.entries
-                        .associateWith { stringResource(it.titleRes) }
-                        .toImmutableMap(),
-                    title = stringResource(MR.strings.secure_screen),
-                ),
-                Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.secure_screen_summary)),
-            ),
         )
     }
 
     @Composable
-    private fun getFirebaseGroup(
-        privacyPreferences: PrivacyPreferences,
-    ): Preference.PreferenceGroup {
-        return Preference.PreferenceGroup(
+    private fun getFirebaseGroup(privacyPreferences: PrivacyPreferences): Preference.PreferenceGroup =
+        Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_firebase),
-            preferenceItems = persistentListOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = privacyPreferences.crashlytics(),
-                    title = stringResource(MR.strings.onboarding_permission_crashlytics),
-                    subtitle = stringResource(MR.strings.onboarding_permission_crashlytics_description),
+            preferenceItems =
+                persistentListOf(
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = privacyPreferences.crashlytics(),
+                        title = stringResource(MR.strings.onboarding_permission_crashlytics),
+                        subtitle = stringResource(MR.strings.onboarding_permission_crashlytics_description),
+                    ),
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = privacyPreferences.analytics(),
+                        title = stringResource(MR.strings.onboarding_permission_analytics),
+                        subtitle = stringResource(MR.strings.onboarding_permission_analytics_description),
+                    ),
+                    Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.firebase_summary)),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = privacyPreferences.analytics(),
-                    title = stringResource(MR.strings.onboarding_permission_analytics),
-                    subtitle = stringResource(MR.strings.onboarding_permission_analytics_description),
-                ),
-                Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.firebase_summary)),
-            ),
         )
-    }
 }
 
-private val LockAfterValues = persistentListOf(
-    0, // Always
-    1,
-    2,
-    5,
-    10,
-    -1, // Never
-)
+private val LockAfterValues =
+    persistentListOf(
+        0, // Always
+        1,
+        2,
+        5,
+        10,
+        -1, // Never
+    )
+

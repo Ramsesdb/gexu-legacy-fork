@@ -8,7 +8,6 @@ import java.io.IOException
 class MangaUpdatesInterceptor(
     mangaUpdates: MangaUpdates,
 ) : Interceptor {
-
     private var token: String? = mangaUpdates.restoreSession()
 
     override fun intercept(chain: Interceptor.Chain): Response {
@@ -17,10 +16,12 @@ class MangaUpdatesInterceptor(
         val token = token ?: throw IOException("Not authenticated with MangaUpdates")
 
         // Add the authorization header to the original request.
-        val authRequest = originalRequest.newBuilder()
-            .addHeader("Authorization", "Bearer $token")
-            .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
-            .build()
+        val authRequest =
+            originalRequest
+                .newBuilder()
+                .addHeader("Authorization", "Bearer $token")
+                .header("User-Agent", "Mihon v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+                .build()
 
         return chain.proceed(authRequest)
     }
@@ -29,3 +30,4 @@ class MangaUpdatesInterceptor(
         this.token = token
     }
 }
+

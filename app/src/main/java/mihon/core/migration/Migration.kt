@@ -11,12 +11,15 @@ interface Migration {
     companion object {
         const val ALWAYS = -1f
 
-        fun of(version: Float, action: suspend (MigrationContext) -> Boolean): Migration = object : Migration {
-            override val version: Float = version
+        fun of(
+            version: Float,
+            action: suspend (MigrationContext) -> Boolean,
+        ): Migration =
+            object : Migration {
+                override val version: Float = version
 
-            override suspend operator fun invoke(migrationContext: MigrationContext): Boolean {
-                return action(migrationContext)
+                override suspend operator fun invoke(migrationContext: MigrationContext): Boolean = action(migrationContext)
             }
-        }
     }
 }
+

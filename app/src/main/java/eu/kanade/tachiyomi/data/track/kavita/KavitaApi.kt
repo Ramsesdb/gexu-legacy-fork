@@ -18,18 +18,20 @@ import uy.kohesive.injekt.injectLazy
 import java.io.IOException
 import java.net.SocketTimeoutException
 
-class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor) {
-
+class KavitaApi(
+    private val client: OkHttpClient,
+    interceptor: KavitaInterceptor,
+) {
     private val json: Json by injectLazy()
 
-    private val authClient = client.newBuilder()
-        .dns(Dns.SYSTEM)
-        .addInterceptor(interceptor)
-        .build()
+    private val authClient =
+        client
+            .newBuilder()
+            .dns(Dns.SYSTEM)
+            .addInterceptor(interceptor)
+            .build()
 
-    fun getApiFromUrl(url: String): String {
-        return url.split("/api/").first() + "/api"
-    }
+    fun getApiFromUrl(url: String): String = url.split("/api/").first() + "/api"
 
     /*
      * Uses url to compare against each source APIURL's to get the correct custom source preference.
@@ -37,11 +39,15 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
      * Authenticates to get the token
      * Saves the token in the var jwtToken
      */
-    fun getNewToken(apiUrl: String, apiKey: String): String? {
-        val request = POST(
-            "$apiUrl/Plugin/authenticate?apiKey=$apiKey&pluginName=Tachiyomi-Kavita",
-            body = "{}".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()),
-        )
+    fun getNewToken(
+        apiUrl: String,
+        apiKey: String,
+    ): String? {
+        val request =
+            POST(
+                "$apiUrl/Plugin/authenticate?apiKey=$apiKey&pluginName=Tachiyomi-Kavita",
+                body = "{}".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull()),
+            )
         try {
             with(json) {
                 client.newCall(request).execute().use {
@@ -79,14 +85,10 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         return null
     }
 
-    private fun getApiVolumesUrl(url: String): String {
-        return "${getApiFromUrl(url)}/Series/volumes?seriesId=${getIdFromUrl(url)}"
-    }
+    private fun getApiVolumesUrl(url: String): String = "${getApiFromUrl(url)}/Series/volumes?seriesId=${getIdFromUrl(url)}"
 
-    /* Strips serie id from URL */
-    private fun getIdFromUrl(url: String): Int {
-        return url.substringAfterLast("/").toInt()
-    }
+    // Strips serie id from URL
+    private fun getIdFromUrl(url: String): Int = url.substringAfterLast("/").toInt()
 
     /*
      * Returns total chapters in the series.
@@ -96,11 +98,13 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
     private fun getTotalChapters(url: String): Long {
         val requestUrl = getApiVolumesUrl(url)
         try {
-            val listVolumeDto = with(json) {
-                authClient.newCall(GET(requestUrl))
-                    .execute()
-                    .parseAs<List<VolumeDto>>()
-            }
+            val listVolumeDto =
+                with(json) {
+                    authClient
+                        .newCall(GET(requestUrl))
+                        .execute()
+                        .parseAs<List<VolumeDto>>()
+                }
             var volumeNumber = 0L
             var maxChapterNumber = 0L
             for (volume in listVolumeDto) {
@@ -125,7 +129,11 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
             with(json) {
                 authClient.newCall(GET(requestUrl)).execute().use {
                     if (it.code == 200) {
-                        return it.parseAs<ChapterDto>().number!!.replace(",", ".").toDouble()
+                        return it
+                            .parseAs<ChapterDto>()
+                            .number!!
+                            .replace(",", ".")
+                            .toDouble()
                     }
                     if (it.code == 204) {
                         return 0.0
@@ -142,33 +150,37 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         return 0.0
     }
 
-    suspend fun getTrackSearch(url: String): TrackSearch = withIOContext {
-        try {
-            val seriesDto: SeriesDto = with(json) {
-                authClient.newCall(GET(url))
-                    .awaitSuccess()
-                    .parseAs()
-            }
+    suspend fun getTrackSearch(url: String): TrackSearch =
+        withIOContext {
+            try {
+                val seriesDto: SeriesDto =
+                    with(json) {
+                        authClient
+                            .newCall(GET(url))
+                            .awaitSuccess()
+                            .parseAs()
+                    }
 
-            val track = seriesDto.toTrack()
-            track.apply {
-                cover_url = seriesDto.thumbnail_url.toString()
-                tracking_url = url
-                total_chapters = getTotalChapters(url)
+                val track = seriesDto.toTrack()
+                track.apply {
+                    cover_url = seriesDto.thumbnail_url.toString()
+                    tracking_url = url
+                    total_chapters = getTotalChapters(url)
 
-                title = seriesDto.name
-                status = when (seriesDto.pagesRead) {
-                    seriesDto.pages -> Kavita.COMPLETED
-                    0 -> Kavita.UNREAD
-                    else -> Kavita.READING
+                    title = seriesDto.name
+                    status =
+                        when (seriesDto.pagesRead) {
+                            seriesDto.pages -> Kavita.COMPLETED
+                            0 -> Kavita.UNREAD
+                            else -> Kavita.READING
+                        }
+                    last_chapter_read = getLatestChapterRead(url)
                 }
-                last_chapter_read = getLatestChapterRead(url)
+            } catch (e: Exception) {
+                logcat(LogPriority.WARN, e) { "Could not get item: $url" }
+                throw e
             }
-        } catch (e: Exception) {
-            logcat(LogPriority.WARN, e) { "Could not get item: $url" }
-            throw e
         }
-    }
 
     suspend fun updateProgress(track: Track): Track {
         val requestUrl = "${getApiFromUrl(
@@ -176,10 +188,11 @@ class KavitaApi(private val client: OkHttpClient, interceptor: KavitaInterceptor
         )}/Tachiyomi/mark-chapter-until-as-read?seriesId=${getIdFromUrl(
             track.tracking_url,
         )}&chapterNumber=${track.last_chapter_read}"
-        authClient.newCall(
-            POST(requestUrl, body = "{}".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())),
-        )
-            .awaitSuccess()
+        authClient
+            .newCall(
+                POST(requestUrl, body = "{}".toRequestBody("application/json; charset=utf-8".toMediaTypeOrNull())),
+            ).awaitSuccess()
         return getTrackSearch(track.tracking_url)
     }
 }
+

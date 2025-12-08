@@ -29,7 +29,6 @@ class MigrateMangaScreenModel(
     private val sourceManager: SourceManager = Injekt.get(),
     private val getFavorites: GetFavorites = Injekt.get(),
 ) : StateScreenModel<MigrateMangaScreenModel.State>(State()) {
-
     private val _events: Channel<MigrationMangaEvent> = Channel()
     val events: Flow<MigrationMangaEvent> = _events.receiveAsFlow()
 
@@ -39,20 +38,19 @@ class MigrateMangaScreenModel(
                 state.copy(source = sourceManager.getOrStub(sourceId))
             }
 
-            getFavorites.subscribe(sourceId)
+            getFavorites
+                .subscribe(sourceId)
                 .catch {
                     logcat(LogPriority.ERROR, it)
                     _events.send(MigrationMangaEvent.FailedFetchingFavorites)
                     mutableState.update { state ->
                         state.copy(titleList = persistentListOf())
                     }
-                }
-                .map { manga ->
+                }.map { manga ->
                     manga
                         .sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
                         .toImmutableList()
-                }
-                .collectLatest { list ->
+                }.collectLatest { list ->
                     mutableState.update { it.copy(titleList = list) }
                 }
         }
@@ -60,9 +58,10 @@ class MigrateMangaScreenModel(
 
     fun toggleSelection(item: Manga) {
         mutableState.update { state ->
-            val selection = state.selection.mutate { list ->
-                if (!list.remove(item.id)) list.add(item.id)
-            }
+            val selection =
+                state.selection.mutate { list ->
+                    if (!list.remove(item.id)) list.add(item.id)
+                }
             state.copy(selection = selection)
         }
     }
@@ -77,7 +76,6 @@ class MigrateMangaScreenModel(
         val selection: Set<Long> = emptySet(),
         private val titleList: ImmutableList<Manga>? = null,
     ) {
-
         val titles: ImmutableList<Manga>
             get() = titleList ?: persistentListOf()
 
@@ -94,3 +92,4 @@ class MigrateMangaScreenModel(
 sealed interface MigrationMangaEvent {
     data object FailedFetchingFavorites : MigrationMangaEvent
 }
+

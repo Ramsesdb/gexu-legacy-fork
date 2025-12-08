@@ -19,8 +19,9 @@ import uy.kohesive.injekt.injectLazy
 import java.nio.charset.Charset
 import java.security.MessageDigest
 
-class SuwayomiApi(private val trackId: Long) {
-
+class SuwayomiApi(
+    private val trackId: Long,
+) {
     private val json: Json by injectLazy()
 
     private val sourceManager: SourceManager by injectLazy()
@@ -29,56 +30,65 @@ class SuwayomiApi(private val trackId: Long) {
     private val headers: Headers by lazy { source.headers }
     private val baseUrl: String by lazy { source.baseUrl.trimEnd('/') }
 
-    suspend fun getTrackSearch(trackUrl: String): TrackSearch = withIOContext {
-        val url = try {
-            // test if getting api url or manga id
-            val mangaId = trackUrl.toLong()
-            "$baseUrl/api/v1/manga/$mangaId"
-        } catch (e: NumberFormatException) {
-            trackUrl
-        }
+    suspend fun getTrackSearch(trackUrl: String): TrackSearch =
+        withIOContext {
+            val url =
+                try {
+                    // test if getting api url or manga id
+                    val mangaId = trackUrl.toLong()
+                    "$baseUrl/api/v1/manga/$mangaId"
+                } catch (e: NumberFormatException) {
+                    trackUrl
+                }
 
-        val manga = with(json) {
-            client.newCall(GET("$url/full", headers))
-                .awaitSuccess()
-                .parseAs<MangaDataClass>()
-        }
+            val manga =
+                with(json) {
+                    client
+                        .newCall(GET("$url/full", headers))
+                        .awaitSuccess()
+                        .parseAs<MangaDataClass>()
+                }
 
-        TrackSearch.create(trackId).apply {
-            title = manga.title
-            cover_url = "$url/thumbnail"
-            summary = manga.description.orEmpty()
-            tracking_url = url
-            total_chapters = manga.chapterCount
-            publishing_status = manga.status
-            last_chapter_read = manga.lastChapterRead?.chapterNumber ?: 0.0
-            status = when (manga.unreadCount) {
-                manga.chapterCount -> Suwayomi.UNREAD
-                0L -> Suwayomi.COMPLETED
-                else -> Suwayomi.READING
+            TrackSearch.create(trackId).apply {
+                title = manga.title
+                cover_url = "$url/thumbnail"
+                summary = manga.description.orEmpty()
+                tracking_url = url
+                total_chapters = manga.chapterCount
+                publishing_status = manga.status
+                last_chapter_read = manga.lastChapterRead?.chapterNumber ?: 0.0
+                status =
+                    when (manga.unreadCount) {
+                        manga.chapterCount -> Suwayomi.UNREAD
+                        0L -> Suwayomi.COMPLETED
+                        else -> Suwayomi.READING
+                    }
             }
         }
-    }
 
     suspend fun updateProgress(track: Track): Track {
         val url = track.tracking_url
-        val chapters = with(json) {
-            client.newCall(GET("$url/chapters", headers))
-                .awaitSuccess()
-                .parseAs<List<ChapterDataClass>>()
-        }
+        val chapters =
+            with(json) {
+                client
+                    .newCall(GET("$url/chapters", headers))
+                    .awaitSuccess()
+                    .parseAs<List<ChapterDataClass>>()
+            }
         val lastChapterIndex = chapters.first { it.chapterNumber == track.last_chapter_read }.index
 
-        client.newCall(
-            PUT(
-                "$url/chapter/$lastChapterIndex",
-                headers,
-                FormBody.Builder(Charset.forName("utf8"))
-                    .add("markPrevRead", "true")
-                    .add("read", "true")
-                    .build(),
-            ),
-        ).awaitSuccess()
+        client
+            .newCall(
+                PUT(
+                    "$url/chapter/$lastChapterIndex",
+                    headers,
+                    FormBody
+                        .Builder(Charset.forName("utf8"))
+                        .add("markPrevRead", "true")
+                        .add("read", "true")
+                        .build(),
+                ),
+            ).awaitSuccess()
 
         return getTrackSearch(track.tracking_url)
     }
@@ -89,3 +99,4 @@ class SuwayomiApi(private val trackId: Long) {
         (0..7).map { bytes[it].toLong() and 0xff shl 8 * (7 - it) }.reduce(Long::or) and Long.MAX_VALUE
     }
 }
+

@@ -32,7 +32,6 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 data object UpdatesTab : Tab {
-
     override val options: TabOptions
         @Composable
         get() {
@@ -90,15 +89,17 @@ data object UpdatesTab : Tab {
         LaunchedEffect(Unit) {
             screenModel.events.collectLatest { event ->
                 when (event) {
-                    Event.InternalError -> screenModel.snackbarHostState.showSnackbar(
-                        context.stringResource(MR.strings.internal_error),
-                    )
+                    Event.InternalError ->
+                        screenModel.snackbarHostState.showSnackbar(
+                            context.stringResource(MR.strings.internal_error),
+                        )
                     is Event.LibraryUpdateTriggered -> {
-                        val msg = if (event.started) {
-                            MR.strings.updating_library
-                        } else {
-                            MR.strings.update_already_running
-                        }
+                        val msg =
+                            if (event.started) {
+                                MR.strings.updating_library
+                            } else {
+                                MR.strings.update_already_running
+                            }
                         screenModel.snackbarHostState.showSnackbar(context.stringResource(msg))
                     }
                 }
@@ -123,3 +124,4 @@ data object UpdatesTab : Tab {
         }
     }
 }
+

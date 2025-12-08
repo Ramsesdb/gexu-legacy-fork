@@ -5,7 +5,6 @@ package eu.kanade.tachiyomi.data.database.models
 import java.io.Serializable
 
 interface Track : Serializable {
-
     var id: Long?
 
     var manga_id: Long
@@ -34,7 +33,10 @@ interface Track : Serializable {
 
     var private: Boolean
 
-    fun copyPersonalFrom(other: Track, copyRemotePrivate: Boolean = true) {
+    fun copyPersonalFrom(
+        other: Track,
+        copyRemotePrivate: Boolean = true,
+    ) {
         last_chapter_read = other.last_chapter_read
         score = other.score
         status = other.status
@@ -44,8 +46,10 @@ interface Track : Serializable {
     }
 
     companion object {
-        fun create(serviceId: Long): Track = TrackImpl().apply {
-            tracker_id = serviceId
-        }
+        fun create(serviceId: Long): Track =
+            TrackImpl().apply {
+                tracker_id = serviceId
+            }
     }
 }
+

@@ -5,14 +5,18 @@ import androidx.core.content.edit
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 
-class DelayedTrackingStore(context: Context) {
-
+class DelayedTrackingStore(
+    context: Context,
+) {
     /**
      * Preference file where queued tracking updates are stored.
      */
     private val preferences = context.getSharedPreferences("tracking_queue", Context.MODE_PRIVATE)
 
-    fun add(trackId: Long, lastChapterRead: Double) {
+    fun add(
+        trackId: Long,
+        lastChapterRead: Double,
+    ) {
         val previousLastChapterRead = preferences.getFloat(trackId.toString(), 0f)
         if (lastChapterRead > previousLastChapterRead) {
             logcat(LogPriority.DEBUG) { "Queuing track item: $trackId, last chapter read: $lastChapterRead" }
@@ -28,17 +32,17 @@ class DelayedTrackingStore(context: Context) {
         }
     }
 
-    fun getItems(): List<DelayedTrackingItem> {
-        return preferences.all.mapNotNull {
+    fun getItems(): List<DelayedTrackingItem> =
+        preferences.all.mapNotNull {
             DelayedTrackingItem(
                 trackId = it.key.toLong(),
                 lastChapterRead = it.value.toString().toFloat(),
             )
         }
-    }
 
     data class DelayedTrackingItem(
         val trackId: Long,
         val lastChapterRead: Float,
     )
 }
+

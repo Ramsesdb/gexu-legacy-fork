@@ -42,9 +42,10 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.fetchAndIncrement
 
 @OptIn(ExperimentalAtomicApi::class)
-class MetadataUpdateJob(private val context: Context, workerParams: WorkerParameters) :
-    CoroutineWorker(context, workerParams) {
-
+class MetadataUpdateJob(
+    private val context: Context,
+    workerParams: WorkerParameters,
+) : CoroutineWorker(context, workerParams) {
     private val sourceManager: SourceManager = Injekt.get()
     private val coverCache: CoverCache = Injekt.get()
     private val getLibraryManga: GetLibraryManga = Injekt.get()
@@ -104,7 +105,8 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
         coroutineScope {
-            mangaToUpdate.groupBy { it.manga.source }
+            mangaToUpdate
+                .groupBy { it.manga.source }
                 .values
                 .map { mangaInSource ->
                     async {
@@ -121,8 +123,10 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                                     val source = sourceManager.get(manga.source) ?: return@withUpdateNotification
                                     try {
                                         val networkManga = source.getMangaDetails(manga.toSManga())
-                                        val updatedManga = manga.prepUpdateCover(coverCache, networkManga, true)
-                                            .copyFrom(networkManga)
+                                        val updatedManga =
+                                            manga
+                                                .prepUpdateCover(coverCache, networkManga, true)
+                                                .copyFrom(networkManga)
                                         try {
                                             updateManga.await(updatedManga.toMangaUpdate())
                                         } catch (e: Exception) {
@@ -136,8 +140,7 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                             }
                         }
                     }
-                }
-                .awaitAll()
+                }.awaitAll()
         }
 
         notifier.cancelProgressNotification()
@@ -183,10 +186,11 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
                 // Already running either as a scheduled or manual job
                 return false
             }
-            val request = OneTimeWorkRequestBuilder<MetadataUpdateJob>()
-                .addTag(TAG)
-                .addTag(WORK_NAME_MANUAL)
-                .build()
+            val request =
+                OneTimeWorkRequestBuilder<MetadataUpdateJob>()
+                    .addTag(TAG)
+                    .addTag(WORK_NAME_MANUAL)
+                    .build()
             wm.enqueueUniqueWork(WORK_NAME_MANUAL, ExistingWorkPolicy.KEEP, request)
 
             return true
@@ -194,10 +198,14 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
 
         fun stop(context: Context) {
             val wm = context.workManager
-            val workQuery = WorkQuery.Builder.fromTags(listOf(TAG))
-                .addStates(listOf(WorkInfo.State.RUNNING))
-                .build()
-            wm.getWorkInfos(workQuery).get()
+            val workQuery =
+                WorkQuery.Builder
+                    .fromTags(listOf(TAG))
+                    .addStates(listOf(WorkInfo.State.RUNNING))
+                    .build()
+            wm
+                .getWorkInfos(workQuery)
+                .get()
                 // Should only return one work but just in case
                 .forEach {
                     wm.cancelWorkById(it.id)
@@ -205,3 +213,4 @@ class MetadataUpdateJob(private val context: Context, workerParams: WorkerParame
         }
     }
 }
+

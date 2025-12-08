@@ -5,7 +5,6 @@ package eu.kanade.tachiyomi.data.track.model
 import eu.kanade.tachiyomi.data.database.models.Track
 
 class TrackSearch : Track {
-
     override var id: Long? = null
 
     override var manga_id: Long = 0
@@ -69,8 +68,10 @@ class TrackSearch : Track {
     }
 
     companion object {
-        fun create(serviceId: Long): TrackSearch = TrackSearch().apply {
-            tracker_id = serviceId
-        }
+        fun create(serviceId: Long): TrackSearch =
+            TrackSearch().apply {
+                tracker_id = serviceId
+            }
     }
 }
+

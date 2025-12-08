@@ -12,7 +12,6 @@ import okhttp3.OkHttpClient
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 interface Tracker {
-
     val id: Long
 
     val name: String
@@ -49,15 +48,24 @@ interface Tracker {
 
     fun displayScore(track: DomainTrack): String
 
-    suspend fun update(track: Track, didReadChapter: Boolean = false): Track
+    suspend fun update(
+        track: Track,
+        didReadChapter: Boolean = false,
+    ): Track
 
-    suspend fun bind(track: Track, hasReadChapters: Boolean = false): Track
+    suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean = false,
+    ): Track
 
     suspend fun search(query: String): List<TrackSearch>
 
     suspend fun refresh(track: Track): Track
 
-    suspend fun login(username: String, password: String)
+    suspend fun login(
+        username: String,
+        password: String,
+    )
 
     @CallSuper
     fun logout()
@@ -70,20 +78,45 @@ interface Tracker {
 
     fun getPassword(): String
 
-    fun saveCredentials(username: String, password: String)
+    fun saveCredentials(
+        username: String,
+        password: String,
+    )
 
     // TODO: move this to an interactor, and update all trackers based on common data
-    suspend fun register(item: Track, mangaId: Long)
+    suspend fun register(
+        item: Track,
+        mangaId: Long,
+    )
 
-    suspend fun setRemoteStatus(track: Track, status: Long)
+    suspend fun setRemoteStatus(
+        track: Track,
+        status: Long,
+    )
 
-    suspend fun setRemoteLastChapterRead(track: Track, chapterNumber: Int)
+    suspend fun setRemoteLastChapterRead(
+        track: Track,
+        chapterNumber: Int,
+    )
 
-    suspend fun setRemoteScore(track: Track, scoreString: String)
+    suspend fun setRemoteScore(
+        track: Track,
+        scoreString: String,
+    )
 
-    suspend fun setRemoteStartDate(track: Track, epochMillis: Long)
+    suspend fun setRemoteStartDate(
+        track: Track,
+        epochMillis: Long,
+    )
 
-    suspend fun setRemoteFinishDate(track: Track, epochMillis: Long)
+    suspend fun setRemoteFinishDate(
+        track: Track,
+        epochMillis: Long,
+    )
 
-    suspend fun setRemotePrivate(track: Track, private: Boolean)
+    suspend fun setRemotePrivate(
+        track: Track,
+        private: Boolean,
+    )
 }
+

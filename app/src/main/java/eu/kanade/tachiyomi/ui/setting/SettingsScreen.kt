@@ -26,7 +26,6 @@ import tachiyomi.presentation.core.components.TwoPanelBox
 class SettingsScreen(
     private val destination: Int? = null,
 ) : Screen() {
-
     constructor(destination: Destination) : this(destination.id)
 
     @Composable
@@ -34,12 +33,13 @@ class SettingsScreen(
         val parentNavigator = LocalNavigator.currentOrThrow
         if (!isTabletUi()) {
             Navigator(
-                screen = when (destination) {
-                    Destination.About.id -> AboutScreen
-                    Destination.DataAndStorage.id -> SettingsDataScreen
-                    Destination.Tracking.id -> SettingsTrackingScreen
-                    else -> SettingsMainScreen
-                },
+                screen =
+                    when (destination) {
+                        Destination.About.id -> AboutScreen
+                        Destination.DataAndStorage.id -> SettingsDataScreen
+                        Destination.Tracking.id -> SettingsTrackingScreen
+                        else -> SettingsMainScreen
+                    },
                 onBackPressed = null,
             ) {
                 val pop: () -> Unit = {
@@ -55,19 +55,21 @@ class SettingsScreen(
             }
         } else {
             Navigator(
-                screen = when (destination) {
-                    Destination.About.id -> AboutScreen
-                    Destination.DataAndStorage.id -> SettingsDataScreen
-                    Destination.Tracking.id -> SettingsTrackingScreen
-                    else -> SettingsAppearanceScreen
-                },
+                screen =
+                    when (destination) {
+                        Destination.About.id -> AboutScreen
+                        Destination.DataAndStorage.id -> SettingsDataScreen
+                        Destination.Tracking.id -> SettingsTrackingScreen
+                        else -> SettingsAppearanceScreen
+                    },
                 onBackPressed = null,
             ) {
                 val insets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
                 TwoPanelBox(
-                    modifier = Modifier
-                        .windowInsetsPadding(insets)
-                        .consumeWindowInsets(insets),
+                    modifier =
+                        Modifier
+                            .windowInsetsPadding(insets)
+                            .consumeWindowInsets(insets),
                     startContent = {
                         CompositionLocalProvider(LocalBackPress provides parentNavigator::pop) {
                             SettingsMainScreen.Content(twoPane = true)
@@ -79,9 +81,14 @@ class SettingsScreen(
         }
     }
 
-    sealed class Destination(val id: Int) {
+    sealed class Destination(
+        val id: Int,
+    ) {
         data object About : Destination(0)
+
         data object DataAndStorage : Destination(1)
+
         data object Tracking : Destination(2)
     }
 }
+

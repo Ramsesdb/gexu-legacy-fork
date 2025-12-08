@@ -22,15 +22,15 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 class DeepLinkScreen(
     val query: String = "",
 ) : Screen() {
-
     @Composable
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
 
-        val screenModel = rememberScreenModel {
-            DeepLinkScreenModel(query = query)
-        }
+        val screenModel =
+            rememberScreenModel {
+                DeepLinkScreenModel(query = query)
+            }
         val state by screenModel.state.collectAsState()
         Scaffold(
             topBar = { scrollBehavior ->
@@ -59,14 +59,16 @@ class DeepLinkScreen(
                         )
                     } else {
                         navigator.pop()
-                        ReaderActivity.newIntent(
-                            context,
-                            resultState.manga.id,
-                            resultState.chapterId,
-                        ).also(context::startActivity)
+                        ReaderActivity
+                            .newIntent(
+                                context,
+                                resultState.manga.id,
+                                resultState.chapterId,
+                            ).also(context::startActivity)
                     }
                 }
             }
         }
     }
 }
+

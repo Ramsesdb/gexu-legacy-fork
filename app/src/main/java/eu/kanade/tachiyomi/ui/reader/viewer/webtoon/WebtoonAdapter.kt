@@ -15,8 +15,9 @@ import eu.kanade.tachiyomi.util.system.createReaderThemeContext
 /**
  * RecyclerView Adapter used by this [viewer] to where [ViewerChapters] updates are posted.
  */
-class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
-
+class WebtoonAdapter(
+    val viewer: WebtoonViewer,
+) : RecyclerView.Adapter<RecyclerView.ViewHolder>() {
     /**
      * List of currently set items.
      */
@@ -35,7 +36,10 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
      * Updates this adapter with the given [chapters]. It handles setting a few pages of the
      * next/previous chapter to allow seamless transitions.
      */
-    fun setChapters(chapters: ViewerChapters, forceTransition: Boolean) {
+    fun setChapters(
+        chapters: ViewerChapters,
+        forceTransition: Boolean,
+    ) {
         val newItems = mutableListOf<Any>()
 
         // Forces chapter transition if there is missing chapters
@@ -95,26 +99,26 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
     /**
      * Returns the amount of items of the adapter.
      */
-    override fun getItemCount(): Int {
-        return items.size
-    }
+    override fun getItemCount(): Int = items.size
 
     /**
      * Returns the view type for the item at the given [position].
      */
-    override fun getItemViewType(position: Int): Int {
-        return when (val item = items[position]) {
+    override fun getItemViewType(position: Int): Int =
+        when (val item = items[position]) {
             is ReaderPage -> PAGE_VIEW
             is ChapterTransition -> TRANSITION_VIEW
             else -> error("Unknown view type for ${item.javaClass}")
         }
-    }
 
     /**
      * Creates a new view holder for an item with the given [viewType].
      */
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
-        return when (viewType) {
+    override fun onCreateViewHolder(
+        parent: ViewGroup,
+        viewType: Int,
+    ): RecyclerView.ViewHolder =
+        when (viewType) {
             PAGE_VIEW -> {
                 val view = ReaderPageImageView(readerThemedContext, isWebtoon = true)
                 WebtoonPageHolder(view, viewer)
@@ -125,12 +129,14 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
             }
             else -> error("Unknown view type")
         }
-    }
 
     /**
      * Binds an existing view [holder] with the item at the given [position].
      */
-    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+    override fun onBindViewHolder(
+        holder: RecyclerView.ViewHolder,
+        position: Int,
+    ) {
         val item = items[position]
         when (holder) {
             is WebtoonPageHolder -> holder.bind(item as ReaderPage)
@@ -155,11 +161,13 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
         private val oldItems: List<Any>,
         private val newItems: List<Any>,
     ) : DiffUtil.Callback() {
-
         /**
          * Returns true if these two items are the same.
          */
-        override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+        override fun areItemsTheSame(
+            oldItemPosition: Int,
+            newItemPosition: Int,
+        ): Boolean {
             val oldItem = oldItems[oldItemPosition]
             val newItem = newItems[newItemPosition]
 
@@ -169,23 +177,20 @@ class WebtoonAdapter(val viewer: WebtoonViewer) : RecyclerView.Adapter<RecyclerV
         /**
          * Returns true if the contents of the items are the same.
          */
-        override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
-            return true
-        }
+        override fun areContentsTheSame(
+            oldItemPosition: Int,
+            newItemPosition: Int,
+        ): Boolean = true
 
         /**
          * Returns the size of the old list.
          */
-        override fun getOldListSize(): Int {
-            return oldItems.size
-        }
+        override fun getOldListSize(): Int = oldItems.size
 
         /**
          * Returns the size of the new list.
          */
-        override fun getNewListSize(): Int {
-            return newItems.size
-        }
+        override fun getNewListSize(): Int = newItems.size
     }
 }
 
@@ -198,3 +203,4 @@ private const val PAGE_VIEW = 0
  * View holder type of a chapter transition view.
  */
 private const val TRANSITION_VIEW = 1
+

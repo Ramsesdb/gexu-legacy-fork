@@ -5,7 +5,6 @@ import androidx.lifecycle.lifecycleScope
 import tachiyomi.core.common.util.lang.launchIO
 
 class TrackLoginActivity : BaseOAuthLoginActivity() {
-
     override fun handleResult(data: Uri?) {
         when (data?.host) {
             "anilist-auth" -> handleAnilist(data)
@@ -68,3 +67,4 @@ class TrackLoginActivity : BaseOAuthLoginActivity() {
         }
     }
 }
+

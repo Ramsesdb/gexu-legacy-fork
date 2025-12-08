@@ -8,8 +8,11 @@ import uy.kohesive.injekt.api.get
 
 fun Source.getNameForMangaInfo(): String {
     val preferences = Injekt.get<SourcePreferences>()
-    val enabledLanguages = preferences.enabledLanguages().get()
-        .filterNot { it in listOf("all", "other") }
+    val enabledLanguages =
+        preferences
+            .enabledLanguages()
+            .get()
+            .filterNot { it in listOf("all", "other") }
     val hasOneActiveLanguages = enabledLanguages.size == 1
     val isInEnabledLanguages = lang in enabledLanguages
     return when {
@@ -22,3 +25,4 @@ fun Source.getNameForMangaInfo(): String {
 }
 
 fun Source.isLocalOrStub(): Boolean = isLocal() || this is StubSource
+

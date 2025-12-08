@@ -14,9 +14,8 @@ class GetEnabledSources(
     private val repository: SourceRepository,
     private val preferences: SourcePreferences,
 ) {
-
-    fun subscribe(): Flow<List<Source>> {
-        return combine(
+    fun subscribe(): Flow<List<Source>> =
+        combine(
             preferences.pinnedSources().changes(),
             preferences.enabledLanguages().changes(),
             preferences.disabledSources().changes(),
@@ -36,7 +35,6 @@ class GetEnabledSources(
                     }
                     toFlatten
                 }
-        }
-            .distinctUntilChanged()
-    }
+        }.distinctUntilChanged()
 }
+

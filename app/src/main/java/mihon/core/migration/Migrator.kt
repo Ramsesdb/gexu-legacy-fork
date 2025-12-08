@@ -8,7 +8,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.runBlocking
 
 object Migrator {
-
     private var result: Deferred<Boolean>? = null
     val scope = CoroutineScope(Dispatchers.IO + Job())
 
@@ -35,7 +34,9 @@ object Migrator {
         result = null
     }
 
-    fun awaitAndRelease(): Boolean = runBlocking {
-        await().also { release() }
-    }
+    fun awaitAndRelease(): Boolean =
+        runBlocking {
+            await().also { release() }
+        }
 }
+

@@ -29,14 +29,14 @@ class ChapterCache(
     private val context: Context,
     private val json: Json,
 ) {
-
     /** Cache class used for cache management. */
-    private val diskCache = DiskLruCache.open(
-        File(context.cacheDir, "chapter_disk_cache"),
-        PARAMETER_APP_VERSION,
-        PARAMETER_VALUE_COUNT,
-        PARAMETER_CACHE_SIZE,
-    )
+    private val diskCache =
+        DiskLruCache.open(
+            File(context.cacheDir, "chapter_disk_cache"),
+            PARAMETER_APP_VERSION,
+            PARAMETER_VALUE_COUNT,
+            PARAMETER_CACHE_SIZE,
+        )
 
     /**
      * Returns directory of cache.
@@ -77,7 +77,10 @@ class ChapterCache(
      * @param chapter the chapter.
      * @param pages list of pages.
      */
-    fun putPageListToCache(chapter: Chapter, pages: List<Page>) {
+    fun putPageListToCache(
+        chapter: Chapter,
+        pages: List<Page>,
+    ) {
         // Convert list of pages to json string.
         val cachedValue = json.encodeToString(pages)
 
@@ -112,13 +115,12 @@ class ChapterCache(
      * @param imageUrl url of image.
      * @return true if in cache otherwise false.
      */
-    fun isImageInCache(imageUrl: String): Boolean {
-        return try {
+    fun isImageInCache(imageUrl: String): Boolean =
+        try {
             diskCache.get(DiskUtil.hashKeyForDisk(imageUrl)).use { it != null }
         } catch (e: IOException) {
             false
         }
-    }
 
     /**
      * Get image file from url.
@@ -140,7 +142,10 @@ class ChapterCache(
      * @throws IOException image error.
      */
     @Throws(IOException::class)
-    fun putImageToCache(imageUrl: String, response: Response) {
+    fun putImageToCache(
+        imageUrl: String,
+        response: Response,
+    ) {
         // Initialize editor (edits the values for an entry).
         var editor: DiskLruCache.Editor? = null
 
@@ -193,9 +198,7 @@ class ChapterCache(
         }
     }
 
-    private fun getKey(chapter: Chapter): String {
-        return "${chapter.mangaId}${chapter.url}"
-    }
+    private fun getKey(chapter: Chapter): String = "${chapter.mangaId}${chapter.url}"
 }
 
 /** Application cache version.  */
@@ -206,3 +209,4 @@ private const val PARAMETER_VALUE_COUNT = 1
 
 /** The maximum number of bytes this cache should use to store.  */
 private const val PARAMETER_CACHE_SIZE = 100L * 1024 * 1024
+

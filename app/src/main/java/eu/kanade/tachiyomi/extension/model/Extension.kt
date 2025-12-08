@@ -5,7 +5,6 @@ import eu.kanade.tachiyomi.source.Source
 import tachiyomi.domain.source.model.StubSource
 
 sealed class Extension {
-
     abstract val name: String
     abstract val pkgName: String
     abstract val versionName: String
@@ -44,20 +43,18 @@ sealed class Extension {
         val iconUrl: String,
         val repoUrl: String,
     ) : Extension() {
-
         data class Source(
             val id: Long,
             val lang: String,
             val name: String,
             val baseUrl: String,
         ) {
-            fun toStubSource(): StubSource {
-                return StubSource(
+            fun toStubSource(): StubSource =
+                StubSource(
                     id = this.id,
                     lang = this.lang,
                     name = this.name,
                 )
-            }
         }
     }
 
@@ -72,3 +69,4 @@ sealed class Extension {
         override val isNsfw: Boolean = false,
     ) : Extension()
 }
+

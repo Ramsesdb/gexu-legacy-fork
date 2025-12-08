@@ -14,8 +14,10 @@ import tachiyomi.i18n.MR
 import tachiyomi.domain.manga.model.Manga as DomainManga
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
-
+class Suwayomi(
+    id: Long,
+) : BaseTracker(id, "Suwayomi"),
+    EnhancedTracker {
     val api by lazy { SuwayomiApi(id) }
 
     override fun getLogo() = R.drawable.ic_tracker_suwayomi
@@ -30,12 +32,13 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
 
     override fun getStatusList(): List<Long> = listOf(UNREAD, READING, COMPLETED)
 
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        UNREAD -> MR.strings.unread
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        else -> null
-    }
+    override fun getStatus(status: Long): StringResource? =
+        when (status) {
+            UNREAD -> MR.strings.unread
+            READING -> MR.strings.reading
+            COMPLETED -> MR.strings.completed
+            else -> null
+        }
 
     override fun getReadingStatus(): Long = READING
 
@@ -47,7 +50,10 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
 
     override fun displayScore(track: DomainTrack): String = ""
 
-    override suspend fun update(track: Track, didReadChapter: Boolean): Track {
+    override suspend fun update(
+        track: Track,
+        didReadChapter: Boolean,
+    ): Track {
         if (track.status != COMPLETED) {
             if (didReadChapter) {
                 if (track.last_chapter_read.toLong() == track.total_chapters && track.total_chapters > 0) {
@@ -61,9 +67,10 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
         return api.updateProgress(track)
     }
 
-    override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        return track
-    }
+    override suspend fun bind(
+        track: Track,
+        hasReadChapters: Boolean,
+    ): Track = track
 
     override suspend fun search(query: String): List<TrackSearch> {
         TODO("Not yet implemented")
@@ -76,7 +83,10 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
         return track
     }
 
-    override suspend fun login(username: String, password: String) {
+    override suspend fun login(
+        username: String,
+        password: String,
+    ) {
         saveCredentials("user", "pass")
     }
 
@@ -93,14 +103,24 @@ class Suwayomi(id: Long) : BaseTracker(id, "Suwayomi"), EnhancedTracker {
             null
         }
 
-    override fun isTrackFrom(track: DomainTrack, manga: DomainManga, source: Source?): Boolean = source?.let {
-        accept(it)
-    } == true
+    override fun isTrackFrom(
+        track: DomainTrack,
+        manga: DomainManga,
+        source: Source?,
+    ): Boolean =
+        source?.let {
+            accept(it)
+        } == true
 
-    override fun migrateTrack(track: DomainTrack, manga: DomainManga, newSource: Source): DomainTrack? =
+    override fun migrateTrack(
+        track: DomainTrack,
+        manga: DomainManga,
+        newSource: Source,
+    ): DomainTrack? =
         if (accept(newSource)) {
             track.copy(remoteUrl = manga.url)
         } else {
             null
         }
 }
+

@@ -10,7 +10,6 @@ const val DISABLED_ALPHA = .38f
 const val SECONDARY_ALPHA = .78f
 
 class Padding {
-
     val extraLarge = 32.dp
 
     val large = 24.dp
@@ -24,3 +23,4 @@ class Padding {
 
 val MaterialTheme.padding: Padding
     get() = Padding()
+

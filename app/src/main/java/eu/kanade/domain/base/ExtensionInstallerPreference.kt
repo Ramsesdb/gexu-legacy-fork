@@ -13,24 +13,25 @@ class ExtensionInstallerPreference(
     private val context: Context,
     preferenceStore: PreferenceStore,
 ) : Preference<ExtensionInstaller> {
-
     private val basePref = preferenceStore.getEnum(key(), defaultValue())
 
     override fun key() = "extension_installer"
 
-    val entries get() = ExtensionInstaller.entries.run {
-        if (context.hasMiuiPackageInstaller) {
-            filter { it != ExtensionInstaller.PACKAGEINSTALLER }
-        } else {
-            toList()
+    val entries get() =
+        ExtensionInstaller.entries.run {
+            if (context.hasMiuiPackageInstaller) {
+                filter { it != ExtensionInstaller.PACKAGEINSTALLER }
+            } else {
+                toList()
+            }
         }
-    }
 
-    override fun defaultValue() = if (context.hasMiuiPackageInstaller) {
-        ExtensionInstaller.LEGACY
-    } else {
-        ExtensionInstaller.PACKAGEINSTALLER
-    }
+    override fun defaultValue() =
+        if (context.hasMiuiPackageInstaller) {
+            ExtensionInstaller.LEGACY
+        } else {
+            ExtensionInstaller.PACKAGEINSTALLER
+        }
 
     private fun check(value: ExtensionInstaller): ExtensionInstaller {
         when (value) {
@@ -66,3 +67,4 @@ class ExtensionInstallerPreference(
 
     override fun stateIn(scope: CoroutineScope) = basePref.stateIn(scope)
 }
+

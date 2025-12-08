@@ -15,18 +15,19 @@ data class ALSearchItem(
     val averageScore: Int?,
     val staff: ALStaff,
 ) {
-    fun toALManga(): ALManga = ALManga(
-        remoteId = id,
-        title = title.userPreferred,
-        imageUrl = coverImage.large,
-        description = description,
-        format = format.replace("_", "-"),
-        publishingStatus = status ?: "",
-        startDateFuzzy = startDate.toEpochMilli(),
-        totalChapters = chapters ?: 0,
-        averageScore = averageScore ?: -1,
-        staff = staff,
-    )
+    fun toALManga(): ALManga =
+        ALManga(
+            remoteId = id,
+            title = title.userPreferred,
+            imageUrl = coverImage.large,
+            description = description,
+            format = format.replace("_", "-"),
+            publishingStatus = status ?: "",
+            startDateFuzzy = startDate.toEpochMilli(),
+            totalChapters = chapters ?: 0,
+            averageScore = averageScore ?: -1,
+            staff = staff,
+        )
 }
 
 @Serializable
@@ -62,7 +63,6 @@ data class ALStaffName(
     val native: String?,
     val full: String?,
 ) {
-    operator fun invoke(): String? {
-        return userPreferred ?: full ?: native
-    }
+    operator fun invoke(): String? = userPreferred ?: full ?: native
 }
+
