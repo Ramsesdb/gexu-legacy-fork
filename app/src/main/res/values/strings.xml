@@ -1,4 +1,3 @@
 <resources>
-    <string name="app_name">Gexu</string>
+    <string name="app_name" translatable="false">Gexu</string>
 </resources>
-
