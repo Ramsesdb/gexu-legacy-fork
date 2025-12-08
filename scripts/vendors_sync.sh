@@ -54,8 +54,6 @@ main() {
       info "Skipping mirror for $r because fetch failed"
     fi
   done
-
-  git checkout "$BASE_BRANCH" || true
 }
 
 ensure_remotes() {
@@ -83,22 +81,15 @@ mirror_remote() {
   head_ref=${head_ref:-main}
 
   # If the remote doesn't have the branch we want, skip
-  if ! git show-ref --verify --quiet "refs/remotes/${remote}/${head_ref}"; then
+  local remote_ref="refs/remotes/${remote}/${head_ref}"
+  if ! git show-ref --verify --quiet "$remote_ref"; then
     warn "remote '$remote' does not have branch '$head_ref' (skipping)"
     return
   fi
 
   local vendor_branch="vendor/${remote}"
-
-  if git rev-parse --verify "$vendor_branch" >/dev/null 2>&1; then
-    git checkout "$vendor_branch"
-    git reset --hard "${remote}/${head_ref}"
-  else
-    git checkout -B "$vendor_branch" "${remote}/${head_ref}"
-  fi
-
-  git push origin "$vendor_branch" --force
-  info "Pushed vendor branch: $vendor_branch"
+  git push -f origin "$remote_ref:refs/heads/$vendor_branch"
+  info "Pushed $remote_ref -> origin/$vendor_branch"
 }
 
 main "$@"
