@@ -1,0 +1,43 @@
+=== DNS check (nslookup) ===  
+--- repo.maven.apache.org ---  
+*** dev.opt no encuentra repo.maven.apache.org: Non-existent domain
+Servidor:  dev.opt
+Address:  192.168.100.1
+
+ 
+--- repo1.maven.org ---  
+Respuesta no autoritativa:
+Servidor:  dev.opt
+Address:  192.168.100.1
+
+Nombre:  repo1.maven.org.cdn.cloudflare.net
+Addresses:  2606:4700::6812:120c
+	  2606:4700::6812:130c
+	  104.18.19.12
+	  104.18.18.12
+Aliases:  repo1.maven.org
+
+ 
+--- plugins.gradle.org ---  
+Respuesta no autoritativa:
+Servidor:  dev.opt
+Address:  192.168.100.1
+
+Nombre:  plugins.gradle.org
+Addresses:  2606:4700::6810:4965
+	  2606:4700::6810:4865
+	  104.16.72.101
+	  104.16.73.101
+
+ 
+--- maven.google.com ---  
+Respuesta no autoritativa:
+Servidor:  dev.opt
+Address:  192.168.100.1
+
+Nombre:  www3.l.google.com
+Addresses:  2607:f8b0:4008:808::200e
+	  192.178.50.46
+Aliases:  maven.google.com
+
+ 
