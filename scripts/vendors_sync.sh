@@ -88,8 +88,26 @@ mirror_remote() {
   fi
 
   local vendor_branch="vendor/${remote}"
-  git push -f origin "$remote_ref:refs/heads/$vendor_branch"
-  info "Pushed $remote_ref -> origin/$vendor_branch"
+  mirror_without_workflows "$remote_ref" "$vendor_branch" "$remote"
+}
+
+mirror_without_workflows() {
+  local source_ref="$1" target_branch="$2" remote="$3"
+  local worktree_dir
+  worktree_dir=$(mktemp -d)
+  info "Filtering .github/workflows for $remote via worktree $worktree_dir"
+  git worktree add --force "$worktree_dir" "$source_ref"
+  pushd "$worktree_dir" >/dev/null
+  if [ -d .github/workflows ]; then
+    git rm -r --cached --quiet --ignore-unmatch .github/workflows || true
+    rm -rf .github/workflows
+    git commit -m "chore(vendor): mirror $remote (skip workflows)" || true
+  else
+    info "No workflows directory present for $remote"
+  fi
+  git push -f origin HEAD:"refs/heads/$target_branch"
+  popd >/dev/null
+  git worktree remove --force "$worktree_dir"
 }
 
 main "$@"
