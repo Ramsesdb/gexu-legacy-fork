@@ -1,3 +1,5 @@
+@file:Suppress("UnstableApiUsage")
+
 pluginManagement {
     resolutionStrategy {
         eachPlugin {
@@ -18,6 +20,7 @@ pluginManagement {
     }
 }
 
+@Suppress("UnstableApiUsage")
 dependencyResolutionManagement {
     versionCatalogs {
         create("kotlinx") {
@@ -45,7 +48,7 @@ dependencyResolutionManagement {
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "Mihon"
+rootProject.name = "Gexu"
 include(":app")
 include(":core-metadata")
 include(":core:archive")
