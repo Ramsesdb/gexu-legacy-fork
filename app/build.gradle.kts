@@ -16,7 +16,10 @@ afterEvaluate {
     // Configurar la extensión vía reflexión para no depender del accessor generado por el DSL de plugins
     extensions.findByName("shortcutHelper")?.let { ext ->
         runCatching {
-            ext.javaClass.methods.firstOrNull { it.name == "setFilePath" && it.parameterCount == 1 }?.invoke(ext, "./shortcuts.xml")
+            ext.javaClass.methods.firstOrNull {
+                it.name == "setFilePath" &&
+                    it.parameterCount == 1
+            }?.invoke(ext, "./shortcuts.xml")
         }
     }
 }
