@@ -24,13 +24,6 @@ afterEvaluate {
     }
 }
 
-if (Config.includeTelemetry) {
-    pluginManager.apply {
-        apply(libs.plugins.google.services.get().pluginId)
-        apply(libs.plugins.firebase.crashlytics.get().pluginId)
-    }
-}
-
 android {
     namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
 
@@ -43,7 +36,7 @@ android {
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
         buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = false)}\"")
-        buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
+        buildConfigField("boolean", "TELEMETRY_INCLUDED", "false")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
