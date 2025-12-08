@@ -7,7 +7,7 @@ on:
         required: true
         default: "feat/rebranding-gexu"
       base_branch:
-        description: "Base branch"
+        description: "PR base"
         required: true
         default: "main"
   schedule:
@@ -16,26 +16,35 @@ on:
     branches: ["main"]
 
 permissions:
-  contents: write # pushes vendor/* mirrors
+  contents: write
   pull-requests: write
 
 jobs:
   sweep:
     runs-on: ubuntu-latest
     env:
-      HEAD_BRANCH: ${{ github.event.inputs.head_branch || 'feat/rebranding-gexu' }}
-      BASE_BRANCH: ${{ github.event.inputs.base_branch || 'main' }}
+      HEAD_BRANCH: ${{ github.event.inputs.head_branch }}
+      BASE_BRANCH: ${{ github.event.inputs.base_branch }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Set git identity
+
+      - name: Debug context
         run: |
-          git config user.name  "gexu-bot"
-          git config user.email "gexu-bot@users.noreply.github.com"
-      - name: Sync vendor branches into origin/vendor/*
-        run: |
-          bash scripts/vendors_sync.sh
+          set -x
+          git --version
+          git remote -v
+          git branch -a
+          for r in origin upstream j2k sy yokai neko komikku; do
+            git remote get-url "$r" && git ls-remote --symref "$r" HEAD || true
+          done
+
+      - name: Sync vendors
+        run: bash scripts/vendors_sync.sh
+
       - name: Prepare head branch
         run: |
           set -euo pipefail
@@ -47,24 +56,21 @@ jobs:
             git checkout -b "$HEAD_BRANCH"
           fi
           git push origin "$HEAD_BRANCH" --set-upstream
-      - name: Open/Update PRs vendor/* -> main
+
+      - name: Create or update PR
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
         run: |
           set -euo pipefail
-          for br in vendor/upstream vendor/j2k vendor/sy vendor/yokai vendor/neko vendor/komikku; do
-            number=$(gh pr list --base "$BASE_BRANCH" --head "$br" --state open --json number --jq '.[0].number' || true)
-            title="Upstream sweep: ${br#vendor/}"
-            body="PR automático para revisar cambios de \`${br#vendor/}\` contra \`$BASE_BRANCH\`.\n\n**No hacer merge directo**; usar cherry-pick/rebase selectivo."
-            if [ -z "$number" ]; then
-              pr_url=$(gh pr create --base "$BASE_BRANCH" --head "$HEAD_BRANCH" --title "$title" --body "$body" --draft)
-              number=${pr_url##*/}
-              echo "PR_URL=$pr_url"
-              echo "PR_NUMBER=$number"
-              gh pr edit "$number" --add-label "upstream-sweep,do-not-merge" || true
-            else
-              echo "PR_NUMBER=$number"
-              gh pr edit "$number" --title "$title" --body "$body" --add-label "upstream-sweep" || true
-              gh pr comment "$number" --body "🔄 \`$br\` actualizado."
-            fi
-          done
+          HEAD_BRANCH=$HEAD_BRANCH
+          BASE_BRANCH=$BASE_BRANCH
+          if PR_URL=$(gh pr create --base "$BASE_BRANCH" --head "$REPO_OWNER:$HEAD_BRANCH" --title "Upstream sweep" --body "Automated sweep" --draft); then
+            echo "PR_URL=$PR_URL"
+          else
+            PR_URL=$(gh pr view --head "$HEAD_BRANCH" --json url -q .url)
+            gh pr edit "$PR_URL" --base "$BASE_BRANCH" --add-label "upstream-sweep"
+            echo "PR_URL=$PR_URL"
+          fi
+          PR_NUMBER=$(basename "$PR_URL" | sed 's/#//')
+          echo "PR_NUMBER=$PR_NUMBER"
