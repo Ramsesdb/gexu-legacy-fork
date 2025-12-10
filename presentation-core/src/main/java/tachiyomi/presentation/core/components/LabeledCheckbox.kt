@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.clickable
@@ -25,18 +27,19 @@ fun LabeledCheckbox(
     enabled: Boolean = true,
 ) {
     Row(
-        modifier = modifier
-            .clip(MaterialTheme.shapes.small)
-            .fillMaxWidth()
-            .heightIn(min = 48.dp)
-            .clickable(
-                role = Role.Checkbox,
-                onClick = {
-                    if (enabled) {
-                        onCheckedChange(!checked)
-                    }
-                },
-            ),
+        modifier =
+            modifier
+                .clip(MaterialTheme.shapes.small)
+                .fillMaxWidth()
+                .heightIn(min = 48.dp)
+                .clickable(
+                    role = Role.Checkbox,
+                    onClick = {
+                        if (enabled) {
+                            onCheckedChange(!checked)
+                        }
+                    },
+                ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {
@@ -49,3 +52,4 @@ fun LabeledCheckbox(
         Text(text = label)
     }
 }
+

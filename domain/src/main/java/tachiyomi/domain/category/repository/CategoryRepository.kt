@@ -5,7 +5,6 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.CategoryUpdate
 
 interface CategoryRepository {
-
     suspend fun get(id: Long): Category?
 
     suspend fun getAll(): List<Category>
@@ -26,3 +25,4 @@ interface CategoryRepository {
 
     suspend fun delete(categoryId: Long)
 }
+

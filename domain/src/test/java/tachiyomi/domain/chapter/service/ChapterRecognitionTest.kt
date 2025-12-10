@@ -7,7 +7,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode
 
 @Execution(ExecutionMode.CONCURRENT)
 class ChapterRecognitionTest {
-
     @Test
     fun `Basic Ch prefix`() {
         val mangaTitle = "Mokushiroku Alice"
@@ -271,7 +270,12 @@ class ChapterRecognitionTest {
         assertChapter(mangaTitle, "The 4th Night", 4.0)
     }
 
-    private fun assertChapter(mangaTitle: String, name: String, expected: Double) {
+    private fun assertChapter(
+        mangaTitle: String,
+        name: String,
+        expected: Double,
+    ) {
         ChapterRecognition.parseChapterNumber(mangaTitle, name) shouldBe expected
     }
 }
+

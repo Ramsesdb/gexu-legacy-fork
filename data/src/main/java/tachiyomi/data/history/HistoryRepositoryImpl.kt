@@ -12,26 +12,22 @@ import tachiyomi.domain.history.repository.HistoryRepository
 class HistoryRepositoryImpl(
     private val handler: DatabaseHandler,
 ) : HistoryRepository {
-
-    override fun getHistory(query: String): Flow<List<HistoryWithRelations>> {
-        return handler.subscribeToList {
+    override fun getHistory(query: String): Flow<List<HistoryWithRelations>> =
+        handler.subscribeToList {
             historyViewQueries.history(query, HistoryMapper::mapHistoryWithRelations)
         }
-    }
 
-    override suspend fun getLastHistory(): HistoryWithRelations? {
-        return handler.awaitOneOrNull {
+    override suspend fun getLastHistory(): HistoryWithRelations? =
+        handler.awaitOneOrNull {
             historyViewQueries.getLatestHistory(HistoryMapper::mapHistoryWithRelations)
         }
-    }
 
-    override suspend fun getTotalReadDuration(): Long {
-        return handler.awaitOne { historyQueries.getReadDuration() }
-    }
+    override suspend fun getTotalReadDuration(): Long = handler.awaitOne { historyQueries.getReadDuration() }
 
-    override suspend fun getHistoryByMangaId(mangaId: Long): List<History> {
-        return handler.awaitList { historyQueries.getHistoryByMangaId(mangaId, HistoryMapper::mapHistory) }
-    }
+    override suspend fun getHistoryByMangaId(mangaId: Long): List<History> =
+        handler.awaitList {
+            historyQueries.getHistoryByMangaId(mangaId, HistoryMapper::mapHistory)
+        }
 
     override suspend fun resetHistory(historyId: Long) {
         try {
@@ -49,15 +45,14 @@ class HistoryRepositoryImpl(
         }
     }
 
-    override suspend fun deleteAllHistory(): Boolean {
-        return try {
+    override suspend fun deleteAllHistory(): Boolean =
+        try {
             handler.await { historyQueries.removeAllHistory() }
             true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, throwable = e)
             false
         }
-    }
 
     override suspend fun upsertHistory(historyUpdate: HistoryUpdate) {
         try {
@@ -73,3 +68,4 @@ class HistoryRepositoryImpl(
         }
     }
 }
+

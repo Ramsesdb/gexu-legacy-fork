@@ -16,8 +16,8 @@ data class ChapterUpdate(
     val version: Long? = null,
 )
 
-fun Chapter.toChapterUpdate(): ChapterUpdate {
-    return ChapterUpdate(
+fun Chapter.toChapterUpdate(): ChapterUpdate =
+    ChapterUpdate(
         id,
         mangaId,
         read,
@@ -32,4 +32,4 @@ fun Chapter.toChapterUpdate(): ChapterUpdate {
         scanlator,
         version,
     )
-}
+

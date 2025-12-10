@@ -27,16 +27,16 @@ class CloudflareInterceptor(
     private val cookieManager: AndroidCookieJar,
     defaultUserAgentProvider: () -> String,
 ) : WebViewInterceptor(context, defaultUserAgentProvider) {
-
     private val executor = ContextCompat.getMainExecutor(context)
 
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
         return if (response.code in ERROR_CODES && response.header("Server") in SERVER_CHECK) {
-            val document = Jsoup.parse(
-                response.peekBody(Long.MAX_VALUE).string(),
-                response.request.url.toString(),
-            )
+            val document =
+                Jsoup.parse(
+                    response.peekBody(Long.MAX_VALUE).string(),
+                    response.request.url.toString(),
+                )
 
             // solve with webview only on captcha, not on geo block
             document.getElementById("challenge-error-title") != null ||
@@ -51,18 +51,19 @@ class CloudflareInterceptor(
         request: Request,
         response: Response,
     ): Response {
+        // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
+        // we don't crash the entire app
         try {
             response.close()
             cookieManager.remove(request.url, COOKIE_NAMES, 0)
-            val oldCookie = cookieManager.get(request.url)
-                .firstOrNull { it.name == "cf_clearance" }
+            val oldCookie =
+                cookieManager
+                    .get(request.url)
+                    .firstOrNull { it.name == "cf_clearance" }
             resolveWithWebView(request, oldCookie)
 
             return chain.proceed(request)
-        }
-        // Because OkHttp's enqueue only handles IOExceptions, wrap the exception so that
-        // we don't crash the entire app
-        catch (e: CloudflareBypassException) {
+        } catch (e: CloudflareBypassException) {
             throw IOException(context.stringResource(MR.strings.information_cloudflare_bypass_failure), e)
         } catch (e: Exception) {
             throw IOException(e)
@@ -70,7 +71,10 @@ class CloudflareInterceptor(
     }
 
     @SuppressLint("SetJavaScriptEnabled")
-    private fun resolveWithWebView(originalRequest: Request, oldCookie: Cookie?) {
+    private fun resolveWithWebView(
+        originalRequest: Request,
+        oldCookie: Cookie?,
+    ) {
         // We need to lock this thread until the WebView finds the challenge solution url, because
         // OkHttp doesn't support asynchronous interceptors.
         val latch = CountDownLatch(1)
@@ -87,41 +91,45 @@ class CloudflareInterceptor(
         executor.execute {
             webview = createWebView(originalRequest)
 
-            webview?.webViewClient = object : WebViewClient() {
-                override fun onPageFinished(view: WebView, url: String) {
-                    fun isCloudFlareBypassed(): Boolean {
-                        return cookieManager.get(origRequestUrl.toHttpUrl())
-                            .firstOrNull { it.name == "cf_clearance" }
-                            .let { it != null && it != oldCookie }
-                    }
+            webview?.webViewClient =
+                object : WebViewClient() {
+                    override fun onPageFinished(
+                        view: WebView,
+                        url: String,
+                    ) {
+                        fun isCloudFlareBypassed(): Boolean =
+                            cookieManager
+                                .get(origRequestUrl.toHttpUrl())
+                                .firstOrNull { it.name == "cf_clearance" }
+                                .let { it != null && it != oldCookie }
 
-                    if (isCloudFlareBypassed()) {
-                        cloudflareBypassed = true
-                        latch.countDown()
-                    }
+                        if (isCloudFlareBypassed()) {
+                            cloudflareBypassed = true
+                            latch.countDown()
+                        }
 
-                    if (url == origRequestUrl && !challengeFound) {
-                        // The first request didn't return the challenge, abort.
-                        latch.countDown()
-                    }
-                }
-
-                override fun onReceivedHttpError(
-                    view: WebView?,
-                    request: WebResourceRequest?,
-                    errorResponse: WebResourceResponse?,
-                ) {
-                    if (request?.isForMainFrame == true) {
-                        if (errorResponse?.statusCode in ERROR_CODES) {
-                            // Found the Cloudflare challenge page.
-                            challengeFound = true
-                        } else {
-                            // Unlock thread, the challenge wasn't found.
+                        if (url == origRequestUrl && !challengeFound) {
+                            // The first request didn't return the challenge, abort.
                             latch.countDown()
                         }
                     }
+
+                    override fun onReceivedHttpError(
+                        view: WebView?,
+                        request: WebResourceRequest?,
+                        errorResponse: WebResourceResponse?,
+                    ) {
+                        if (request?.isForMainFrame == true) {
+                            if (errorResponse?.statusCode in ERROR_CODES) {
+                                // Found the Cloudflare challenge page.
+                                challengeFound = true
+                            } else {
+                                // Unlock thread, the challenge wasn't found.
+                                latch.countDown()
+                            }
+                        }
+                    }
                 }
-            }
 
             webview?.loadUrl(origRequestUrl, headers)
         }
@@ -156,3 +164,4 @@ private val SERVER_CHECK = arrayOf("cloudflare-nginx", "cloudflare")
 private val COOKIE_NAMES = listOf("cf_clearance")
 
 private class CloudflareBypassException : Exception()
+

@@ -14,7 +14,6 @@ import org.jsoup.nodes.Element
  */
 @Suppress("unused")
 abstract class ParsedHttpSource : HttpSource() {
-
     /**
      * Parses the response from the site and returns a [MangasPage] object.
      *
@@ -23,13 +22,15 @@ abstract class ParsedHttpSource : HttpSource() {
     override fun popularMangaParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
-        val mangas = document.select(popularMangaSelector()).map { element ->
-            popularMangaFromElement(element)
-        }
+        val mangas =
+            document.select(popularMangaSelector()).map { element ->
+                popularMangaFromElement(element)
+            }
 
-        val hasNextPage = popularMangaNextPageSelector()?.let { selector ->
-            document.select(selector).first()
-        } != null
+        val hasNextPage =
+            popularMangaNextPageSelector()?.let { selector ->
+                document.select(selector).first()
+            } != null
 
         return MangasPage(mangas, hasNextPage)
     }
@@ -61,13 +62,15 @@ abstract class ParsedHttpSource : HttpSource() {
     override fun searchMangaParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
-        val mangas = document.select(searchMangaSelector()).map { element ->
-            searchMangaFromElement(element)
-        }
+        val mangas =
+            document.select(searchMangaSelector()).map { element ->
+                searchMangaFromElement(element)
+            }
 
-        val hasNextPage = searchMangaNextPageSelector()?.let { selector ->
-            document.select(selector).first()
-        } != null
+        val hasNextPage =
+            searchMangaNextPageSelector()?.let { selector ->
+                document.select(selector).first()
+            } != null
 
         return MangasPage(mangas, hasNextPage)
     }
@@ -99,13 +102,15 @@ abstract class ParsedHttpSource : HttpSource() {
     override fun latestUpdatesParse(response: Response): MangasPage {
         val document = response.asJsoup()
 
-        val mangas = document.select(latestUpdatesSelector()).map { element ->
-            latestUpdatesFromElement(element)
-        }
+        val mangas =
+            document.select(latestUpdatesSelector()).map { element ->
+                latestUpdatesFromElement(element)
+            }
 
-        val hasNextPage = latestUpdatesNextPageSelector()?.let { selector ->
-            document.select(selector).first()
-        } != null
+        val hasNextPage =
+            latestUpdatesNextPageSelector()?.let { selector ->
+                document.select(selector).first()
+            } != null
 
         return MangasPage(mangas, hasNextPage)
     }
@@ -134,9 +139,7 @@ abstract class ParsedHttpSource : HttpSource() {
      *
      * @param response the response from the site.
      */
-    override fun mangaDetailsParse(response: Response): SManga {
-        return mangaDetailsParse(response.asJsoup())
-    }
+    override fun mangaDetailsParse(response: Response): SManga = mangaDetailsParse(response.asJsoup())
 
     /**
      * Returns the details of the manga from the given [document].
@@ -172,9 +175,7 @@ abstract class ParsedHttpSource : HttpSource() {
      *
      * @param response the response from the site.
      */
-    override fun pageListParse(response: Response): List<Page> {
-        return pageListParse(response.asJsoup())
-    }
+    override fun pageListParse(response: Response): List<Page> = pageListParse(response.asJsoup())
 
     /**
      * Returns a page list from the given document.
@@ -188,9 +189,7 @@ abstract class ParsedHttpSource : HttpSource() {
      *
      * @param response the response from the site.
      */
-    override fun imageUrlParse(response: Response): String {
-        return imageUrlParse(response.asJsoup())
-    }
+    override fun imageUrlParse(response: Response): String = imageUrlParse(response.asJsoup())
 
     /**
      * Returns the absolute url to the source image from the document.
@@ -199,3 +198,4 @@ abstract class ParsedHttpSource : HttpSource() {
      */
     protected abstract fun imageUrlParse(document: Document): String
 }
+

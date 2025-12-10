@@ -9,7 +9,6 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 
 object DeviceUtil {
-
     val isMiui: Boolean by lazy {
         getSystemProperty("ro.miui.ui.version.name")?.isNotEmpty() ?: false
     }
@@ -36,7 +35,8 @@ object DeviceUtil {
         }
 
         return try {
-            Class.forName("android.miui.AppOpsUtils")
+            Class
+                .forName("android.miui.AppOpsUtils")
                 .getDeclaredMethod("isXOptMode")
                 .invoke(null) as Boolean
         } catch (e: Exception) {
@@ -71,19 +71,20 @@ object DeviceUtil {
      *
      * Some of them may only be present on certain manufacturer's devices.
      */
-    val invalidDefaultBrowsers = listOf(
-        "android",
-        // Honor
-        "com.hihonor.android.internal.app",
-        // Huawei
-        "com.huawei.android.internal.app",
-        // Lenovo
-        "com.zui.resolver",
-        // Infinix
-        "com.transsion.resolver",
-        // Xiaomi Redmi
-        "com.android.intentresolver",
-    )
+    val invalidDefaultBrowsers =
+        listOf(
+            "android",
+            // Honor
+            "com.hihonor.android.internal.app",
+            // Huawei
+            "com.huawei.android.internal.app",
+            // Lenovo
+            "com.zui.resolver",
+            // Infinix
+            "com.transsion.resolver",
+            // Xiaomi Redmi
+            "com.android.intentresolver",
+        )
 
     /**
      * ActivityManager#isLowRamDevice is based on a system property, which isn't
@@ -100,14 +101,15 @@ object DeviceUtil {
     }
 
     @SuppressLint("PrivateApi")
-    private fun getSystemProperty(key: String?): String? {
-        return try {
-            Class.forName("android.os.SystemProperties")
+    private fun getSystemProperty(key: String?): String? =
+        try {
+            Class
+                .forName("android.os.SystemProperties")
                 .getDeclaredMethod("get", String::class.java)
                 .invoke(null, key) as String
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "Unable to use SystemProperties.get()" }
             null
         }
-    }
 }
+

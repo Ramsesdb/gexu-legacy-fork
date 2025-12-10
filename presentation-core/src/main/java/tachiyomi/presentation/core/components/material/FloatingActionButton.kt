@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.animation.AnimatedVisibility
@@ -57,25 +59,28 @@ fun ExtendedFloatingActionButton(
     ) {
         val minWidth by animateDpAsState(
             targetValue = if (expanded) ExtendedFabMinimumWidth else FabContainerWidth,
-            animationSpec = tween(
-                durationMillis = 500,
-                easing = EasingEmphasizedCubicBezier,
-            ),
+            animationSpec =
+                tween(
+                    durationMillis = 500,
+                    easing = EasingEmphasizedCubicBezier,
+                ),
             label = "minWidth",
         )
         val startPadding by animateDpAsState(
             targetValue = if (expanded) ExtendedFabIconSize / 2 else 0.dp,
-            animationSpec = tween(
-                durationMillis = if (expanded) 300 else 900,
-                easing = EasingEmphasizedCubicBezier,
-            ),
+            animationSpec =
+                tween(
+                    durationMillis = if (expanded) 300 else 900,
+                    easing = EasingEmphasizedCubicBezier,
+                ),
             label = "startPadding",
         )
 
         Row(
-            modifier = Modifier
-                .sizeIn(minWidth = minWidth)
-                .padding(start = startPadding),
+            modifier =
+                Modifier
+                    .sizeIn(minWidth = minWidth)
+                    .padding(start = startPadding),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.Center,
         ) {
@@ -101,31 +106,40 @@ private val ExtendedFabIconSize = 24.0.dp
 private val ExtendedFabIconPadding = 12.dp
 private val ExtendedFabTextPadding = 20.dp
 
-private val ExtendedFabCollapseAnimation = fadeOut(
-    animationSpec = tween(
-        durationMillis = 100,
-        easing = EasingLinearCubicBezier,
-    ),
-) + shrinkHorizontally(
-    animationSpec = tween(
-        durationMillis = 500,
-        easing = EasingEmphasizedCubicBezier,
-    ),
-    shrinkTowards = Alignment.Start,
-)
+private val ExtendedFabCollapseAnimation =
+    fadeOut(
+        animationSpec =
+            tween(
+                durationMillis = 100,
+                easing = EasingLinearCubicBezier,
+            ),
+    ) +
+        shrinkHorizontally(
+            animationSpec =
+                tween(
+                    durationMillis = 500,
+                    easing = EasingEmphasizedCubicBezier,
+                ),
+            shrinkTowards = Alignment.Start,
+        )
 
-private val ExtendedFabExpandAnimation = fadeIn(
-    animationSpec = tween(
-        durationMillis = 200,
-        delayMillis = 100,
-        easing = EasingLinearCubicBezier,
-    ),
-) + expandHorizontally(
-    animationSpec = tween(
-        durationMillis = 500,
-        easing = EasingEmphasizedCubicBezier,
-    ),
-    expandFrom = Alignment.Start,
-)
+private val ExtendedFabExpandAnimation =
+    fadeIn(
+        animationSpec =
+            tween(
+                durationMillis = 200,
+                delayMillis = 100,
+                easing = EasingLinearCubicBezier,
+            ),
+    ) +
+        expandHorizontally(
+            animationSpec =
+                tween(
+                    durationMillis = 500,
+                    easing = EasingEmphasizedCubicBezier,
+                ),
+            expandFrom = Alignment.Start,
+        )
 
 private val FabContainerWidth = 56.0.dp
+

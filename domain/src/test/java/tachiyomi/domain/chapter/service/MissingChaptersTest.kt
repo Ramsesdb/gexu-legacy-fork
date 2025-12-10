@@ -8,7 +8,6 @@ import tachiyomi.domain.chapter.model.Chapter
 
 @Execution(ExecutionMode.CONCURRENT)
 class MissingChaptersTest {
-
     @Test
     fun `missingChaptersCount returns 0 when empty list`() {
         emptyList<Double>().missingChaptersCount() shouldBe 0
@@ -51,7 +50,9 @@ class MissingChaptersTest {
         calculateChapterGap(99.0, -1.0) shouldBe 0
     }
 
-    private fun chapter(number: Double) = Chapter.create().copy(
-        chapterNumber = number,
-    )
+    private fun chapter(number: Double) =
+        Chapter.create().copy(
+            chapterNumber = number,
+        )
 }
+

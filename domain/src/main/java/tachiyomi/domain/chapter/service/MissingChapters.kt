@@ -8,14 +8,15 @@ fun List<Double>.missingChaptersCount(): Int {
         return 0
     }
 
-    val chapters = this
-        // Ignore unknown chapter numbers
-        .filterNot { it == -1.0 }
-        // Convert to integers, as we cannot check if 16.5 is missing
-        .map(Double::toInt)
-        // Only keep unique chapters so that -1 or 16 are not counted multiple times
-        .distinct()
-        .sorted()
+    val chapters =
+        this
+            // Ignore unknown chapter numbers
+            .filterNot { it == -1.0 }
+            // Convert to integers, as we cannot check if 16.5 is missing
+            .map(Double::toInt)
+            // Only keep unique chapters so that -1 or 16 are not counted multiple times
+            .distinct()
+            .sorted()
 
     if (chapters.isEmpty()) {
         return 0
@@ -37,13 +38,20 @@ fun List<Double>.missingChaptersCount(): Int {
     return missingChaptersCount
 }
 
-fun calculateChapterGap(higherChapter: Chapter?, lowerChapter: Chapter?): Int {
+fun calculateChapterGap(
+    higherChapter: Chapter?,
+    lowerChapter: Chapter?,
+): Int {
     if (higherChapter == null || lowerChapter == null) return 0
     if (!higherChapter.isRecognizedNumber || !lowerChapter.isRecognizedNumber) return 0
     return calculateChapterGap(higherChapter.chapterNumber, lowerChapter.chapterNumber)
 }
 
-fun calculateChapterGap(higherChapterNumber: Double, lowerChapterNumber: Double): Int {
+fun calculateChapterGap(
+    higherChapterNumber: Double,
+    lowerChapterNumber: Double,
+): Int {
     if (higherChapterNumber < 0.0 || lowerChapterNumber < 0.0) return 0
     return floor(higherChapterNumber).toInt() - floor(lowerChapterNumber).toInt() - 1
 }
+

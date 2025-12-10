@@ -3,7 +3,6 @@ package tachiyomi.source.local.io
 import com.hippo.unifile.UniFile
 
 expect class LocalSourceFileSystem {
-
     fun getBaseDirectory(): UniFile?
 
     fun getFilesInBaseDirectory(): List<UniFile>
@@ -12,3 +11,4 @@ expect class LocalSourceFileSystem {
 
     fun getFilesInMangaDirectory(name: String): List<UniFile>
 }
+

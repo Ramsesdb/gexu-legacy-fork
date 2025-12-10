@@ -7,4 +7,7 @@ import java.io.IOException
  *
  * @param throwable the source throwable to include for tracing.
  */
-class SaveExtensionRepoException(throwable: Throwable) : IOException("Error Saving Repository to Database", throwable)
+class SaveExtensionRepoException(
+    throwable: Throwable,
+) : IOException("Error Saving Repository to Database", throwable)
+

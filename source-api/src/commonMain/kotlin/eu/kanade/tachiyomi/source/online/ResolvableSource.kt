@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.source.model.SManga
  * @since extensions-lib 1.5
  */
 interface ResolvableSource : Source {
-
     /**
      * Returns what the given URI may open.
      * Returns [UriType.Unknown] if the source is not able to resolve the URI.
@@ -38,6 +37,9 @@ interface ResolvableSource : Source {
 
 sealed interface UriType {
     data object Manga : UriType
+
     data object Chapter : UriType
+
     data object Unknown : UriType
 }
+

@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Box
@@ -23,15 +25,17 @@ fun Pill(
     style: TextStyle = LocalTextStyle.current,
 ) {
     Surface(
-        modifier = modifier
-            .padding(start = 4.dp),
+        modifier =
+            modifier
+                .padding(start = 4.dp),
         shape = MaterialTheme.shapes.extraLarge,
         color = color,
         contentColor = contentColor,
     ) {
         Box(
-            modifier = Modifier
-                .padding(6.dp, 1.dp),
+            modifier =
+                Modifier
+                    .padding(6.dp, 1.dp),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -59,3 +63,4 @@ fun Pill(
         style = LocalTextStyle.current.merge(fontSize = fontSize),
     )
 }
+

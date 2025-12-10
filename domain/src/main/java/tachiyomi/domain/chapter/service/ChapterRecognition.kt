@@ -4,7 +4,6 @@ package tachiyomi.domain.chapter.service
  * -R> = regex conversion.
  */
 object ChapterRecognition {
-
     private const val NUMBER_PATTERN = """([0-9]+)(\.[0-9]+)?(\.?[a-z]+)?"""
 
     /**
@@ -41,14 +40,17 @@ object ChapterRecognition {
         }
 
         // Get chapter title with lower case
-        val cleanChapterName = chapterName.lowercase()
-            // Remove manga title from chapter title.
-            .replace(mangaTitle.lowercase(), "").trim()
-            // Remove comma's or hyphens.
-            .replace(',', '.')
-            .replace('-', '.')
-            // Remove unwanted white spaces.
-            .replace(unwantedWhiteSpace, "")
+        val cleanChapterName =
+            chapterName
+                .lowercase()
+                // Remove manga title from chapter title.
+                .replace(mangaTitle.lowercase(), "")
+                .trim()
+                // Remove comma's or hyphens.
+                .replace(',', '.')
+                .replace('-', '.')
+                // Remove unwanted white spaces.
+                .replace(unwantedWhiteSpace, "")
 
         val numberMatch = number.findAll(cleanChapterName)
 
@@ -77,15 +79,14 @@ object ChapterRecognition {
      * @param match result of regex
      * @return chapter number if found else null
      */
-    private fun getChapterNumberFromMatch(match: MatchResult): Double {
-        return match.let {
+    private fun getChapterNumberFromMatch(match: MatchResult): Double =
+        match.let {
             val initial = it.groups[1]?.value?.toDouble()!!
             val subChapterDecimal = it.groups[2]?.value
             val subChapterAlpha = it.groups[3]?.value
             val addition = checkForDecimal(subChapterDecimal, subChapterAlpha)
             initial.plus(addition)
         }
-    }
 
     /**
      * Check for decimal in received strings
@@ -93,7 +94,10 @@ object ChapterRecognition {
      * @param alpha alpha value of regex
      * @return decimal/alpha float value
      */
-    private fun checkForDecimal(decimal: String?, alpha: String?): Double {
+    private fun checkForDecimal(
+        decimal: String?,
+        alpha: String?,
+    ): Double {
         if (!decimal.isNullOrEmpty()) {
             return decimal.toDouble()
         }
@@ -129,3 +133,4 @@ object ChapterRecognition {
         return number / 10.0
     }
 }
+

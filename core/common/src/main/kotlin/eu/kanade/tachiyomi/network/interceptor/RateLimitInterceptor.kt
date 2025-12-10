@@ -50,8 +50,10 @@ fun OkHttpClient.Builder.rateLimit(
  * @param permits [Int]     Number of requests allowed within a period of units.
  * @param period [Duration] The limiting duration. Defaults to 1.seconds.
  */
-fun OkHttpClient.Builder.rateLimit(permits: Int, period: Duration = 1.seconds) =
-    addInterceptor(RateLimitInterceptor(null, permits, period))
+fun OkHttpClient.Builder.rateLimit(
+    permits: Int,
+    period: Duration = 1.seconds,
+) = addInterceptor(RateLimitInterceptor(null, permits, period))
 
 /** We can probably accept domains or wildcards by comparing with [endsWith], etc. */
 @Suppress("PLATFORM_CLASS_MAPPED_TO_KOTLIN")
@@ -60,7 +62,6 @@ internal class RateLimitInterceptor(
     private val permits: Int,
     period: Duration,
 ) : Interceptor {
-
     private val requestQueue = ArrayDeque<Long>(permits)
     private val rateLimitMillis = period.inWholeMilliseconds
     private val fairLock = Semaphore(1, true)
@@ -98,7 +99,8 @@ internal class RateLimitInterceptor(
                     } else if (hasRemovedExpired) {
                         break
                     } else {
-                        try { // wait for the first entry to expire, or notified by cached response
+                        try {
+                            // wait for the first entry to expire, or notified by cached response
                             (requestQueue as Object).wait(requestQueue.first - periodStart)
                         } catch (_: InterruptedException) {
                             continue
@@ -126,3 +128,4 @@ internal class RateLimitInterceptor(
         return response
     }
 }
+

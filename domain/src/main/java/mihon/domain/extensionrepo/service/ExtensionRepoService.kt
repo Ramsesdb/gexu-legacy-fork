@@ -16,13 +16,12 @@ class ExtensionRepoService(
 ) {
     val client = networkHelper.client
 
-    suspend fun fetchRepoDetails(
-        repo: String,
-    ): ExtensionRepo? {
-        return withIOContext {
+    suspend fun fetchRepoDetails(repo: String): ExtensionRepo? =
+        withIOContext {
             try {
                 with(json) {
-                    client.newCall(GET("$repo/repo.json"))
+                    client
+                        .newCall(GET("$repo/repo.json"))
                         .awaitSuccess()
                         .parseAs<ExtensionRepoMetaDto>()
                         .toExtensionRepo(baseUrl = repo)
@@ -32,5 +31,5 @@ class ExtensionRepoService(
                 null
             }
         }
-    }
 }
+

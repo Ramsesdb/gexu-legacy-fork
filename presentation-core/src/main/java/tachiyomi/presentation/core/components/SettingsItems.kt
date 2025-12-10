@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.clickable
@@ -75,17 +77,22 @@ fun HeadingItem(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.header,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
     )
 }
 
 @Composable
-fun IconItem(label: String, icon: ImageVector, onClick: () -> Unit) {
+fun IconItem(
+    label: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+) {
     BaseSettingsItem(
         label = label,
         widget = {
@@ -100,12 +107,17 @@ fun IconItem(label: String, icon: ImageVector, onClick: () -> Unit) {
 }
 
 @Composable
-fun SortItem(label: String, sortDescending: Boolean?, onClick: () -> Unit) {
-    val arrowIcon = when (sortDescending) {
-        true -> Icons.Default.ArrowDownward
-        false -> Icons.Default.ArrowUpward
-        null -> null
-    }
+fun SortItem(
+    label: String,
+    sortDescending: Boolean?,
+    onClick: () -> Unit,
+) {
+    val arrowIcon =
+        when (sortDescending) {
+            true -> Icons.Default.ArrowDownward
+            false -> Icons.Default.ArrowUpward
+            null -> null
+        }
 
     BaseSortItem(
         label = label,
@@ -115,7 +127,11 @@ fun SortItem(label: String, sortDescending: Boolean?, onClick: () -> Unit) {
 }
 
 @Composable
-fun BaseSortItem(label: String, icon: ImageVector?, onClick: () -> Unit) {
+fun BaseSortItem(
+    label: String,
+    icon: ImageVector?,
+    onClick: () -> Unit,
+) {
     BaseSettingsItem(
         label = label,
         widget = {
@@ -134,7 +150,10 @@ fun BaseSortItem(label: String, icon: ImageVector?, onClick: () -> Unit) {
 }
 
 @Composable
-fun CheckboxItem(label: String, pref: Preference<Boolean>) {
+fun CheckboxItem(
+    label: String,
+    pref: Preference<Boolean>,
+) {
     val checked by pref.collectAsState()
     CheckboxItem(
         label = label,
@@ -144,7 +163,11 @@ fun CheckboxItem(label: String, pref: Preference<Boolean>) {
 }
 
 @Composable
-fun CheckboxItem(label: String, checked: Boolean, onClick: () -> Unit) {
+fun CheckboxItem(
+    label: String,
+    checked: Boolean,
+    onClick: () -> Unit,
+) {
     BaseSettingsItem(
         label = label,
         widget = {
@@ -158,7 +181,11 @@ fun CheckboxItem(label: String, checked: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-fun RadioItem(label: String, selected: Boolean, onClick: () -> Unit) {
+fun RadioItem(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     BaseSettingsItem(
         label = label,
         widget = {
@@ -191,10 +218,11 @@ fun SliderItem(
         onChange = onChange,
         labelStyle = labelStyle,
         pillColor = pillColor,
-        modifier = Modifier.padding(
-            horizontal = SettingsItemsPaddings.Horizontal,
-            vertical = SettingsItemsPaddings.Vertical,
-        ),
+        modifier =
+            Modifier.padding(
+                horizontal = SettingsItemsPaddings.Horizontal,
+                vertical = SettingsItemsPaddings.Vertical,
+            ),
     )
 }
 
@@ -212,9 +240,10 @@ fun BaseSliderItem(
 ) {
     val haptic = LocalHapticFeedback.current
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(modifier),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .then(modifier),
         verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Row(
@@ -276,13 +305,14 @@ fun SelectItem(
         onExpandedChange = { expanded = !expanded },
     ) {
         OutlinedTextField(
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth()
-                .padding(
-                    horizontal = SettingsItemsPaddings.Horizontal,
-                    vertical = SettingsItemsPaddings.Vertical,
-                ),
+            modifier =
+                Modifier
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = SettingsItemsPaddings.Horizontal,
+                        vertical = SettingsItemsPaddings.Vertical,
+                    ),
             label = { Text(text = label) },
             value = options[selectedIndex].toString(),
             onValueChange = {},
@@ -323,42 +353,44 @@ fun TriStateItem(
     onClick: ((TriState) -> Unit)?,
 ) {
     Row(
-        modifier = Modifier
-            .clickable(
-                enabled = enabled && onClick != null,
-                onClick = {
-                    when (state) {
-                        TriState.DISABLED -> onClick?.invoke(TriState.ENABLED_IS)
-                        TriState.ENABLED_IS -> onClick?.invoke(TriState.ENABLED_NOT)
-                        TriState.ENABLED_NOT -> onClick?.invoke(TriState.DISABLED)
-                    }
-                },
-            )
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
+        modifier =
+            Modifier
+                .clickable(
+                    enabled = enabled && onClick != null,
+                    onClick = {
+                        when (state) {
+                            TriState.DISABLED -> onClick?.invoke(TriState.ENABLED_IS)
+                            TriState.ENABLED_IS -> onClick?.invoke(TriState.ENABLED_NOT)
+                            TriState.ENABLED_NOT -> onClick?.invoke(TriState.DISABLED)
+                        }
+                    },
+                ).fillMaxWidth()
+                .padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.large),
     ) {
         val stateAlpha = if (enabled && onClick != null) 1f else DISABLED_ALPHA
 
         Icon(
-            imageVector = when (state) {
-                TriState.DISABLED -> Icons.Rounded.CheckBoxOutlineBlank
-                TriState.ENABLED_IS -> Icons.Rounded.CheckBox
-                TriState.ENABLED_NOT -> Icons.Rounded.DisabledByDefault
-            },
+            imageVector =
+                when (state) {
+                    TriState.DISABLED -> Icons.Rounded.CheckBoxOutlineBlank
+                    TriState.ENABLED_IS -> Icons.Rounded.CheckBox
+                    TriState.ENABLED_NOT -> Icons.Rounded.DisabledByDefault
+                },
             contentDescription = null,
-            tint = if (!enabled || state == TriState.DISABLED) {
-                MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = stateAlpha)
-            } else {
-                when (onClick) {
-                    null -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
-                    else -> MaterialTheme.colorScheme.primary
-                }
-            },
+            tint =
+                if (!enabled || state == TriState.DISABLED) {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = stateAlpha)
+                } else {
+                    when (onClick) {
+                        null -> MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA)
+                        else -> MaterialTheme.colorScheme.primary
+                    }
+                },
         )
         Text(
             text = label,
@@ -369,11 +401,16 @@ fun TriStateItem(
 }
 
 @Composable
-fun TextItem(label: String, value: String, onChange: (String) -> Unit) {
+fun TextItem(
+    label: String,
+    value: String,
+    onChange: (String) -> Unit,
+) {
     OutlinedTextField(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 4.dp),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 4.dp),
         label = { Text(text = label) },
         value = value,
         onValueChange = onChange,
@@ -382,16 +419,20 @@ fun TextItem(label: String, value: String, onChange: (String) -> Unit) {
 }
 
 @Composable
-fun SettingsChipRow(labelRes: StringResource, content: @Composable FlowRowScope.() -> Unit) {
+fun SettingsChipRow(
+    labelRes: StringResource,
+    content: @Composable FlowRowScope.() -> Unit,
+) {
     Column {
         HeadingItem(labelRes)
         FlowRow(
-            modifier = Modifier.padding(
-                start = SettingsItemsPaddings.Horizontal,
-                top = 0.dp,
-                end = SettingsItemsPaddings.Horizontal,
-                bottom = SettingsItemsPaddings.Vertical,
-            ),
+            modifier =
+                Modifier.padding(
+                    start = SettingsItemsPaddings.Horizontal,
+                    top = 0.dp,
+                    end = SettingsItemsPaddings.Horizontal,
+                    bottom = SettingsItemsPaddings.Vertical,
+                ),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             content = content,
         )
@@ -399,16 +440,20 @@ fun SettingsChipRow(labelRes: StringResource, content: @Composable FlowRowScope.
 }
 
 @Composable
-fun SettingsIconGrid(labelRes: StringResource, content: LazyGridScope.() -> Unit) {
+fun SettingsIconGrid(
+    labelRes: StringResource,
+    content: LazyGridScope.() -> Unit,
+) {
     Column {
         HeadingItem(labelRes)
         LazyVerticalGrid(
             columns = GridCells.Adaptive(128.dp),
-            modifier = Modifier.padding(
-                start = SettingsItemsPaddings.Horizontal,
-                end = SettingsItemsPaddings.Horizontal,
-                bottom = SettingsItemsPaddings.Vertical,
-            ),
+            modifier =
+                Modifier.padding(
+                    start = SettingsItemsPaddings.Horizontal,
+                    end = SettingsItemsPaddings.Horizontal,
+                    bottom = SettingsItemsPaddings.Vertical,
+                ),
             verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall),
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             content = content,
@@ -423,13 +468,14 @@ private fun BaseSettingsItem(
     onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier
-            .clickable(onClick = onClick)
-            .fillMaxWidth()
-            .padding(
-                horizontal = SettingsItemsPaddings.Horizontal,
-                vertical = SettingsItemsPaddings.Vertical,
-            ),
+        modifier =
+            Modifier
+                .clickable(onClick = onClick)
+                .fillMaxWidth()
+                .padding(
+                    horizontal = SettingsItemsPaddings.Horizontal,
+                    vertical = SettingsItemsPaddings.Vertical,
+                ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
@@ -440,3 +486,4 @@ private fun BaseSettingsItem(
         )
     }
 }
+

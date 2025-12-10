@@ -13,13 +13,11 @@ import kotlin.time.Duration.Companion.seconds
 class GetLibraryManga(
     private val mangaRepository: MangaRepository,
 ) {
+    suspend fun await(): List<LibraryManga> = mangaRepository.getLibraryManga()
 
-    suspend fun await(): List<LibraryManga> {
-        return mangaRepository.getLibraryManga()
-    }
-
-    fun subscribe(): Flow<List<LibraryManga>> {
-        return mangaRepository.getLibraryMangaAsFlow()
+    fun subscribe(): Flow<List<LibraryManga>> =
+        mangaRepository
+            .getLibraryMangaAsFlow()
             .retry {
                 if (it is NullPointerException) {
                     delay(0.5.seconds)
@@ -30,5 +28,5 @@ class GetLibraryManga(
             }.catch {
                 this@GetLibraryManga.logcat(LogPriority.ERROR, it)
             }
-    }
 }
+

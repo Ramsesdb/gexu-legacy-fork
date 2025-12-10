@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.screens
 
 import androidx.compose.foundation.background
@@ -49,21 +51,21 @@ fun InfoScreen(
             val strokeWidth = Dp.Hairline
             val borderColor = MaterialTheme.colorScheme.outline
             Column(
-                modifier = Modifier
-                    .background(MaterialTheme.colorScheme.background)
-                    .drawBehind {
-                        drawLine(
-                            borderColor,
-                            Offset(0f, 0f),
-                            Offset(size.width, 0f),
-                            strokeWidth.value,
-                        )
-                    }
-                    .windowInsetsPadding(NavigationBarDefaults.windowInsets)
-                    .padding(
-                        horizontal = MaterialTheme.padding.medium,
-                        vertical = MaterialTheme.padding.small,
-                    ),
+                modifier =
+                    Modifier
+                        .background(MaterialTheme.colorScheme.background)
+                        .drawBehind {
+                            drawLine(
+                                borderColor,
+                                Offset(0f, 0f),
+                                Offset(size.width, 0f),
+                                strokeWidth.value,
+                            )
+                        }.windowInsetsPadding(NavigationBarDefaults.windowInsets)
+                        .padding(
+                            horizontal = MaterialTheme.padding.medium,
+                            vertical = MaterialTheme.padding.small,
+                        ),
             ) {
                 Button(
                     modifier = Modifier.fillMaxWidth(),
@@ -85,28 +87,31 @@ fun InfoScreen(
     ) { paddingValues ->
         // Status bar scrim
         Box(
-            modifier = Modifier
-                .zIndex(2f)
-                .secondaryItemAlpha()
-                .background(MaterialTheme.colorScheme.background)
-                .fillMaxWidth()
-                .height(paddingValues.calculateTopPadding()),
+            modifier =
+                Modifier
+                    .zIndex(2f)
+                    .secondaryItemAlpha()
+                    .background(MaterialTheme.colorScheme.background)
+                    .fillMaxWidth()
+                    .height(paddingValues.calculateTopPadding()),
         )
 
         Column(
-            modifier = Modifier
-                .verticalScroll(rememberScrollState())
-                .fillMaxWidth()
-                .padding(paddingValues)
-                .padding(top = 48.dp)
-                .padding(horizontal = MaterialTheme.padding.medium),
+            modifier =
+                Modifier
+                    .verticalScroll(rememberScrollState())
+                    .fillMaxWidth()
+                    .padding(paddingValues)
+                    .padding(top = 48.dp)
+                    .padding(horizontal = MaterialTheme.padding.medium),
         ) {
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                modifier = Modifier
-                    .padding(bottom = MaterialTheme.padding.small)
-                    .size(48.dp),
+                modifier =
+                    Modifier
+                        .padding(bottom = MaterialTheme.padding.small)
+                        .size(48.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
             Text(
@@ -115,9 +120,10 @@ fun InfoScreen(
             )
             Text(
                 text = subtitleText,
-                modifier = Modifier
-                    .secondaryItemAlpha()
-                    .padding(vertical = MaterialTheme.padding.small),
+                modifier =
+                    Modifier
+                        .secondaryItemAlpha()
+                        .padding(vertical = MaterialTheme.padding.small),
                 style = MaterialTheme.typography.titleSmall,
             )
 
@@ -141,3 +147,4 @@ private fun InfoScaffoldPreview() {
         Text("Hello world")
     }
 }
+

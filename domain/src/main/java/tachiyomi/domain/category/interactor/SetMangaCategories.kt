@@ -7,8 +7,10 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class SetMangaCategories(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend fun await(mangaId: Long, categoryIds: List<Long>) {
+    suspend fun await(
+        mangaId: Long,
+        categoryIds: List<Long>,
+    ) {
         try {
             mangaRepository.setMangaCategories(mangaId, categoryIds)
         } catch (e: Exception) {
@@ -16,3 +18,4 @@ class SetMangaCategories(
         }
     }
 }
+

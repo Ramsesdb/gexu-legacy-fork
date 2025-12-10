@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -56,10 +58,11 @@ fun EmptyScreen(
 ) {
     val face = remember { getRandomErrorFace() }
     Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 24.dp),
+        modifier =
+            modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
@@ -73,17 +76,19 @@ fun EmptyScreen(
 
         Text(
             text = message,
-            modifier = Modifier
-                .paddingFromBaseline(top = 24.dp)
-                .secondaryItemAlpha(),
+            modifier =
+                Modifier
+                    .paddingFromBaseline(top = 24.dp)
+                    .secondaryItemAlpha(),
             style = MaterialTheme.typography.bodyMedium,
             textAlign = TextAlign.Center,
         )
 
         if (!actions.isNullOrEmpty()) {
             Row(
-                modifier = Modifier
-                    .padding(top = 24.dp),
+                modifier =
+                    Modifier
+                        .padding(top = 24.dp),
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             ) {
                 actions.fastForEach {
@@ -99,21 +104,21 @@ fun EmptyScreen(
     }
 }
 
-private val ErrorFaces = listOf(
-    "(･o･;)",
-    "Σ(ಠ_ಠ)",
-    "ಥ_ಥ",
-    "(˘･_･˘)",
-    "(；￣Д￣)",
-    "(･Д･。",
-    "(╬ಠ益ಠ)",
-    "(╥﹏╥)",
-    "(⋟﹏⋞)",
-    "Ò︵Ó",
-    " ˙ᯅ˙)",
-    "(¬_¬)",
-)
+private val ErrorFaces =
+    listOf(
+        "(･o･;)",
+        "Σ(ಠ_ಠ)",
+        "ಥ_ಥ",
+        "(˘･_･˘)",
+        "(；￣Д￣)",
+        "(･Д･。",
+        "(╬ಠ益ಠ)",
+        "(╥﹏╥)",
+        "(⋟﹏⋞)",
+        "Ò︵Ó",
+        " ˙ᯅ˙)",
+        "(¬_¬)",
+    )
 
-private fun getRandomErrorFace(): String {
-    return ErrorFaces[Random.nextInt(ErrorFaces.size)]
-}
+private fun getRandomErrorFace(): String = ErrorFaces[Random.nextInt(ErrorFaces.size)]
+

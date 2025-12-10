@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.activity.compose.BackHandler
@@ -73,27 +75,27 @@ fun AdaptiveSheet(
             }
         }
         Box(
-            modifier = Modifier
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClick = internalOnDismissRequest,
-                )
-                .fillMaxSize()
-                .alpha(alpha),
-            contentAlignment = Alignment.Center,
-        ) {
-            Surface(
-                modifier = Modifier
-                    .requiredWidthIn(max = 460.dp)
+            modifier =
+                Modifier
                     .clickable(
                         interactionSource = null,
                         indication = null,
-                        onClick = {},
-                    )
-                    .systemBarsPadding()
-                    .padding(vertical = 16.dp)
-                    .then(modifier),
+                        onClick = internalOnDismissRequest,
+                    ).fillMaxSize()
+                    .alpha(alpha),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier =
+                    Modifier
+                        .requiredWidthIn(max = 460.dp)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null,
+                            onClick = {},
+                        ).systemBarsPadding()
+                        .padding(vertical = 16.dp)
+                        .then(modifier),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 content = {
@@ -110,75 +112,75 @@ fun AdaptiveSheet(
             }
         }
     } else {
-        val anchoredDraggableState = rememberSaveable(saver = AnchoredDraggableState.Saver()) {
-            AnchoredDraggableState(initialValue = 1)
-        }
-        val flingBehavior = AnchoredDraggableDefaults.flingBehavior(
-            state = anchoredDraggableState,
-            positionalThreshold = { _: Float -> with(density) { 56.dp.toPx() } },
-            animationSpec = sheetAnimationSpec,
-        )
+        val anchoredDraggableState =
+            rememberSaveable(saver = AnchoredDraggableState.Saver()) {
+                AnchoredDraggableState(initialValue = 1)
+            }
+        val flingBehavior =
+            AnchoredDraggableDefaults.flingBehavior(
+                state = anchoredDraggableState,
+                positionalThreshold = { _: Float -> with(density) { 56.dp.toPx() } },
+                animationSpec = sheetAnimationSpec,
+            )
         val internalOnDismissRequest = {
             if (anchoredDraggableState.settledValue == 0) {
                 scope.launch { anchoredDraggableState.animateTo(1) }
             }
         }
         Box(
-            modifier = Modifier
-                .clickable(
-                    interactionSource = null,
-                    indication = null,
-                    onClick = internalOnDismissRequest,
-                )
-                .fillMaxSize()
-                .onSizeChanged {
-                    val anchors = DraggableAnchors {
-                        0 at 0f
-                        1 at it.height.toFloat()
-                    }
-                    anchoredDraggableState.updateAnchors(anchors)
-                },
-            contentAlignment = Alignment.BottomCenter,
-        ) {
-            Surface(
-                modifier = Modifier
-                    .widthIn(max = 460.dp)
+            modifier =
+                Modifier
                     .clickable(
                         interactionSource = null,
                         indication = null,
-                        onClick = {},
-                    )
-                    .then(
-                        if (enableSwipeDismiss) {
-                            Modifier.nestedScroll(
-                                remember(anchoredDraggableState) {
-                                    anchoredDraggableState.preUpPostDownNestedScrollConnection {
-                                        scope.launch { anchoredDraggableState.settle(sheetAnimationSpec) }
-                                    }
-                                },
+                        onClick = internalOnDismissRequest,
+                    ).fillMaxSize()
+                    .onSizeChanged {
+                        val anchors =
+                            DraggableAnchors {
+                                0 at 0f
+                                1 at it.height.toFloat()
+                            }
+                        anchoredDraggableState.updateAnchors(anchors)
+                    },
+            contentAlignment = Alignment.BottomCenter,
+        ) {
+            Surface(
+                modifier =
+                    Modifier
+                        .widthIn(max = 460.dp)
+                        .clickable(
+                            interactionSource = null,
+                            indication = null,
+                            onClick = {},
+                        ).then(
+                            if (enableSwipeDismiss) {
+                                Modifier.nestedScroll(
+                                    remember(anchoredDraggableState) {
+                                        anchoredDraggableState.preUpPostDownNestedScrollConnection {
+                                            scope.launch { anchoredDraggableState.settle(sheetAnimationSpec) }
+                                        }
+                                    },
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ).then(modifier)
+                        .offset {
+                            IntOffset(
+                                0,
+                                anchoredDraggableState.offset
+                                    .takeIf { it.isFinite() }
+                                    ?.roundToInt()
+                                    ?: 0,
                             )
-                        } else {
-                            Modifier
-                        },
-                    )
-                    .then(modifier)
-                    .offset {
-                        IntOffset(
-                            0,
-                            anchoredDraggableState.offset
-                                .takeIf { it.isFinite() }
-                                ?.roundToInt()
-                                ?: 0,
-                        )
-                    }
-                    .anchoredDraggable(
-                        state = anchoredDraggableState,
-                        orientation = Orientation.Vertical,
-                        enabled = enableSwipeDismiss,
-                        flingBehavior = flingBehavior,
-                    )
-                    .navigationBarsPadding()
-                    .statusBarsPadding(),
+                        }.anchoredDraggable(
+                            state = anchoredDraggableState,
+                            orientation = Orientation.Vertical,
+                            enabled = enableSwipeDismiss,
+                            flingBehavior = flingBehavior,
+                        ).navigationBarsPadding()
+                        .statusBarsPadding(),
                 shape = MaterialTheme.shapes.extraLarge,
                 color = MaterialTheme.colorScheme.surfaceContainerHigh,
                 content = {
@@ -203,57 +205,62 @@ fun AdaptiveSheet(
     }
 }
 
-private fun <T> AnchoredDraggableState<T>.preUpPostDownNestedScrollConnection(
-    onFling: (velocity: Float) -> Unit,
-) = object : NestedScrollConnection {
-    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
-        val delta = available.toFloat()
-        return if (delta < 0 && source == NestedScrollSource.UserInput) {
-            dispatchRawDelta(delta).toOffset()
-        } else {
-            Offset.Zero
+private fun <T> AnchoredDraggableState<T>.preUpPostDownNestedScrollConnection(onFling: (velocity: Float) -> Unit) =
+    object : NestedScrollConnection {
+        override fun onPreScroll(
+            available: Offset,
+            source: NestedScrollSource,
+        ): Offset {
+            val delta = available.toFloat()
+            return if (delta < 0 && source == NestedScrollSource.UserInput) {
+                dispatchRawDelta(delta).toOffset()
+            } else {
+                Offset.Zero
+            }
         }
-    }
 
-    override fun onPostScroll(
-        consumed: Offset,
-        available: Offset,
-        source: NestedScrollSource,
-    ): Offset {
-        return if (source == NestedScrollSource.UserInput) {
-            dispatchRawDelta(available.toFloat()).toOffset()
-        } else {
-            Offset.Zero
+        override fun onPostScroll(
+            consumed: Offset,
+            available: Offset,
+            source: NestedScrollSource,
+        ): Offset =
+            if (source == NestedScrollSource.UserInput) {
+                dispatchRawDelta(available.toFloat()).toOffset()
+            } else {
+                Offset.Zero
+            }
+
+        override suspend fun onPreFling(available: Velocity): Velocity {
+            val toFling = available.toFloat()
+            return if (toFling < 0 && offset > anchors.minPosition()) {
+                onFling(toFling)
+                // since we go to the anchor with tween settling, consume all for the best UX
+                available
+            } else {
+                Velocity.Zero
+            }
         }
-    }
 
-    override suspend fun onPreFling(available: Velocity): Velocity {
-        val toFling = available.toFloat()
-        return if (toFling < 0 && offset > anchors.minPosition()) {
-            onFling(toFling)
-            // since we go to the anchor with tween settling, consume all for the best UX
-            available
-        } else {
-            Velocity.Zero
+        override suspend fun onPostFling(
+            consumed: Velocity,
+            available: Velocity,
+        ): Velocity {
+            onFling(available.toFloat())
+            return if (targetValue != settledValue) {
+                available
+            } else {
+                Velocity.Zero
+            }
         }
+
+        private fun Float.toOffset(): Offset = Offset(0f, this)
+
+        @JvmName("velocityToFloat")
+        private fun Velocity.toFloat() = this.y
+
+        @JvmName("offsetToFloat")
+        private fun Offset.toFloat(): Float = this.y
     }
-
-    override suspend fun onPostFling(consumed: Velocity, available: Velocity): Velocity {
-        onFling(available.toFloat())
-        return if (targetValue != settledValue) {
-            available
-        } else {
-            Velocity.Zero
-        }
-    }
-
-    private fun Float.toOffset(): Offset = Offset(0f, this)
-
-    @JvmName("velocityToFloat")
-    private fun Velocity.toFloat() = this.y
-
-    @JvmName("offsetToFloat")
-    private fun Offset.toFloat(): Float = this.y
-}
 
 private val sheetAnimationSpec = tween<Float>(durationMillis = 350)
+

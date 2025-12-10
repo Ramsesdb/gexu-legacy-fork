@@ -19,74 +19,61 @@ class AndroidDatabaseHandler(
     val queryDispatcher: CoroutineDispatcher = Dispatchers.IO,
     val transactionDispatcher: CoroutineDispatcher = queryDispatcher,
 ) : DatabaseHandler {
-
     val suspendingTransactionId = ThreadLocal<Int>()
 
-    override suspend fun <T> await(inTransaction: Boolean, block: suspend Database.() -> T): T {
-        return dispatch(inTransaction, block)
-    }
+    override suspend fun <T> await(
+        inTransaction: Boolean,
+        block: suspend Database.() -> T,
+    ): T = dispatch(inTransaction, block)
 
     override suspend fun <T : Any> awaitList(
         inTransaction: Boolean,
         block: suspend Database.() -> Query<T>,
-    ): List<T> {
-        return dispatch(inTransaction) { block(db).executeAsList() }
-    }
+    ): List<T> = dispatch(inTransaction) { block(db).executeAsList() }
 
     override suspend fun <T : Any> awaitOne(
         inTransaction: Boolean,
         block: suspend Database.() -> Query<T>,
-    ): T {
-        return dispatch(inTransaction) { block(db).executeAsOne() }
-    }
+    ): T = dispatch(inTransaction) { block(db).executeAsOne() }
 
     override suspend fun <T : Any> awaitOneExecutable(
         inTransaction: Boolean,
         block: suspend Database.() -> ExecutableQuery<T>,
-    ): T {
-        return dispatch(inTransaction) { block(db).executeAsOne() }
-    }
+    ): T = dispatch(inTransaction) { block(db).executeAsOne() }
 
     override suspend fun <T : Any> awaitOneOrNull(
         inTransaction: Boolean,
         block: suspend Database.() -> Query<T>,
-    ): T? {
-        return dispatch(inTransaction) { block(db).executeAsOneOrNull() }
-    }
+    ): T? = dispatch(inTransaction) { block(db).executeAsOneOrNull() }
 
     override suspend fun <T : Any> awaitOneOrNullExecutable(
         inTransaction: Boolean,
         block: suspend Database.() -> ExecutableQuery<T>,
-    ): T? {
-        return dispatch(inTransaction) { block(db).executeAsOneOrNull() }
-    }
+    ): T? = dispatch(inTransaction) { block(db).executeAsOneOrNull() }
 
-    override fun <T : Any> subscribeToList(block: Database.() -> Query<T>): Flow<List<T>> {
-        return block(db).asFlow().mapToList(queryDispatcher)
-    }
+    override fun <T : Any> subscribeToList(block: Database.() -> Query<T>): Flow<List<T>> = block(db).asFlow().mapToList(queryDispatcher)
 
-    override fun <T : Any> subscribeToOne(block: Database.() -> Query<T>): Flow<T> {
-        return block(db).asFlow().mapToOne(queryDispatcher)
-    }
+    override fun <T : Any> subscribeToOne(block: Database.() -> Query<T>): Flow<T> = block(db).asFlow().mapToOne(queryDispatcher)
 
-    override fun <T : Any> subscribeToOneOrNull(block: Database.() -> Query<T>): Flow<T?> {
-        return block(db).asFlow().mapToOneOrNull(queryDispatcher)
-    }
+    override fun <T : Any> subscribeToOneOrNull(block: Database.() -> Query<T>): Flow<T?> =
+        block(db).asFlow().mapToOneOrNull(queryDispatcher)
 
     override fun <T : Any> subscribeToPagingSource(
         countQuery: Database.() -> Query<Long>,
         queryProvider: Database.(Long, Long) -> Query<T>,
-    ): PagingSource<Long, T> {
-        return QueryPagingSource(
+    ): PagingSource<Long, T> =
+        QueryPagingSource(
             handler = this,
             countQuery = countQuery,
             queryProvider = { limit, offset ->
                 queryProvider.invoke(db, limit, offset)
             },
         )
-    }
 
-    private suspend fun <T> dispatch(inTransaction: Boolean, block: suspend Database.() -> T): T {
+    private suspend fun <T> dispatch(
+        inTransaction: Boolean,
+        block: suspend Database.() -> T,
+    ): T {
         // Create a transaction if needed and run the calling block inside it.
         if (inTransaction) {
             return withTransaction { block(db) }
@@ -102,3 +89,4 @@ class AndroidDatabaseHandler(
         return withContext(context) { block(db) }
     }
 }
+

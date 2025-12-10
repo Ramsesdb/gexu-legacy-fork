@@ -20,9 +20,8 @@ import kotlin.coroutines.resume
 /**
  * Returns the transaction dispatcher if we are on a transaction, or the database dispatchers.
  */
-internal suspend fun AndroidDatabaseHandler.getCurrentDatabaseContext(): CoroutineContext {
-    return coroutineContext[TransactionElement]?.transactionDispatcher ?: queryDispatcher
-}
+internal suspend fun AndroidDatabaseHandler.getCurrentDatabaseContext(): CoroutineContext =
+    coroutineContext[TransactionElement]?.transactionDispatcher ?: queryDispatcher
 
 /**
  * Calls the specified suspending [block] in a database transaction. The transaction will be
@@ -97,10 +96,8 @@ private suspend fun AndroidDatabaseHandler.createTransactionContext(): Coroutine
  * coroutines to the acquired thread. The [controlJob] is used to control the release of the
  * thread by cancelling the job.
  */
-private suspend fun CoroutineDispatcher.acquireTransactionThread(
-    controlJob: Job,
-): ContinuationInterceptor {
-    return suspendCancellableCoroutine { continuation ->
+private suspend fun CoroutineDispatcher.acquireTransactionThread(controlJob: Job): ContinuationInterceptor =
+    suspendCancellableCoroutine { continuation ->
         continuation.invokeOnCancellation {
             // We got cancelled while waiting to acquire a thread, we can't stop our attempt to
             // acquire a thread, but we can cancel the controlling job so once it gets acquired it
@@ -125,7 +122,6 @@ private suspend fun CoroutineDispatcher.acquireTransactionThread(
             )
         }
     }
-}
 
 /**
  * A [CoroutineContext.Element] that indicates there is an on-going database transaction.
@@ -135,7 +131,6 @@ private class TransactionElement(
     private val transactionThreadControlJob: Job,
     val transactionDispatcher: ContinuationInterceptor,
 ) : CoroutineContext.Element {
-
     companion object Key : CoroutineContext.Key<TransactionElement>
 
     override val key: CoroutineContext.Key<TransactionElement>
@@ -163,3 +158,4 @@ private class TransactionElement(
         }
     }
 }
+

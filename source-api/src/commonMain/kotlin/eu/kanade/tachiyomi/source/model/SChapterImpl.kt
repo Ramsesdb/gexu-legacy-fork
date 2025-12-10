@@ -3,7 +3,6 @@
 package eu.kanade.tachiyomi.source.model
 
 class SChapterImpl : SChapter {
-
     override lateinit var url: String
 
     override lateinit var name: String
@@ -14,3 +13,4 @@ class SChapterImpl : SChapter {
 
     override var scanlator: String? = null
 }
+

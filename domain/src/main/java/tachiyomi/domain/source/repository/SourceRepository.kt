@@ -10,7 +10,6 @@ import tachiyomi.domain.source.model.SourceWithCount
 typealias SourcePagingSource = PagingSource<Long, Manga>
 
 interface SourceRepository {
-
     fun getSources(): Flow<List<Source>>
 
     fun getOnlineSources(): Flow<List<Source>>
@@ -19,9 +18,14 @@ interface SourceRepository {
 
     fun getSourcesWithNonLibraryManga(): Flow<List<SourceWithCount>>
 
-    fun search(sourceId: Long, query: String, filterList: FilterList): SourcePagingSource
+    fun search(
+        sourceId: Long,
+        query: String,
+        filterList: FilterList,
+    ): SourcePagingSource
 
     fun getPopular(sourceId: Long): SourcePagingSource
 
     fun getLatest(sourceId: Long): SourcePagingSource
 }
+

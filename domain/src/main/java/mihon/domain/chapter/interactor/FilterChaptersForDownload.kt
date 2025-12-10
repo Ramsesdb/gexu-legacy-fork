@@ -18,7 +18,6 @@ class FilterChaptersForDownload(
     private val downloadPreferences: DownloadPreferences,
     private val getCategories: GetCategories,
 ) {
-
     /**
      * Determines which chapters of a manga should be downloaded based on user preferences.
      *
@@ -26,7 +25,10 @@ class FilterChaptersForDownload(
      * @param newChapters The list of new chapters available for the manga.
      * @return A list of chapters that should be downloaded
      */
-    suspend fun await(manga: Manga, newChapters: List<Chapter>): List<Chapter> {
+    suspend fun await(
+        manga: Manga,
+        newChapters: List<Chapter>,
+    ): List<Chapter> {
         if (
             newChapters.isEmpty() ||
             !downloadPreferences.downloadNewChapters().get() ||
@@ -37,11 +39,13 @@ class FilterChaptersForDownload(
 
         if (!downloadPreferences.downloadNewUnreadChaptersOnly().get()) return newChapters
 
-        val readChapterNumbers = getChaptersByMangaId.await(manga.id)
-            .asSequence()
-            .filter { it.read && it.isRecognizedNumber }
-            .map { it.chapterNumber }
-            .toSet()
+        val readChapterNumbers =
+            getChaptersByMangaId
+                .await(manga.id)
+                .asSequence()
+                .filter { it.read && it.isRecognizedNumber }
+                .map { it.chapterNumber }
+                .toSet()
 
         return newChapters.filterNot { it.chapterNumber in readChapterNumbers }
     }
@@ -75,3 +79,4 @@ class FilterChaptersForDownload(
         private const val DEFAULT_CATEGORY_ID = 0L
     }
 }
+

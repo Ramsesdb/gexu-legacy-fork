@@ -6,8 +6,10 @@ import app.cash.sqldelight.Query
 import kotlinx.coroutines.flow.Flow
 
 interface DatabaseHandler {
-
-    suspend fun <T> await(inTransaction: Boolean = false, block: suspend Database.() -> T): T
+    suspend fun <T> await(
+        inTransaction: Boolean = false,
+        block: suspend Database.() -> T,
+    ): T
 
     suspend fun <T : Any> awaitList(
         inTransaction: Boolean = false,
@@ -45,3 +47,4 @@ interface DatabaseHandler {
         queryProvider: Database.(Long, Long) -> Query<T>,
     ): PagingSource<Long, T>
 }
+

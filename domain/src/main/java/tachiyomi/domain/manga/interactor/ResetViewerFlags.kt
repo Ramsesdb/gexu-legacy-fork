@@ -5,8 +5,6 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class ResetViewerFlags(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend fun await(): Boolean {
-        return mangaRepository.resetViewerFlags()
-    }
+    suspend fun await(): Boolean = mangaRepository.resetViewerFlags()
 }
+

@@ -12,16 +12,20 @@ class GetNextChapters(
     private val getManga: GetManga,
     private val historyRepository: HistoryRepository,
 ) {
-
     suspend fun await(onlyUnread: Boolean = true): List<Chapter> {
         val history = historyRepository.getLastHistory() ?: return emptyList()
         return await(history.mangaId, history.chapterId, onlyUnread)
     }
 
-    suspend fun await(mangaId: Long, onlyUnread: Boolean = true): List<Chapter> {
+    suspend fun await(
+        mangaId: Long,
+        onlyUnread: Boolean = true,
+    ): List<Chapter> {
         val manga = getManga.await(mangaId) ?: return emptyList()
-        val chapters = getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)
-            .sortedWith(getChapterSort(manga, sortDescending = false))
+        val chapters =
+            getChaptersByMangaId
+                .await(mangaId, applyScanlatorFilter = true)
+                .sortedWith(getChapterSort(manga, sortDescending = false))
 
         return if (onlyUnread) {
             chapters.filterNot { it.read }
@@ -54,3 +58,4 @@ class GetNextChapters(
         }
     }
 }
+

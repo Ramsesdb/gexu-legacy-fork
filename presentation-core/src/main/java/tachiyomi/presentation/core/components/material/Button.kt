@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.animation.core.Animatable
@@ -56,12 +58,13 @@ fun TextButton(
     elevation: ButtonElevation? = null,
     shape: Shape = M3ButtonDefaults.textShape,
     border: BorderStroke? = null,
-    colors: ButtonColors = ButtonColors(
-        containerColor = Color.Transparent,
-        contentColor = MaterialTheme.colorScheme.primary,
-        disabledContainerColor = Color.Transparent,
-        disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
-    ),
+    colors: ButtonColors =
+        ButtonColors(
+            containerColor = Color.Transparent,
+            contentColor = MaterialTheme.colorScheme.primary,
+            disabledContainerColor = Color.Transparent,
+            disabledContentColor = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
+        ),
     contentPadding: PaddingValues = M3ButtonDefaults.TextButtonContentPadding,
     content: @Composable RowScope.() -> Unit,
 ) = Button(
@@ -116,11 +119,11 @@ fun Button(
         CompositionLocalProvider(LocalContentColor provides contentColor) {
             ProvideTextStyle(value = MaterialTheme.typography.labelLarge) {
                 Row(
-                    Modifier.defaultMinSize(
-                        minWidth = M3ButtonDefaults.MinWidth,
-                        minHeight = M3ButtonDefaults.MinHeight,
-                    )
-                        .padding(contentPadding),
+                    Modifier
+                        .defaultMinSize(
+                            minWidth = M3ButtonDefaults.MinWidth,
+                            minHeight = M3ButtonDefaults.MinHeight,
+                        ).padding(contentPadding),
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically,
                     content = content,
@@ -146,12 +149,13 @@ object ButtonDefaults {
         contentColor: Color = MaterialTheme.colorScheme.onPrimary,
         disabledContainerColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
         disabledContentColor: Color = MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
-    ): ButtonColors = ButtonColors(
-        containerColor = containerColor,
-        contentColor = contentColor,
-        disabledContainerColor = disabledContainerColor,
-        disabledContentColor = disabledContentColor,
-    )
+    ): ButtonColors =
+        ButtonColors(
+            containerColor = containerColor,
+            contentColor = contentColor,
+            disabledContainerColor = disabledContainerColor,
+            disabledContentColor = disabledContentColor,
+        )
 
     /**
      * Creates a [ButtonElevation] that will animate between the provided values according to the
@@ -171,13 +175,14 @@ object ButtonDefaults {
         focusedElevation: Dp = 0.dp,
         hoveredElevation: Dp = 1.dp,
         disabledElevation: Dp = 0.dp,
-    ): ButtonElevation = ButtonElevation(
-        defaultElevation = defaultElevation,
-        pressedElevation = pressedElevation,
-        focusedElevation = focusedElevation,
-        hoveredElevation = hoveredElevation,
-        disabledElevation = disabledElevation,
-    )
+    ): ButtonElevation =
+        ButtonElevation(
+            defaultElevation = defaultElevation,
+            pressedElevation = pressedElevation,
+            focusedElevation = focusedElevation,
+            hoveredElevation = hoveredElevation,
+            disabledElevation = disabledElevation,
+        )
 }
 
 /**
@@ -209,9 +214,10 @@ class ButtonElevation internal constructor(
      * @param interactionSource the [InteractionSource] for this button
      */
     @Composable
-    internal fun tonalElevation(enabled: Boolean, interactionSource: InteractionSource): State<Dp> {
-        return animateElevation(enabled = enabled, interactionSource = interactionSource)
-    }
+    internal fun tonalElevation(
+        enabled: Boolean,
+        interactionSource: InteractionSource,
+    ): State<Dp> = animateElevation(enabled = enabled, interactionSource = interactionSource)
 
     /**
      * Represents the shadow elevation used in a button, depending on its [enabled] state and
@@ -228,9 +234,7 @@ class ButtonElevation internal constructor(
     internal fun shadowElevation(
         enabled: Boolean,
         interactionSource: InteractionSource,
-    ): State<Dp> {
-        return animateElevation(enabled = enabled, interactionSource = interactionSource)
-    }
+    ): State<Dp> = animateElevation(enabled = enabled, interactionSource = interactionSource)
 
     @Composable
     private fun animateElevation(
@@ -287,12 +291,13 @@ class ButtonElevation internal constructor(
             LaunchedEffect(target) { animatable.snapTo(target) }
         } else {
             LaunchedEffect(target) {
-                val lastInteraction = when (animatable.targetValue) {
-                    pressedElevation -> PressInteraction.Press(Offset.Zero)
-                    hoveredElevation -> HoverInteraction.Enter()
-                    focusedElevation -> FocusInteraction.Focus()
-                    else -> null
-                }
+                val lastInteraction =
+                    when (animatable.targetValue) {
+                        pressedElevation -> PressInteraction.Press(Offset.Zero)
+                        hoveredElevation -> HoverInteraction.Enter()
+                        focusedElevation -> FocusInteraction.Focus()
+                        else -> null
+                    }
                 animatable.animateElevation(
                     from = lastInteraction,
                     to = interaction,
@@ -347,9 +352,8 @@ class ButtonColors internal constructor(
      * @param enabled whether the button is enabled
      */
     @Composable
-    internal fun containerColor(enabled: Boolean): State<Color> {
-        return rememberUpdatedState(if (enabled) containerColor else disabledContainerColor)
-    }
+    internal fun containerColor(enabled: Boolean): State<Color> =
+        rememberUpdatedState(if (enabled) containerColor else disabledContainerColor)
 
     /**
      * Represents the content color for this button, depending on [enabled].
@@ -357,9 +361,7 @@ class ButtonColors internal constructor(
      * @param enabled whether the button is enabled
      */
     @Composable
-    internal fun contentColor(enabled: Boolean): State<Color> {
-        return rememberUpdatedState(if (enabled) contentColor else disabledContentColor)
-    }
+    internal fun contentColor(enabled: Boolean): State<Color> = rememberUpdatedState(if (enabled) contentColor else disabledContentColor)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -381,3 +383,4 @@ class ButtonColors internal constructor(
         return result
     }
 }
+

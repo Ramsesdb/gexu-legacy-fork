@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.padding
@@ -15,13 +17,15 @@ fun ListGroupHeader(
 ) {
     Text(
         text = text,
-        modifier = modifier
-            .padding(
-                horizontal = MaterialTheme.padding.medium,
-                vertical = MaterialTheme.padding.small,
-            ),
+        modifier =
+            modifier
+                .padding(
+                    horizontal = MaterialTheme.padding.medium,
+                    vertical = MaterialTheme.padding.small,
+                ),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         fontWeight = FontWeight.SemiBold,
         style = MaterialTheme.typography.bodyMedium,
     )
 }
+

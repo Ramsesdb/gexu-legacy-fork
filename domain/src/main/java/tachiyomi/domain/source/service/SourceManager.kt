@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.StateFlow
 import tachiyomi.domain.source.model.StubSource
 
 interface SourceManager {
-
     val isInitialized: StateFlow<Boolean>
 
     val catalogueSources: Flow<List<CatalogueSource>>
@@ -23,3 +22,4 @@ interface SourceManager {
 
     fun getStubSources(): List<StubSource>
 }
+

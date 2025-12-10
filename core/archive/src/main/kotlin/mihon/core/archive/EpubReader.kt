@@ -10,8 +10,9 @@ import java.io.InputStream
 /**
  * Wrapper over ArchiveReader to load files in epub format.
  */
-class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
-
+class EpubReader(
+    private val reader: ArchiveReader,
+) : Closeable by reader {
     /**
      * Path separator used by this epub.
      */
@@ -20,9 +21,7 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
     /**
      * Returns an input stream for reading the contents of the specified zip file entry.
      */
-    fun getInputStream(entryName: String): InputStream? {
-        return reader.getInputStream(entryName)
-    }
+    fun getInputStream(entryName: String): InputStream? = reader.getInputStream(entryName)
 
     /**
      * Returns the path of all the images found in the epub file.
@@ -52,17 +51,17 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
     /**
      * Returns the package document where all the files are listed.
      */
-    fun getPackageDocument(ref: String): Document {
-        return getInputStream(ref)!!.use { Jsoup.parse(it, null, "", Parser.xmlParser()) }
-    }
+    fun getPackageDocument(ref: String): Document = getInputStream(ref)!!.use { Jsoup.parse(it, null, "", Parser.xmlParser()) }
 
     /**
      * Returns all the pages from the epub.
      */
     private fun getPagesFromDocument(document: Document): List<String> {
-        val pages = document.select("manifest > item")
-            .filter { node -> "application/xhtml+xml" == node.attr("media-type") }
-            .associateBy { it.attr("id") }
+        val pages =
+            document
+                .select("manifest > item")
+                .filter { node -> "application/xhtml+xml" == node.attr("media-type") }
+                .associateBy { it.attr("id") }
 
         val spine = document.select("spine > itemref").map { it.attr("idref") }
         return spine.mapNotNull { pages[it] }.map { it.attr("href") }
@@ -71,7 +70,10 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
     /**
      * Returns all the images contained in every page from the epub.
      */
-    private fun getImagesFromPages(pages: List<String>, packageHref: String): List<String> {
+    private fun getImagesFromPages(
+        pages: List<String>,
+        packageHref: String,
+    ): List<String> {
         val result = mutableListOf<String>()
         val basePath = getParentDirectory(packageHref)
         pages.forEach { page ->
@@ -106,7 +108,10 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
     /**
      * Resolves a zip path from base and relative components and a path separator.
      */
-    private fun resolveZipPath(basePath: String, relativePath: String): String {
+    private fun resolveZipPath(
+        basePath: String,
+        relativePath: String,
+    ): String {
         if (relativePath.startsWith(pathSeparator)) {
             // Path is absolute, so return as-is.
             return relativePath
@@ -134,3 +139,4 @@ class EpubReader(private val reader: ArchiveReader) : Closeable by reader {
         }
     }
 }
+

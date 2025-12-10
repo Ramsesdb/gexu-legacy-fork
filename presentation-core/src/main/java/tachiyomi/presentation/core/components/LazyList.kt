@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -33,16 +35,18 @@ fun ScrollbarLazyColumn(
 ) {
     val direction = LocalLayoutDirection.current
     val density = LocalDensity.current
-    val positionOffset = remember(contentPadding) {
-        with(density) { contentPadding.calculateEndPadding(direction).toPx() }
-    }
+    val positionOffset =
+        remember(contentPadding) {
+            with(density) { contentPadding.calculateEndPadding(direction).toPx() }
+        }
     LazyColumn(
-        modifier = modifier
-            .drawVerticalScrollbar(
-                state = state,
-                reverseScrolling = reverseLayout,
-                positionOffsetPx = positionOffset,
-            ),
+        modifier =
+            modifier
+                .drawVerticalScrollbar(
+                    state = state,
+                    reverseScrolling = reverseLayout,
+                    positionOffsetPx = positionOffset,
+                ),
         state = state,
         contentPadding = contentPadding,
         reverseLayout = reverseLayout,
@@ -85,3 +89,4 @@ fun FastScrollLazyColumn(
         )
     }
 }
+

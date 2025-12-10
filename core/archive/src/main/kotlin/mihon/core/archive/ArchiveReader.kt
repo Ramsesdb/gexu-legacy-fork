@@ -7,13 +7,16 @@ import me.zhanghai.android.libarchive.ArchiveException
 import java.io.Closeable
 import java.io.InputStream
 
-class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
+class ArchiveReader(
+    pfd: ParcelFileDescriptor,
+) : Closeable {
     private val size = pfd.statSize
     private val address = Os.mmap(0, size, OsConstants.PROT_READ, OsConstants.MAP_PRIVATE, pfd.fileDescriptor, 0)
 
-    fun <T> useEntries(block: (Sequence<ArchiveEntry>) -> T): T = ArchiveInputStream(address, size).use {
-        block(generateSequence { it.getNextEntry() })
-    }
+    fun <T> useEntries(block: (Sequence<ArchiveEntry>) -> T): T =
+        ArchiveInputStream(address, size).use {
+            block(generateSequence { it.getNextEntry() })
+        }
 
     fun getInputStream(entryName: String): InputStream? {
         val archive = ArchiveInputStream(address, size)
@@ -36,3 +39,4 @@ class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
         Os.munmap(address, size)
     }
 }
+

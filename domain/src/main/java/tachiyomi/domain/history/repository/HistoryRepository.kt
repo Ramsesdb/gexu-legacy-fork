@@ -6,7 +6,6 @@ import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.history.model.HistoryWithRelations
 
 interface HistoryRepository {
-
     fun getHistory(query: String): Flow<List<HistoryWithRelations>>
 
     suspend fun getLastHistory(): HistoryWithRelations?
@@ -23,3 +22,4 @@ interface HistoryRepository {
 
     suspend fun upsertHistory(historyUpdate: HistoryUpdate)
 }
+

@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.layout.Arrangement
@@ -48,10 +50,11 @@ fun NavigationRail(
                 .padding(vertical = MaterialTheme.padding.extraSmall)
                 .selectableGroup(),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(
-                MaterialTheme.padding.extraSmall,
-                alignment = Alignment.CenterVertically,
-            ),
+            verticalArrangement =
+                Arrangement.spacedBy(
+                    MaterialTheme.padding.extraSmall,
+                    alignment = Alignment.CenterVertically,
+                ),
         ) {
             if (header != null) {
                 header()
@@ -61,3 +64,4 @@ fun NavigationRail(
         }
     }
 }
+

@@ -16,12 +16,12 @@ data class ExtensionRepoDto(
     val signingKeyFingerprint: String,
 )
 
-fun ExtensionRepoMetaDto.toExtensionRepo(baseUrl: String): ExtensionRepo {
-    return ExtensionRepo(
+fun ExtensionRepoMetaDto.toExtensionRepo(baseUrl: String): ExtensionRepo =
+    ExtensionRepo(
         baseUrl = baseUrl,
         name = meta.name,
         shortName = meta.shortName,
         website = meta.website,
         signingKeyFingerprint = meta.signingKeyFingerprint,
     )
-}
+

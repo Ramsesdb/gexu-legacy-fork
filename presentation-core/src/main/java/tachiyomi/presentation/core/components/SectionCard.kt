@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Column
@@ -28,12 +30,13 @@ fun LazyItemScope.SectionCard(
     }
 
     ElevatedCard(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(
-                horizontal = MaterialTheme.padding.medium,
-                vertical = MaterialTheme.padding.small,
-            ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = MaterialTheme.padding.medium,
+                    vertical = MaterialTheme.padding.small,
+                ),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
         Column(modifier = Modifier.padding(MaterialTheme.padding.medium)) {
@@ -41,3 +44,4 @@ fun LazyItemScope.SectionCard(
         }
     }
 }
+

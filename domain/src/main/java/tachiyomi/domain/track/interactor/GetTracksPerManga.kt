@@ -8,8 +8,6 @@ import tachiyomi.domain.track.repository.TrackRepository
 class GetTracksPerManga(
     private val trackRepository: TrackRepository,
 ) {
-
-    fun subscribe(): Flow<Map<Long, List<Track>>> {
-        return trackRepository.getTracksAsFlow().map { tracks -> tracks.groupBy { it.mangaId } }
-    }
+    fun subscribe(): Flow<Map<Long, List<Track>>> = trackRepository.getTracksAsFlow().map { tracks -> tracks.groupBy { it.mangaId } }
 }
+

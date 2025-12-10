@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Arrangement
@@ -39,3 +41,4 @@ fun ActionButton(
         }
     }
 }
+

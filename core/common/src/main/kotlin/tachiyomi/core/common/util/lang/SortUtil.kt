@@ -10,6 +10,5 @@ private val collator by lazy {
     }
 }
 
-fun String.compareToWithCollator(other: String): Int {
-    return collator.compare(this, other)
-}
+fun String.compareToWithCollator(other: String): Int = collator.compare(this, other)
+

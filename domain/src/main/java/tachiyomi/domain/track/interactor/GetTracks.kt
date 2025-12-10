@@ -9,26 +9,22 @@ import tachiyomi.domain.track.repository.TrackRepository
 class GetTracks(
     private val trackRepository: TrackRepository,
 ) {
-
-    suspend fun awaitOne(id: Long): Track? {
-        return try {
+    suspend fun awaitOne(id: Long): Track? =
+        try {
             trackRepository.getTrackById(id)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             null
         }
-    }
 
-    suspend fun await(mangaId: Long): List<Track> {
-        return try {
+    suspend fun await(mangaId: Long): List<Track> =
+        try {
             trackRepository.getTracksByMangaId(mangaId)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             emptyList()
         }
-    }
 
-    fun subscribe(mangaId: Long): Flow<List<Track>> {
-        return trackRepository.getTracksByMangaIdAsFlow(mangaId)
-    }
+    fun subscribe(mangaId: Long): Flow<List<Track>> = trackRepository.getTracksByMangaIdAsFlow(mangaId)
 }
+

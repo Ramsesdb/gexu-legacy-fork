@@ -11,12 +11,13 @@ object HistoryMapper {
         chapterId: Long,
         readAt: Date?,
         readDuration: Long,
-    ): History = History(
-        id = id,
-        chapterId = chapterId,
-        readAt = readAt,
-        readDuration = readDuration,
-    )
+    ): History =
+        History(
+            id = id,
+            chapterId = chapterId,
+            readAt = readAt,
+            readDuration = readDuration,
+        )
 
     fun mapHistoryWithRelations(
         historyId: Long,
@@ -30,20 +31,23 @@ object HistoryMapper {
         chapterNumber: Double,
         readAt: Date?,
         readDuration: Long,
-    ): HistoryWithRelations = HistoryWithRelations(
-        id = historyId,
-        chapterId = chapterId,
-        mangaId = mangaId,
-        title = title,
-        chapterNumber = chapterNumber,
-        readAt = readAt,
-        readDuration = readDuration,
-        coverData = MangaCover(
+    ): HistoryWithRelations =
+        HistoryWithRelations(
+            id = historyId,
+            chapterId = chapterId,
             mangaId = mangaId,
-            sourceId = sourceId,
-            isMangaFavorite = isFavorite,
-            url = thumbnailUrl,
-            lastModified = coverLastModified,
-        ),
-    )
+            title = title,
+            chapterNumber = chapterNumber,
+            readAt = readAt,
+            readDuration = readDuration,
+            coverData =
+                MangaCover(
+                    mangaId = mangaId,
+                    sourceId = sourceId,
+                    isMangaFavorite = isFavorite,
+                    url = thumbnailUrl,
+                    lastModified = coverLastModified,
+                ),
+        )
 }
+

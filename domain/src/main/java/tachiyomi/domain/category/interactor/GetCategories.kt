@@ -7,20 +7,12 @@ import tachiyomi.domain.category.repository.CategoryRepository
 class GetCategories(
     private val categoryRepository: CategoryRepository,
 ) {
+    fun subscribe(): Flow<List<Category>> = categoryRepository.getAllAsFlow()
 
-    fun subscribe(): Flow<List<Category>> {
-        return categoryRepository.getAllAsFlow()
-    }
+    fun subscribe(mangaId: Long): Flow<List<Category>> = categoryRepository.getCategoriesByMangaIdAsFlow(mangaId)
 
-    fun subscribe(mangaId: Long): Flow<List<Category>> {
-        return categoryRepository.getCategoriesByMangaIdAsFlow(mangaId)
-    }
+    suspend fun await(): List<Category> = categoryRepository.getAll()
 
-    suspend fun await(): List<Category> {
-        return categoryRepository.getAll()
-    }
-
-    suspend fun await(mangaId: Long): List<Category> {
-        return categoryRepository.getCategoriesByMangaId(mangaId)
-    }
+    suspend fun await(mangaId: Long): List<Category> = categoryRepository.getCategoriesByMangaId(mangaId)
 }
+

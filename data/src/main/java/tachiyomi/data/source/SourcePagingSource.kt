@@ -17,28 +17,25 @@ class SourceSearchPagingSource(
     private val query: String,
     private val filters: FilterList,
 ) : BaseSourcePagingSource(source) {
-    override suspend fun requestNextPage(currentPage: Int): MangasPage {
-        return source.getSearchManga(currentPage, query, filters)
-    }
+    override suspend fun requestNextPage(currentPage: Int): MangasPage = source.getSearchManga(currentPage, query, filters)
 }
 
-class SourcePopularPagingSource(source: CatalogueSource) : BaseSourcePagingSource(source) {
-    override suspend fun requestNextPage(currentPage: Int): MangasPage {
-        return source.getPopularManga(currentPage)
-    }
+class SourcePopularPagingSource(
+    source: CatalogueSource,
+) : BaseSourcePagingSource(source) {
+    override suspend fun requestNextPage(currentPage: Int): MangasPage = source.getPopularManga(currentPage)
 }
 
-class SourceLatestPagingSource(source: CatalogueSource) : BaseSourcePagingSource(source) {
-    override suspend fun requestNextPage(currentPage: Int): MangasPage {
-        return source.getLatestUpdates(currentPage)
-    }
+class SourceLatestPagingSource(
+    source: CatalogueSource,
+) : BaseSourcePagingSource(source) {
+    override suspend fun requestNextPage(currentPage: Int): MangasPage = source.getLatestUpdates(currentPage)
 }
 
 abstract class BaseSourcePagingSource(
     protected val source: CatalogueSource,
     private val networkToLocalManga: NetworkToLocalManga = Injekt.get(),
 ) : SourcePagingSource() {
-
     private val seenManga = hashSetOf<String>()
 
     abstract suspend fun requestNextPage(currentPage: Int): MangasPage
@@ -47,16 +44,18 @@ abstract class BaseSourcePagingSource(
         val page = params.key ?: 1
 
         return try {
-            val mangasPage = withIOContext {
-                requestNextPage(page.toInt())
-                    .takeIf { it.mangas.isNotEmpty() }
-                    ?: throw NoResultsException()
-            }
+            val mangasPage =
+                withIOContext {
+                    requestNextPage(page.toInt())
+                        .takeIf { it.mangas.isNotEmpty() }
+                        ?: throw NoResultsException()
+                }
 
-            val manga = mangasPage.mangas
-                .map { it.toDomainManga(source.id) }
-                .filter { seenManga.add(it.url) }
-                .let { networkToLocalManga(it) }
+            val manga =
+                mangasPage.mangas
+                    .map { it.toDomainManga(source.id) }
+                    .filter { seenManga.add(it.url) }
+                    .let { networkToLocalManga(it) }
 
             LoadResult.Page(
                 data = manga,
@@ -68,12 +67,12 @@ abstract class BaseSourcePagingSource(
         }
     }
 
-    override fun getRefreshKey(state: PagingState<Long, Manga>): Long? {
-        return state.anchorPosition?.let { anchorPosition ->
+    override fun getRefreshKey(state: PagingState<Long, Manga>): Long? =
+        state.anchorPosition?.let { anchorPosition ->
             val anchorPage = state.closestPageToPosition(anchorPosition)
             anchorPage?.prevKey ?: anchorPage?.nextKey
         }
-    }
 }
 
 class NoResultsException : Exception()
+

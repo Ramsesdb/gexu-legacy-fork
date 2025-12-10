@@ -15,10 +15,12 @@ class CreateExtensionRepo(
     private val repoRegex = """^https://.*/index\.min\.json$""".toRegex()
 
     suspend fun await(indexUrl: String): Result {
-        val formattedIndexUrl = indexUrl.toHttpUrlOrNull()
-            ?.toString()
-            ?.takeIf { it.matches(repoRegex) }
-            ?: return Result.InvalidUrl
+        val formattedIndexUrl =
+            indexUrl
+                .toHttpUrlOrNull()
+                ?.toString()
+                ?.takeIf { it.matches(repoRegex) }
+                ?: return Result.InvalidUrl
 
         val baseUrl = formattedIndexUrl.removeSuffix("/index.min.json")
         return service.fetchRepoDetails(baseUrl)?.let { insert(it) } ?: Result.InvalidUrl
@@ -63,10 +65,18 @@ class CreateExtensionRepo(
     }
 
     sealed interface Result {
-        data class DuplicateFingerprint(val oldRepo: ExtensionRepo, val newRepo: ExtensionRepo) : Result
+        data class DuplicateFingerprint(
+            val oldRepo: ExtensionRepo,
+            val newRepo: ExtensionRepo,
+        ) : Result
+
         data object InvalidUrl : Result
+
         data object RepoAlreadyExists : Result
+
         data object Success : Result
+
         data object Error : Result
     }
 }
+

@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.animation.AnimatedVisibility
@@ -31,10 +33,11 @@ fun CollapsibleBox(
 
     Column {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable { expanded = !expanded }
-                .padding(horizontal = 24.dp, vertical = 12.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded }
+                    .padding(horizontal = 24.dp, vertical = 12.dp),
         ) {
             Text(
                 text = heading,
@@ -54,3 +57,4 @@ fun CollapsibleBox(
         }
     }
 }
+

@@ -9,8 +9,8 @@ class QueryPagingSource<RowType : Any>(
     val handler: DatabaseHandler,
     val countQuery: Database.() -> Query<Long>,
     val queryProvider: Database.(Long, Long) -> Query<RowType>,
-) : PagingSource<Long, RowType>(), Query.Listener {
-
+) : PagingSource<Long, RowType>(),
+    Query.Listener {
     override val jumpingSupported: Boolean = true
 
     private var currentQuery: Query<RowType>? by Delegates.observable(null) { _, old, new ->
@@ -31,20 +31,23 @@ class QueryPagingSource<RowType : Any>(
             val loadSize = params.loadSize
             val count = handler.awaitOne { countQuery() }
 
-            val (offset, limit) = when (params) {
-                is LoadParams.Prepend -> key - loadSize to loadSize.toLong()
-                else -> key to loadSize.toLong()
-            }
+            val (offset, limit) =
+                when (params) {
+                    is LoadParams.Prepend -> key - loadSize to loadSize.toLong()
+                    else -> key to loadSize.toLong()
+                }
 
-            val data = handler.awaitList {
-                queryProvider(limit, offset)
-                    .also { currentQuery = it }
-            }
+            val data =
+                handler.awaitList {
+                    queryProvider(limit, offset)
+                        .also { currentQuery = it }
+                }
 
-            val (prevKey, nextKey) = when (params) {
-                is LoadParams.Append -> (offset - loadSize to offset + loadSize)
-                else -> (offset to offset + loadSize)
-            }
+            val (prevKey, nextKey) =
+                when (params) {
+                    is LoadParams.Append -> (offset - loadSize to offset + loadSize)
+                    else -> (offset to offset + loadSize)
+                }
 
             return LoadResult.Page(
                 data = data,
@@ -58,14 +61,14 @@ class QueryPagingSource<RowType : Any>(
         }
     }
 
-    override fun getRefreshKey(state: PagingState<Long, RowType>): Long? {
-        return state.anchorPosition?.let { anchorPosition ->
+    override fun getRefreshKey(state: PagingState<Long, RowType>): Long? =
+        state.anchorPosition?.let { anchorPosition ->
             val anchorPage = state.closestPageToPosition(anchorPosition)
             anchorPage?.prevKey ?: anchorPage?.nextKey
         }
-    }
 
     override fun queryResultsChanged() {
         invalidate()
     }
 }
+

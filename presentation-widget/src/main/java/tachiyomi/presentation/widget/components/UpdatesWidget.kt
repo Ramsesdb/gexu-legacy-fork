@@ -56,35 +56,39 @@ fun UpdatesWidget(
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
                 (0..<rowCount).forEach { i ->
-                    val coverRow = (0..<columnCount).mapNotNull { j ->
-                        data.getOrNull(j + (i * columnCount))
-                    }
+                    val coverRow =
+                        (0..<columnCount).mapNotNull { j ->
+                            data.getOrNull(j + (i * columnCount))
+                        }
                     if (coverRow.isNotEmpty()) {
                         Row(
-                            modifier = GlanceModifier
-                                .padding(vertical = 4.dp)
-                                .fillMaxWidth(),
+                            modifier =
+                                GlanceModifier
+                                    .padding(vertical = 4.dp)
+                                    .fillMaxWidth(),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             coverRow.forEach { (mangaId, cover) ->
                                 Box(
-                                    modifier = GlanceModifier
-                                        .padding(horizontal = 3.dp),
+                                    modifier =
+                                        GlanceModifier
+                                            .padding(horizontal = 3.dp),
                                     contentAlignment = Alignment.Center,
                                 ) {
-                                    val intent = Intent(
-                                        LocalContext.current,
-                                        Class.forName(Constants.MAIN_ACTIVITY),
-                                    ).apply {
-                                        action = Constants.SHORTCUT_MANGA
-                                        putExtra(Constants.MANGA_EXTRA, mangaId)
-                                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                                        addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                                    val intent =
+                                        Intent(
+                                            LocalContext.current,
+                                            Class.forName(Constants.MAIN_ACTIVITY),
+                                        ).apply {
+                                            action = Constants.SHORTCUT_MANGA
+                                            putExtra(Constants.MANGA_EXTRA, mangaId)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                            addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
 
-                                        // https://issuetracker.google.com/issues/238793260
-                                        addCategory(mangaId.toString())
-                                    }
+                                            // https://issuetracker.google.com/issues/238793260
+                                            addCategory(mangaId.toString())
+                                        }
                                     UpdatesMangaCover(
                                         cover = cover,
                                         modifier = GlanceModifier.clickable(actionStartActivity(intent)),

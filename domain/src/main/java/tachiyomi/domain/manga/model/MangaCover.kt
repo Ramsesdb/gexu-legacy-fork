@@ -11,12 +11,12 @@ data class MangaCover(
     val lastModified: Long,
 )
 
-fun Manga.asMangaCover(): MangaCover {
-    return MangaCover(
+fun Manga.asMangaCover(): MangaCover =
+    MangaCover(
         mangaId = id,
         sourceId = source,
         isMangaFavorite = favorite,
         url = thumbnailUrl,
         lastModified = coverLastModified,
     )
-}
+

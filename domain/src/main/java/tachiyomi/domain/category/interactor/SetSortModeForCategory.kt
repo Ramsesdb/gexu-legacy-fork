@@ -12,8 +12,11 @@ class SetSortModeForCategory(
     private val preferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
 ) {
-
-    suspend fun await(categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) {
+    suspend fun await(
+        categoryId: Long?,
+        type: LibrarySort.Type,
+        direction: LibrarySort.Direction,
+    ) {
         val category = categoryId?.let { categoryRepository.get(it) }
         val flags = (category?.flags ?: 0) + type + direction
         if (type == LibrarySort.Type.Random) {
@@ -40,3 +43,4 @@ class SetSortModeForCategory(
         await(category?.id, type, direction)
     }
 }
+

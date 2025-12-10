@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.BorderStroke
@@ -134,19 +136,21 @@ private fun <T> WheelPicker(
     }
 
     Box(
-        modifier = modifier
-            .height(size.height)
-            .width(size.width),
+        modifier =
+            modifier
+                .height(size.height)
+                .width(size.width),
         contentAlignment = Alignment.Center,
     ) {
         backgroundContent?.invoke(size)
 
         var showManualInput by remember { mutableStateOf(false) }
         if (showManualInput) {
-            val value = rememberSaveable(saver = TextFieldState.Saver) {
-                val currentString = items[internalIndex].toString()
-                TextFieldState(initialText = currentString, initialSelection = TextRange(currentString.length))
-            }
+            val value =
+                rememberSaveable(saver = TextFieldState.Saver) {
+                    val currentString = items[internalIndex].toString()
+                    TextFieldState(initialText = currentString, initialSelection = TextRange(currentString.length))
+                }
 
             val scope = rememberCoroutineScope()
             val processManualInput: () -> Unit = {
@@ -163,49 +167,54 @@ private fun <T> WheelPicker(
             }
 
             BasicTextField(
-                modifier = Modifier
-                    .align(Alignment.Center)
-                    .showSoftKeyboard(true)
-                    .clearFocusOnSoftKeyboardHide(processManualInput),
+                modifier =
+                    Modifier
+                        .align(Alignment.Center)
+                        .showSoftKeyboard(true)
+                        .clearFocusOnSoftKeyboardHide(processManualInput),
                 onKeyboardAction = { processManualInput() },
                 state = value,
                 lineLimits = TextFieldLineLimits.SingleLine,
-                keyboardOptions = KeyboardOptions(
-                    keyboardType = manualInputType!!,
-                    imeAction = ImeAction.Done,
-                ),
-                textStyle = MaterialTheme.typography.titleMedium +
-                    TextStyle(
-                        color = MaterialTheme.colorScheme.onSurface,
-                        textAlign = TextAlign.Center,
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = manualInputType!!,
+                        imeAction = ImeAction.Done,
                     ),
+                textStyle =
+                    MaterialTheme.typography.titleMedium +
+                        TextStyle(
+                            color = MaterialTheme.colorScheme.onSurface,
+                            textAlign = TextAlign.Center,
+                        ),
                 cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
             )
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .let {
-                        if (manualInputType != null) {
-                            it.clickableNoIndication { showManualInput = true }
-                        } else {
-                            it
-                        }
-                    },
+                modifier =
+                    Modifier
+                        .let {
+                            if (manualInputType != null) {
+                                it.clickableNoIndication { showManualInput = true }
+                            } else {
+                                it
+                            }
+                        },
                 state = lazyListState,
                 contentPadding = PaddingValues(vertical = size.height / ROW_COUNT * ((ROW_COUNT - 1) / 2)),
                 flingBehavior = rememberSnapFlingBehavior(lazyListState = lazyListState),
             ) {
                 itemsIndexed(items) { index, item ->
                     Box(
-                        modifier = Modifier
-                            .height(size.height / ROW_COUNT)
-                            .width(size.width)
-                            .alpha(
-                                calculateAnimatedAlpha(
-                                    lazyListState = lazyListState,
-                                    index = index,
+                        modifier =
+                            Modifier
+                                .height(size.height / ROW_COUNT)
+                                .width(size.width)
+                                .alpha(
+                                    calculateAnimatedAlpha(
+                                        lazyListState = lazyListState,
+                                        index = index,
+                                    ),
                                 ),
-                            ),
                         contentAlignment = Alignment.Center,
                     ) {
                         itemContent(item)
@@ -235,7 +244,9 @@ private fun calculateAnimatedAlpha(
     index: Int,
 ): Float {
     val distanceToIndexSnap = lazyListState.distanceToSnapForIndex(index).absoluteValue
-    val viewPortHeight = lazyListState.layoutInfo.viewportSize.height.toFloat()
+    val viewPortHeight =
+        lazyListState.layoutInfo.viewportSize.height
+            .toFloat()
     val singleViewPortHeight = viewPortHeight / ROW_COUNT
     return if (distanceToIndexSnap in 0..singleViewPortHeight.toInt()) {
         1.2f - (distanceToIndexSnap / singleViewPortHeight)
@@ -244,18 +255,18 @@ private fun calculateAnimatedAlpha(
     }
 }
 
-private fun calculateSnappedItemIndex(lazyListState: LazyListState): Int {
-    return lazyListState.layoutInfo.visibleItemsInfo
+private fun calculateSnappedItemIndex(lazyListState: LazyListState): Int =
+    lazyListState.layoutInfo.visibleItemsInfo
         .maxBy { calculateAnimatedAlpha(lazyListState, it.index) }
         .index
-}
 
 object WheelPickerDefaults {
     @Composable
     fun Background(size: DpSize) {
         androidx.compose.material3.Surface(
-            modifier = Modifier
-                .size(size.width, size.height / ROW_COUNT),
+            modifier =
+                Modifier
+                    .size(size.width, size.height / ROW_COUNT),
             shape = RoundedCornerShape(MaterialTheme.padding.medium),
             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f),
             border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary),
@@ -274,3 +285,4 @@ object WheelPickerDefaults {
 }
 
 private const val ROW_COUNT = 3
+

@@ -13,41 +13,58 @@ import kotlinx.coroutines.flow.stateIn
 class InMemoryPreferenceStore(
     initialPreferences: Sequence<InMemoryPreference<*>> = sequenceOf(),
 ) : PreferenceStore {
-
     private val preferences: Map<String, Preference<*>> =
         initialPreferences.toList().associateBy { it.key() }
 
-    override fun getString(key: String, defaultValue: String): Preference<String> {
+    override fun getString(
+        key: String,
+        defaultValue: String,
+    ): Preference<String> {
         val default = InMemoryPreference(key, null, defaultValue)
         val data: String? = preferences[key]?.get() as? String
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getLong(key: String, defaultValue: Long): Preference<Long> {
+    override fun getLong(
+        key: String,
+        defaultValue: Long,
+    ): Preference<Long> {
         val default = InMemoryPreference(key, null, defaultValue)
         val data: Long? = preferences[key]?.get() as? Long
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getInt(key: String, defaultValue: Int): Preference<Int> {
+    override fun getInt(
+        key: String,
+        defaultValue: Int,
+    ): Preference<Int> {
         val default = InMemoryPreference(key, null, defaultValue)
         val data: Int? = preferences[key]?.get() as? Int
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getFloat(key: String, defaultValue: Float): Preference<Float> {
+    override fun getFloat(
+        key: String,
+        defaultValue: Float,
+    ): Preference<Float> {
         val default = InMemoryPreference(key, null, defaultValue)
         val data: Float? = preferences[key]?.get() as? Float
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getBoolean(key: String, defaultValue: Boolean): Preference<Boolean> {
+    override fun getBoolean(
+        key: String,
+        defaultValue: Boolean,
+    ): Preference<Boolean> {
         val default = InMemoryPreference(key, null, defaultValue)
         val data: Boolean? = preferences[key]?.get() as? Boolean
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getStringSet(key: String, defaultValue: Set<String>): Preference<Set<String>> {
+    override fun getStringSet(
+        key: String,
+        defaultValue: Set<String>,
+    ): Preference<Set<String>> {
         TODO("Not yet implemented")
     }
 
@@ -75,9 +92,7 @@ class InMemoryPreferenceStore(
         return if (data == null) default else InMemoryPreference(key, data, defaultValue)
     }
 
-    override fun getAll(): Map<String, *> {
-        return preferences
-    }
+    override fun getAll(): Map<String, *> = preferences
 
     class InMemoryPreference<T>(
         private val key: String,
@@ -98,12 +113,11 @@ class InMemoryPreferenceStore(
 
         override fun changes(): Flow<T> = flow { data }
 
-        override fun stateIn(scope: CoroutineScope): StateFlow<T> {
-            return changes().stateIn(scope, SharingStarted.Eagerly, get())
-        }
+        override fun stateIn(scope: CoroutineScope): StateFlow<T> = changes().stateIn(scope, SharingStarted.Eagerly, get())
 
         override fun set(value: T) {
             data = value
         }
     }
 }
+

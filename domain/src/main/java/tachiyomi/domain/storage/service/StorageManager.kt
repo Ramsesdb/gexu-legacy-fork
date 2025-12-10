@@ -19,17 +19,20 @@ class StorageManager(
     private val context: Context,
     storagePreferences: StoragePreferences,
 ) {
-
     private val scope = CoroutineScope(Dispatchers.IO)
 
     private var baseDir: UniFile? = getBaseDir(storagePreferences.baseStorageDirectory().get())
 
     private val _changes: Channel<Unit> = Channel(Channel.UNLIMITED)
-    val changes = _changes.receiveAsFlow()
-        .shareIn(scope, SharingStarted.Lazily, 1)
+    val changes =
+        _changes
+            .receiveAsFlow()
+            .shareIn(scope, SharingStarted.Lazily, 1)
 
     init {
-        storagePreferences.baseStorageDirectory().changes()
+        storagePreferences
+            .baseStorageDirectory()
+            .changes()
             .drop(1)
             .distinctUntilChanged()
             .onEach { uri ->
@@ -42,28 +45,22 @@ class StorageManager(
                     }
                 }
                 _changes.send(Unit)
-            }
-            .launchIn(scope)
+            }.launchIn(scope)
     }
 
-    private fun getBaseDir(uri: String): UniFile? {
-        return UniFile.fromUri(context, uri.toUri())
+    private fun getBaseDir(uri: String): UniFile? =
+        UniFile
+            .fromUri(context, uri.toUri())
             .takeIf { it?.exists() == true }
-    }
 
-    fun getAutomaticBackupsDirectory(): UniFile? {
-        return baseDir?.createDirectory(AUTOMATIC_BACKUPS_PATH)
-    }
+    fun getAutomaticBackupsDirectory(): UniFile? = baseDir?.createDirectory(AUTOMATIC_BACKUPS_PATH)
 
-    fun getDownloadsDirectory(): UniFile? {
-        return baseDir?.createDirectory(DOWNLOADS_PATH)
-    }
+    fun getDownloadsDirectory(): UniFile? = baseDir?.createDirectory(DOWNLOADS_PATH)
 
-    fun getLocalSourceDirectory(): UniFile? {
-        return baseDir?.createDirectory(LOCAL_SOURCE_PATH)
-    }
+    fun getLocalSourceDirectory(): UniFile? = baseDir?.createDirectory(LOCAL_SOURCE_PATH)
 }
 
 private const val AUTOMATIC_BACKUPS_PATH = "autobackup"
 private const val DOWNLOADS_PATH = "downloads"
 private const val LOCAL_SOURCE_PATH = "local"
+

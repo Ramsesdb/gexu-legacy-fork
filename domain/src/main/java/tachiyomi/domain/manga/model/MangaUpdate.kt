@@ -27,8 +27,8 @@ data class MangaUpdate(
     val notes: String? = null,
 )
 
-fun Manga.toMangaUpdate(): MangaUpdate {
-    return MangaUpdate(
+fun Manga.toMangaUpdate(): MangaUpdate =
+    MangaUpdate(
         id = id,
         source = source,
         favorite = favorite,
@@ -52,4 +52,4 @@ fun Manga.toMangaUpdate(): MangaUpdate {
         version = version,
         notes = notes,
     )
-}
+

@@ -19,40 +19,37 @@ class SourceRepositoryImpl(
     private val sourceManager: SourceManager,
     private val handler: DatabaseHandler,
 ) : SourceRepository {
-
-    override fun getSources(): Flow<List<DomainSource>> {
-        return sourceManager.catalogueSources.map { sources ->
+    override fun getSources(): Flow<List<DomainSource>> =
+        sourceManager.catalogueSources.map { sources ->
             sources.map {
                 mapSourceToDomainSource(it).copy(
                     supportsLatest = it.supportsLatest,
                 )
             }
         }
-    }
 
-    override fun getOnlineSources(): Flow<List<DomainSource>> {
-        return sourceManager.catalogueSources.map { sources ->
+    override fun getOnlineSources(): Flow<List<DomainSource>> =
+        sourceManager.catalogueSources.map { sources ->
             sources
                 .filterIsInstance<HttpSource>()
                 .map(::mapSourceToDomainSource)
         }
-    }
 
-    override fun getSourcesWithFavoriteCount(): Flow<List<Pair<DomainSource, Long>>> {
-        return combine(
+    override fun getSourcesWithFavoriteCount(): Flow<List<Pair<DomainSource, Long>>> =
+        combine(
             handler.subscribeToList { mangasQueries.getSourceIdWithFavoriteCount() },
             sourceManager.catalogueSources,
         ) { sourceIdWithFavoriteCount, _ -> sourceIdWithFavoriteCount }
             .map {
                 it.map { (sourceId, count) ->
                     val source = sourceManager.getOrStub(sourceId)
-                    val domainSource = mapSourceToDomainSource(source).copy(
-                        isStub = source is StubSource,
-                    )
+                    val domainSource =
+                        mapSourceToDomainSource(source).copy(
+                            isStub = source is StubSource,
+                        )
                     domainSource to count
                 }
             }
-    }
 
     override fun getSourcesWithNonLibraryManga(): Flow<List<SourceWithCount>> {
         val sourceIdWithNonLibraryManga =
@@ -60,9 +57,10 @@ class SourceRepositoryImpl(
         return sourceIdWithNonLibraryManga.map { sourceId ->
             sourceId.map { (sourceId, count) ->
                 val source = sourceManager.getOrStub(sourceId)
-                val domainSource = mapSourceToDomainSource(source).copy(
-                    isStub = source is StubSource,
-                )
+                val domainSource =
+                    mapSourceToDomainSource(source).copy(
+                        isStub = source is StubSource,
+                    )
                 SourceWithCount(domainSource, count)
             }
         }
@@ -87,11 +85,13 @@ class SourceRepositoryImpl(
         return SourceLatestPagingSource(source)
     }
 
-    private fun mapSourceToDomainSource(source: Source): DomainSource = DomainSource(
-        id = source.id,
-        lang = source.lang,
-        name = source.name,
-        supportsLatest = false,
-        isStub = false,
-    )
+    private fun mapSourceToDomainSource(source: Source): DomainSource =
+        DomainSource(
+            id = source.id,
+            lang = source.lang,
+            name = source.name,
+            supportsLatest = false,
+            isStub = false,
+        )
 }
+

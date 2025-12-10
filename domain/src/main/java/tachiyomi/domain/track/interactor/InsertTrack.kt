@@ -8,7 +8,6 @@ import tachiyomi.domain.track.repository.TrackRepository
 class InsertTrack(
     private val trackRepository: TrackRepository,
 ) {
-
     suspend fun await(track: Track) {
         try {
             trackRepository.insert(track)
@@ -25,3 +24,4 @@ class InsertTrack(
         }
     }
 }
+

@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.background
@@ -44,10 +46,11 @@ fun Badge(
 ) {
     Text(
         text = text,
-        modifier = modifier
-            .clip(shape)
-            .background(color)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
+        modifier =
+            modifier
+                .clip(shape)
+                .background(color)
+                .padding(horizontal = 3.dp, vertical = 1.dp),
         color = textColor,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
@@ -64,38 +67,42 @@ fun Badge(
     shape: Shape = RectangleShape,
 ) {
     val iconContentPlaceholder = "[icon]"
-    val text = buildAnnotatedString {
-        appendInlineContent(iconContentPlaceholder)
-    }
-    val inlineContent = persistentMapOf(
-        Pair(
-            iconContentPlaceholder,
-            InlineTextContent(
-                Placeholder(
-                    width = MaterialTheme.typography.bodySmall.fontSize,
-                    height = MaterialTheme.typography.bodySmall.fontSize,
-                    placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
-                ),
-            ) {
-                Icon(
-                    imageVector = imageVector,
-                    tint = iconColor,
-                    contentDescription = null,
-                )
-            },
-        ),
-    )
+    val text =
+        buildAnnotatedString {
+            appendInlineContent(iconContentPlaceholder)
+        }
+    val inlineContent =
+        persistentMapOf(
+            Pair(
+                iconContentPlaceholder,
+                InlineTextContent(
+                    Placeholder(
+                        width = MaterialTheme.typography.bodySmall.fontSize,
+                        height = MaterialTheme.typography.bodySmall.fontSize,
+                        placeholderVerticalAlign = PlaceholderVerticalAlign.Center,
+                    ),
+                ) {
+                    Icon(
+                        imageVector = imageVector,
+                        tint = iconColor,
+                        contentDescription = null,
+                    )
+                },
+            ),
+        )
 
     Text(
         text = text,
         inlineContent = inlineContent,
-        modifier = modifier
-            .clip(shape)
-            .background(color)
-            .padding(horizontal = 3.dp, vertical = 1.dp),
+        modifier =
+            modifier
+                .clip(shape)
+                .background(color)
+                .padding(horizontal = 3.dp, vertical = 1.dp),
         color = iconColor,
         fontWeight = FontWeight.Medium,
         maxLines = 1,
         style = MaterialTheme.typography.bodySmall,
     )
 }
+

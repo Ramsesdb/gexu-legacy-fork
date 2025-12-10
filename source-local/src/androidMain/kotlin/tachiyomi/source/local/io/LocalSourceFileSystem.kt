@@ -6,22 +6,15 @@ import tachiyomi.domain.storage.service.StorageManager
 actual class LocalSourceFileSystem(
     private val storageManager: StorageManager,
 ) {
+    actual fun getBaseDirectory(): UniFile? = storageManager.getLocalSourceDirectory()
 
-    actual fun getBaseDirectory(): UniFile? {
-        return storageManager.getLocalSourceDirectory()
-    }
+    actual fun getFilesInBaseDirectory(): List<UniFile> = getBaseDirectory()?.listFiles().orEmpty().toList()
 
-    actual fun getFilesInBaseDirectory(): List<UniFile> {
-        return getBaseDirectory()?.listFiles().orEmpty().toList()
-    }
-
-    actual fun getMangaDirectory(name: String): UniFile? {
-        return getBaseDirectory()
+    actual fun getMangaDirectory(name: String): UniFile? =
+        getBaseDirectory()
             ?.findFile(name)
             ?.takeIf { it.isDirectory }
-    }
 
-    actual fun getFilesInMangaDirectory(name: String): List<UniFile> {
-        return getMangaDirectory(name)?.listFiles().orEmpty().toList()
-    }
+    actual fun getFilesInMangaDirectory(name: String): List<UniFile> = getMangaDirectory(name)?.listFiles().orEmpty().toList()
 }
+

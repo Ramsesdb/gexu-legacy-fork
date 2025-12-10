@@ -35,20 +35,20 @@ import kotlin.math.max
 import kotlin.math.min
 
 object ImageUtil {
-
-    fun isImage(name: String?, openStream: (() -> InputStream)? = null): Boolean {
+    fun isImage(
+        name: String?,
+        openStream: (() -> InputStream)? = null,
+    ): Boolean {
         if (name == null) return false
 
         val extension = name.substringAfterLast('.')
         return ImageType.entries.any { it.extension == extension } || openStream?.let { findImageType(it) } != null
     }
 
-    fun findImageType(openStream: () -> InputStream): ImageType? {
-        return openStream().use { findImageType(it) }
-    }
+    fun findImageType(openStream: () -> InputStream): ImageType? = openStream().use { findImageType(it) }
 
-    fun findImageType(stream: InputStream): ImageType? {
-        return try {
+    fun findImageType(stream: InputStream): ImageType? =
+        try {
             when (getImageType(stream)?.format) {
                 Format.Avif -> ImageType.AVIF
                 Format.Gif -> ImageType.GIF
@@ -62,9 +62,11 @@ object ImageUtil {
         } catch (e: Exception) {
             null
         }
-    }
 
-    fun getExtensionFromMimeType(mime: String?, openStream: () -> InputStream): String {
+    fun getExtensionFromMimeType(
+        mime: String?,
+        openStream: () -> InputStream,
+    ): String {
         val type = mime?.let { ImageType.entries.find { it.mime == mime } } ?: findImageType(openStream)
         return type?.extension ?: "jpg"
     }
@@ -89,12 +91,13 @@ object ImageUtil {
     private fun getImageType(stream: InputStream): tachiyomi.decoder.ImageType? {
         val bytes = ByteArray(32)
 
-        val length = if (stream.markSupported()) {
-            stream.mark(bytes.size)
-            stream.read(bytes, 0, bytes.size).also { stream.reset() }
-        } else {
-            stream.read(bytes, 0, bytes.size)
-        }
+        val length =
+            if (stream.markSupported()) {
+                stream.mark(bytes.size)
+                stream.read(bytes, 0, bytes.size).also { stream.reset() }
+            } else {
+                stream.read(bytes, 0, bytes.size)
+            }
 
         if (length == -1) {
             return null
@@ -103,7 +106,10 @@ object ImageUtil {
         return ImageDecoder.findType(bytes)
     }
 
-    enum class ImageType(val mime: String, val extension: String) {
+    enum class ImageType(
+        val mime: String,
+        val extension: String,
+    ) {
         AVIF("image/avif", "avif"),
         GIF("image/gif", "gif"),
         HEIF("image/heif", "heif"),
@@ -126,7 +132,10 @@ object ImageUtil {
     /**
      * Extract the 'side' part from [BufferedSource] and return it as [BufferedSource].
      */
-    fun splitInHalf(imageSource: BufferedSource, side: Side): BufferedSource {
+    fun splitInHalf(
+        imageSource: BufferedSource,
+        side: Side,
+    ): BufferedSource {
         val imageBitmap = BitmapFactory.decodeStream(imageSource.inputStream())
         val height = imageBitmap.height
         val width = imageBitmap.width
@@ -134,10 +143,11 @@ object ImageUtil {
         val singlePage = Rect(0, 0, width / 2, height)
 
         val half = createBitmap(width / 2, height)
-        val part = when (side) {
-            Side.RIGHT -> Rect(width - width / 2, 0, width, height)
-            Side.LEFT -> Rect(0, 0, width / 2, height)
-        }
+        val part =
+            when (side) {
+                Side.RIGHT -> Rect(width - width / 2, 0, width, height)
+                Side.LEFT -> Rect(0, 0, width / 2, height)
+            }
         half.applyCanvas {
             drawBitmap(imageBitmap, part, singlePage, null)
         }
@@ -147,7 +157,10 @@ object ImageUtil {
         return output
     }
 
-    fun rotateImage(imageSource: BufferedSource, degrees: Float): BufferedSource {
+    fun rotateImage(
+        imageSource: BufferedSource,
+        degrees: Float,
+    ): BufferedSource {
         val imageBitmap = BitmapFactory.decodeStream(imageSource.inputStream())
         val rotated = rotateBitMap(imageBitmap, degrees)
 
@@ -157,7 +170,10 @@ object ImageUtil {
         return output
     }
 
-    private fun rotateBitMap(bitmap: Bitmap, degrees: Float): Bitmap {
+    private fun rotateBitMap(
+        bitmap: Bitmap,
+        degrees: Float,
+    ): Bitmap {
         val matrix = Matrix().apply { postRotate(degrees) }
         return Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
     }
@@ -165,7 +181,10 @@ object ImageUtil {
     /**
      * Split the image into left and right parts, then merge them into a new image.
      */
-    fun splitAndMerge(imageSource: BufferedSource, upperSide: Side): BufferedSource {
+    fun splitAndMerge(
+        imageSource: BufferedSource,
+        upperSide: Side,
+    ): BufferedSource {
         val imageBitmap = BitmapFactory.decodeStream(imageSource.inputStream())
         val height = imageBitmap.height
         val width = imageBitmap.width
@@ -173,17 +192,19 @@ object ImageUtil {
         val result = createBitmap(width / 2, height * 2)
         result.applyCanvas {
             // right -> upper
-            val rightPart = when (upperSide) {
-                Side.RIGHT -> Rect(width - width / 2, 0, width, height)
-                Side.LEFT -> Rect(0, 0, width / 2, height)
-            }
+            val rightPart =
+                when (upperSide) {
+                    Side.RIGHT -> Rect(width - width / 2, 0, width, height)
+                    Side.LEFT -> Rect(0, 0, width / 2, height)
+                }
             val upperPart = Rect(0, 0, width / 2, height)
             drawBitmap(imageBitmap, rightPart, upperPart, null)
             // left -> bottom
-            val leftPart = when (upperSide) {
-                Side.LEFT -> Rect(width - width / 2, 0, width, height)
-                Side.RIGHT -> Rect(0, 0, width / 2, height)
-            }
+            val leftPart =
+                when (upperSide) {
+                    Side.LEFT -> Rect(width - width / 2, 0, width, height)
+                    Side.RIGHT -> Rect(0, 0, width / 2, height)
+                }
             val bottomPart = Rect(0, height, width / 2, height * 2)
             drawBitmap(imageBitmap, leftPart, bottomPart, null)
         }
@@ -211,7 +232,11 @@ object ImageUtil {
     /**
      * Splits tall images to improve performance of reader
      */
-    fun splitTallImage(tmpDir: UniFile, imageFile: UniFile, filenamePrefix: String): Boolean {
+    fun splitTallImage(
+        tmpDir: UniFile,
+        imageFile: UniFile,
+        filenamePrefix: String,
+    ): Boolean {
         val imageSource = imageFile.openInputStream().use { Buffer().readFrom(it) }
         if (isAnimatedAndSupported(imageSource) || !isTallImage(imageSource)) {
             return true
@@ -223,9 +248,10 @@ object ImageUtil {
             return false
         }
 
-        val options = extractImageOptions(imageSource).apply {
-            inJustDecodeBounds = false
-        }
+        val options =
+            extractImageOptions(imageSource).apply {
+                inJustDecodeBounds = false
+            }
 
         val splitDataList = options.splitData
 
@@ -263,7 +289,10 @@ object ImageUtil {
         }
     }
 
-    private fun splitImageName(filenamePrefix: String, index: Int) = "${filenamePrefix}__${"%03d".format(
+    private fun splitImageName(
+        filenamePrefix: String,
+        index: Int,
+    ) = "${filenamePrefix}__${"%03d".format(
         Locale.ENGLISH,
         index + 1,
     )}.jpg"
@@ -310,19 +339,19 @@ object ImageUtil {
         val bottomOffset = topOffset + splitHeight
     }
 
-    fun canUseHardwareBitmap(bitmap: Bitmap): Boolean {
-        return canUseHardwareBitmap(bitmap.width, bitmap.height)
-    }
+    fun canUseHardwareBitmap(bitmap: Bitmap): Boolean = canUseHardwareBitmap(bitmap.width, bitmap.height)
 
-    fun canUseHardwareBitmap(imageSource: BufferedSource): Boolean {
-        return with(extractImageOptions(imageSource)) {
+    fun canUseHardwareBitmap(imageSource: BufferedSource): Boolean =
+        with(extractImageOptions(imageSource)) {
             canUseHardwareBitmap(outWidth, outHeight)
         }
-    }
 
     var hardwareBitmapThreshold: Int = GLUtil.SAFE_TEXTURE_LIMIT
 
-    private fun canUseHardwareBitmap(width: Int, height: Int): Boolean {
+    private fun canUseHardwareBitmap(
+        width: Int,
+        height: Int,
+    ): Boolean {
         if (HARDWARE_BITMAP_UNSUPPORTED) return false
         return maxOf(width, height) <= hardwareBitmapThreshold
     }
@@ -330,7 +359,10 @@ object ImageUtil {
     /**
      * Algorithm for determining what background to accompany a comic/manga page
      */
-    fun chooseBackground(context: Context, imageStream: InputStream): Drawable {
+    fun chooseBackground(
+        context: Context,
+        imageStream: InputStream,
+    ): Drawable {
         val decoder = ImageDecoder.newInstance(imageStream)
         val image = decoder?.decode()
         decoder?.recycle()
@@ -374,29 +406,33 @@ object ImageUtil {
 
         val topAndBotPixels =
             listOf(topLeftPixel, topCenterPixel, topRightPixel, botRightPixel, bottomCenterPixel, botLeftPixel)
-        val isNotWhiteAndCloseTo = topAndBotPixels.mapIndexed { index, color ->
-            val other = topAndBotPixels[(index + 1) % topAndBotPixels.size]
-            !color.isWhite() && color.isCloseTo(other)
-        }
+        val isNotWhiteAndCloseTo =
+            topAndBotPixels.mapIndexed { index, color ->
+                val other = topAndBotPixels[(index + 1) % topAndBotPixels.size]
+                !color.isWhite() && color.isCloseTo(other)
+            }
         if (isNotWhiteAndCloseTo.all { it }) {
             return ColorDrawable(topLeftPixel)
         }
 
         val cornerPixels = listOf(topLeftPixel, topRightPixel, botLeftPixel, botRightPixel)
-        val numberOfWhiteCorners = cornerPixels.map { cornerPixel -> cornerPixel.isWhite() }
-            .filter { it }
-            .size
+        val numberOfWhiteCorners =
+            cornerPixels
+                .map { cornerPixel -> cornerPixel.isWhite() }
+                .filter { it }
+                .size
         if (numberOfWhiteCorners > 2) {
             darkBG = false
         }
 
-        var blackColor = when {
-            topLeftIsDark -> topLeftPixel
-            topRightIsDark -> topRightPixel
-            botLeftIsDark -> botLeftPixel
-            botRightIsDark -> botRightPixel
-            else -> whiteColor
-        }
+        var blackColor =
+            when {
+                topLeftIsDark -> topLeftPixel
+                topRightIsDark -> topRightPixel
+                botLeftIsDark -> botLeftPixel
+                botRightIsDark -> botRightPixel
+                else -> whiteColor
+            }
 
         var overallWhitePixels = 0
         var overallBlackPixels = 0
@@ -454,11 +490,12 @@ object ImageUtil {
             when {
                 blackPixels > 22 -> {
                     if (x == right || x == rightOffsetX) {
-                        blackColor = when {
-                            topRightIsDark -> topRightPixel
-                            botRightIsDark -> botRightPixel
-                            else -> blackColor
-                        }
+                        blackColor =
+                            when {
+                                topRightIsDark -> topRightPixel
+                                botRightIsDark -> botRightPixel
+                                else -> blackColor
+                            }
                     }
                     darkBG = true
                     overallWhitePixels = 0
@@ -467,11 +504,12 @@ object ImageUtil {
                 blackStreak -> {
                     darkBG = true
                     if (x == right || x == rightOffsetX) {
-                        blackColor = when {
-                            topRightIsDark -> topRightPixel
-                            botRightIsDark -> botRightPixel
-                            else -> blackColor
-                        }
+                        blackColor =
+                            when {
+                                topRightIsDark -> topRightPixel
+                                botRightIsDark -> botRightPixel
+                                else -> blackColor
+                            }
                     }
                     if (blackPixels > 18) {
                         overallWhitePixels = 0
@@ -508,36 +546,37 @@ object ImageUtil {
         val topOffsetCornersIsDark = image[leftOffsetX, top].isDark() && image[rightOffsetX, top].isDark()
         val botOffsetCornersIsDark = image[leftOffsetX, bot].isDark() && image[rightOffsetX, bot].isDark()
 
-        val gradient = when {
-            darkBG && botCornersIsWhite -> {
-                intArrayOf(blackColor, blackColor, whiteColor, whiteColor)
-            }
-            darkBG && topCornersIsWhite -> {
-                intArrayOf(whiteColor, whiteColor, blackColor, blackColor)
-            }
-            darkBG -> {
-                return ColorDrawable(blackColor)
-            }
-            topIsBlackStreak ||
-                (
-                    topCornersIsDark &&
-                        topOffsetCornersIsDark &&
-                        (topMidIsDark || overallBlackPixels > 9)
+        val gradient =
+            when {
+                darkBG && botCornersIsWhite -> {
+                    intArrayOf(blackColor, blackColor, whiteColor, whiteColor)
+                }
+                darkBG && topCornersIsWhite -> {
+                    intArrayOf(whiteColor, whiteColor, blackColor, blackColor)
+                }
+                darkBG -> {
+                    return ColorDrawable(blackColor)
+                }
+                topIsBlackStreak ||
+                    (
+                        topCornersIsDark &&
+                            topOffsetCornersIsDark &&
+                            (topMidIsDark || overallBlackPixels > 9)
                     ) -> {
-                intArrayOf(blackColor, blackColor, whiteColor, whiteColor)
-            }
-            bottomIsBlackStreak ||
-                (
-                    botCornersIsDark &&
-                        botOffsetCornersIsDark &&
-                        (bottomCenterPixel.isDark() || overallBlackPixels > 9)
+                    intArrayOf(blackColor, blackColor, whiteColor, whiteColor)
+                }
+                bottomIsBlackStreak ||
+                    (
+                        botCornersIsDark &&
+                            botOffsetCornersIsDark &&
+                            (bottomCenterPixel.isDark() || overallBlackPixels > 9)
                     ) -> {
-                intArrayOf(whiteColor, whiteColor, blackColor, blackColor)
+                    intArrayOf(whiteColor, whiteColor, blackColor, blackColor)
+                }
+                else -> {
+                    return ColorDrawable(whiteColor)
+                }
             }
-            else -> {
-                return ColorDrawable(whiteColor)
-            }
-        }
 
         return GradientDrawable(
             GradientDrawable.Orientation.TOP_BOTTOM,
@@ -545,14 +584,12 @@ object ImageUtil {
         )
     }
 
-    private fun @receiver:ColorInt Int.isDark(): Boolean =
-        red < 40 && blue < 40 && green < 40 && alpha > 200
+    private fun @receiver:ColorInt Int.isDark(): Boolean = red < 40 && blue < 40 && green < 40 && alpha > 200
 
     private fun @receiver:ColorInt Int.isCloseTo(other: Int): Boolean =
         abs(red - other.red) < 30 && abs(green - other.green) < 30 && abs(blue - other.blue) < 30
 
-    private fun @receiver:ColorInt Int.isWhite(): Boolean =
-        red + blue + green > 740
+    private fun @receiver:ColorInt Int.isWhite(): Boolean = red + blue + green > 740
 
     /**
      * Used to check an image's dimensions without loading it in the memory.
@@ -563,14 +600,13 @@ object ImageUtil {
         return options
     }
 
-    private fun getBitmapRegionDecoder(imageStream: InputStream): BitmapRegionDecoder? {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    private fun getBitmapRegionDecoder(imageStream: InputStream): BitmapRegionDecoder? =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             BitmapRegionDecoder.newInstance(imageStream)
         } else {
             @Suppress("DEPRECATION")
             BitmapRegionDecoder.newInstance(imageStream, false)
         }
-    }
 
     private val optimalImageHeight = getDisplayMaxHeightInPx * 2
 
@@ -584,111 +620,127 @@ object ImageUtil {
      * [Google's official device list](https://support.google.com/googleplay/answer/1727131?hl=en).
      *
      */
-    val HARDWARE_BITMAP_UNSUPPORTED = when (Build.VERSION.SDK_INT) {
-        26 -> run {
-            val model = Build.MODEL ?: return@run false
+    val HARDWARE_BITMAP_UNSUPPORTED =
+        when (Build.VERSION.SDK_INT) {
+            26 ->
+                run {
+                    val model = Build.MODEL ?: return@run false
 
-            // Samsung Galaxy (ALL)
-            if (model.removePrefix("SAMSUNG-").startsWith("SM-")) return@run true
+                    // Samsung Galaxy (ALL)
+                    if (model.removePrefix("SAMSUNG-").startsWith("SM-")) return@run true
 
-            val device = Build.DEVICE ?: return@run false
+                    val device = Build.DEVICE ?: return@run false
 
-            return@run device in arrayOf(
-                "nora", "nora_8917", "nora_8917_n", // Moto E5
-                "james", "rjames_f", "rjames_go", "pettyl", // Moto E5 Play
-                "hannah", "ahannah", "rhannah", // Moto E5 Plus
+                    return@run device in
+                        arrayOf(
+                            "nora",
+                            "nora_8917",
+                            "nora_8917_n", // Moto E5
+                            "james",
+                            "rjames_f",
+                            "rjames_go",
+                            "pettyl", // Moto E5 Play
+                            "hannah",
+                            "ahannah",
+                            "rhannah", // Moto E5 Plus
+                            "ali",
+                            "ali_n", // Moto G6
+                            "aljeter",
+                            "aljeter_n",
+                            "jeter", // Moto G6 Play
+                            "evert",
+                            "evert_n",
+                            "evert_nt", // Moto G6 Plus
+                            "G3112",
+                            "G3116",
+                            "G3121",
+                            "G3123",
+                            "G3125", // Xperia XA1
+                            "G3412",
+                            "G3416",
+                            "G3421",
+                            "G3423",
+                            "G3426", // Xperia XA1 Plus
+                            "G3212",
+                            "G3221",
+                            "G3223",
+                            "G3226", // Xperia XA1 Ultra
+                            "BV6800Pro", // BlackView BV6800Pro
+                            "CatS41", // Cat S41
+                            "Hi9Pro", // CHUWI Hi9 Pro
+                            "manning", // Lenovo K8 Note
+                            "N5702L", // NUU Mobile G3
+                        )
+                }
 
-                "ali", "ali_n", // Moto G6
-                "aljeter", "aljeter_n", "jeter", // Moto G6 Play
-                "evert", "evert_n", "evert_nt", // Moto G6 Plus
+            27 ->
+                run {
+                    val device = Build.DEVICE ?: return@run false
 
-                "G3112", "G3116", "G3121", "G3123", "G3125", // Xperia XA1
-                "G3412", "G3416", "G3421", "G3423", "G3426", // Xperia XA1 Plus
-                "G3212", "G3221", "G3223", "G3226", // Xperia XA1 Ultra
+                    return@run device in
+                        arrayOf(
+                            "mcv1s", // LG Tribute Empire
+                            "mcv3", // LG K11
+                            "mcv5a", // LG Q7
+                            "mcv7a", // LG Stylo 4
+                            "A30ATMO", // T-Mobile REVVL 2
+                            "A70AXLTMO", // T-Mobile REVVL 2 PLUS
+                            "A3A_8_4G_TMO", // Alcatel 9027W
+                            "Edison_CKT", // Alcatel ONYX
+                            "EDISON_TF", // Alcatel TCL XL2
+                            "FERMI_TF", // Alcatel A501DL
+                            "U50A_ATT", // Alcatel TETRA
+                            "U50A_PLUS_ATT", // Alcatel 5059R
+                            "U50A_PLUS_TF", // Alcatel TCL LX
+                            "U50APLUSTMO", // Alcatel 5059Z
+                            "U5A_PLUS_4G", // Alcatel 1X
+                            "RCT6513W87DK5e", // RCA Galileo Pro
+                            "RCT6873W42BMF9A", // RCA Voyager
+                            "RCT6A03W13", // RCA 10 Viking
+                            "RCT6B03W12", // RCA Atlas 10 Pro
+                            "RCT6B03W13", // RCA Atlas 10 Pro+
+                            "RCT6T06E13", // RCA Artemis 10
+                            "A3_Pro", // Umidigi A3 Pro
+                            "One", // Umidigi One
+                            "One_Max", // Umidigi One Max
+                            "One_Pro", // Umidigi One Pro
+                            "Z2", // Umidigi Z2
+                            "Z2_PRO", // Umidigi Z2 Pro
+                            "Armor_3", // Ulefone Armor 3
+                            "Armor_6", // Ulefone Armor 6
+                            "Blackview", // Blackview BV6000
+                            "BV9500", // Blackview BV9500
+                            "BV9500Pro", // Blackview BV9500Pro
+                            "A6L-C", // Nuu A6L-C
+                            "N5002LA", // Nuu A7L
+                            "N5501LA", // Nuu A5L
+                            "Power_2_Pro", // Leagoo Power 2 Pro
+                            "Power_5", // Leagoo Power 5
+                            "Z9", // Leagoo Z9
+                            "V0310WW", // Blu VIVO VI+
+                            "V0330WW", // Blu VIVO XI
+                            "A3", // BenQ A3
+                            "ASUS_X018_4", // Asus ZenFone Max Plus M1 (ZB570TL)
+                            "C210AE", // Wiko Life
+                            "fireball", // DROID Incredible 4G LTE
+                            "ILA_X1", // iLA X1
+                            "Infinix-X605_sprout", // Infinix NOTE 5 Stylus
+                            "j7maxlte", // Samsung Galaxy J7 Max
+                            "KING_KONG_3", // Cubot King Kong 3
+                            "M10500", // Packard Bell M10500
+                            "S70", // Altice ALTICE S70
+                            "S80Lite", // Doogee S80Lite
+                            "SGINO6", // SGiNO 6
+                            "st18c10bnn", // Barnes and Noble BNTV650
+                            "TECNO-CA8", // Tecno CAMON X Pro,
+                            "SHIFT6m", // SHIFT 6m
+                        )
+                }
 
-                "BV6800Pro", // BlackView BV6800Pro
-                "CatS41", // Cat S41
-                "Hi9Pro", // CHUWI Hi9 Pro
-                "manning", // Lenovo K8 Note
-                "N5702L", // NUU Mobile G3
-            )
+            else -> false
         }
-
-        27 -> run {
-            val device = Build.DEVICE ?: return@run false
-
-            return@run device in arrayOf(
-                "mcv1s", // LG Tribute Empire
-                "mcv3", // LG K11
-                "mcv5a", // LG Q7
-                "mcv7a", // LG Stylo 4
-
-                "A30ATMO", // T-Mobile REVVL 2
-                "A70AXLTMO", // T-Mobile REVVL 2 PLUS
-
-                "A3A_8_4G_TMO", // Alcatel 9027W
-                "Edison_CKT", // Alcatel ONYX
-                "EDISON_TF", // Alcatel TCL XL2
-                "FERMI_TF", // Alcatel A501DL
-                "U50A_ATT", // Alcatel TETRA
-                "U50A_PLUS_ATT", // Alcatel 5059R
-                "U50A_PLUS_TF", // Alcatel TCL LX
-                "U50APLUSTMO", // Alcatel 5059Z
-                "U5A_PLUS_4G", // Alcatel 1X
-
-                "RCT6513W87DK5e", // RCA Galileo Pro
-                "RCT6873W42BMF9A", // RCA Voyager
-                "RCT6A03W13", // RCA 10 Viking
-                "RCT6B03W12", // RCA Atlas 10 Pro
-                "RCT6B03W13", // RCA Atlas 10 Pro+
-                "RCT6T06E13", // RCA Artemis 10
-
-                "A3_Pro", // Umidigi A3 Pro
-                "One", // Umidigi One
-                "One_Max", // Umidigi One Max
-                "One_Pro", // Umidigi One Pro
-                "Z2", // Umidigi Z2
-                "Z2_PRO", // Umidigi Z2 Pro
-
-                "Armor_3", // Ulefone Armor 3
-                "Armor_6", // Ulefone Armor 6
-
-                "Blackview", // Blackview BV6000
-                "BV9500", // Blackview BV9500
-                "BV9500Pro", // Blackview BV9500Pro
-
-                "A6L-C", // Nuu A6L-C
-                "N5002LA", // Nuu A7L
-                "N5501LA", // Nuu A5L
-
-                "Power_2_Pro", // Leagoo Power 2 Pro
-                "Power_5", // Leagoo Power 5
-                "Z9", // Leagoo Z9
-
-                "V0310WW", // Blu VIVO VI+
-                "V0330WW", // Blu VIVO XI
-
-                "A3", // BenQ A3
-                "ASUS_X018_4", // Asus ZenFone Max Plus M1 (ZB570TL)
-                "C210AE", // Wiko Life
-                "fireball", // DROID Incredible 4G LTE
-                "ILA_X1", // iLA X1
-                "Infinix-X605_sprout", // Infinix NOTE 5 Stylus
-                "j7maxlte", // Samsung Galaxy J7 Max
-                "KING_KONG_3", // Cubot King Kong 3
-                "M10500", // Packard Bell M10500
-                "S70", // Altice ALTICE S70
-                "S80Lite", // Doogee S80Lite
-                "SGINO6", // SGiNO 6
-                "st18c10bnn", // Barnes and Noble BNTV650
-                "TECNO-CA8", // Tecno CAMON X Pro,
-                "SHIFT6m", // SHIFT 6m
-            )
-        }
-
-        else -> false
-    }
 }
 
 val getDisplayMaxHeightInPx: Int
     get() = Resources.getSystem().displayMetrics.let { max(it.heightPixels, it.widthPixels) }
+

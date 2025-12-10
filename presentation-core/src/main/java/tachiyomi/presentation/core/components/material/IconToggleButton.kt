@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.layout.Arrangement
@@ -27,15 +29,17 @@ fun IconToggleButton(
     FilledIconToggleButton(
         checked = checked,
         onCheckedChange = onCheckedChange,
-        modifier = modifier
-            .height(48.dp),
+        modifier =
+            modifier
+                .height(48.dp),
     ) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(MaterialTheme.padding.small),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(MaterialTheme.padding.small),
         ) {
             Icon(
                 imageVector = imageVector,
@@ -50,3 +54,4 @@ fun IconToggleButton(
         }
     }
 }
+

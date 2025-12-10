@@ -11,7 +11,6 @@ class GetApplicationRelease(
     private val service: ReleaseService,
     private val preferenceStore: PreferenceStore,
 ) {
-
     private val lastChecked: Preference<Long> by lazy {
         preferenceStore.getLong(Preference.appStateKey("last_app_check"), 0)
     }
@@ -30,12 +29,13 @@ class GetApplicationRelease(
         lastChecked.set(now.toEpochMilli())
 
         // Check if latest version is different from current version
-        val isNewVersion = isNewVersion(
-            arguments.isPreview,
-            arguments.commitCount,
-            arguments.versionName,
-            release.version,
-        )
+        val isNewVersion =
+            isNewVersion(
+                arguments.isPreview,
+                arguments.commitCount,
+                arguments.versionName,
+                release.version,
+            )
         return when {
             isNewVersion -> Result.NewUpdate(release)
             else -> Result.NoNewUpdate
@@ -82,8 +82,13 @@ class GetApplicationRelease(
     )
 
     sealed interface Result {
-        data class NewUpdate(val release: Release) : Result
+        data class NewUpdate(
+            val release: Release,
+        ) : Result
+
         data object NoNewUpdate : Result
+
         data object OsTooOld : Result
     }
 }
+

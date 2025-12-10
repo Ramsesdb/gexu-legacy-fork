@@ -34,11 +34,11 @@ data class Manga(
     val version: Long,
     val notes: String,
 ) : Serializable {
-
     val expectedNextUpdate: Instant?
-        get() = nextUpdate
-            .takeIf { status != SManga.COMPLETED.toLong() }
-            ?.let { Instant.ofEpochMilli(it) }
+        get() =
+            nextUpdate
+                .takeIf { status != SManga.COMPLETED.toLong() }
+                ?.let { Instant.ofEpochMilli(it) }
 
     val sorting: Long
         get() = chapterFlags and CHAPTER_SORTING_MASK
@@ -56,22 +56,22 @@ data class Manga(
         get() = chapterFlags and CHAPTER_BOOKMARKED_MASK
 
     val unreadFilter: TriState
-        get() = when (unreadFilterRaw) {
-            CHAPTER_SHOW_UNREAD -> TriState.ENABLED_IS
-            CHAPTER_SHOW_READ -> TriState.ENABLED_NOT
-            else -> TriState.DISABLED
-        }
+        get() =
+            when (unreadFilterRaw) {
+                CHAPTER_SHOW_UNREAD -> TriState.ENABLED_IS
+                CHAPTER_SHOW_READ -> TriState.ENABLED_NOT
+                else -> TriState.DISABLED
+            }
 
     val bookmarkedFilter: TriState
-        get() = when (bookmarkedFilterRaw) {
-            CHAPTER_SHOW_BOOKMARKED -> TriState.ENABLED_IS
-            CHAPTER_SHOW_NOT_BOOKMARKED -> TriState.ENABLED_NOT
-            else -> TriState.DISABLED
-        }
+        get() =
+            when (bookmarkedFilterRaw) {
+                CHAPTER_SHOW_BOOKMARKED -> TriState.ENABLED_IS
+                CHAPTER_SHOW_NOT_BOOKMARKED -> TriState.ENABLED_NOT
+                else -> TriState.DISABLED
+            }
 
-    fun sortDescending(): Boolean {
-        return chapterFlags and CHAPTER_SORT_DIR_MASK == CHAPTER_SORT_DESC
-    }
+    fun sortDescending(): Boolean = chapterFlags and CHAPTER_SORT_DIR_MASK == CHAPTER_SORT_DESC
 
     companion object {
         // Generic filter that does not filter anything
@@ -103,31 +103,33 @@ data class Manga(
         const val CHAPTER_DISPLAY_NUMBER = 0x00100000L
         const val CHAPTER_DISPLAY_MASK = 0x00100000L
 
-        fun create() = Manga(
-            id = -1L,
-            url = "",
-            title = "",
-            source = -1L,
-            favorite = false,
-            lastUpdate = 0L,
-            nextUpdate = 0L,
-            fetchInterval = 0,
-            dateAdded = 0L,
-            viewerFlags = 0L,
-            chapterFlags = 0L,
-            coverLastModified = 0L,
-            artist = null,
-            author = null,
-            description = null,
-            genre = null,
-            status = 0L,
-            thumbnailUrl = null,
-            updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
-            initialized = false,
-            lastModifiedAt = 0L,
-            favoriteModifiedAt = null,
-            version = 0L,
-            notes = "",
-        )
+        fun create() =
+            Manga(
+                id = -1L,
+                url = "",
+                title = "",
+                source = -1L,
+                favorite = false,
+                lastUpdate = 0L,
+                nextUpdate = 0L,
+                fetchInterval = 0,
+                dateAdded = 0L,
+                viewerFlags = 0L,
+                chapterFlags = 0L,
+                coverLastModified = 0L,
+                artist = null,
+                author = null,
+                description = null,
+                genre = null,
+                status = 0L,
+                thumbnailUrl = null,
+                updateStrategy = UpdateStrategy.ALWAYS_UPDATE,
+                initialized = false,
+                lastModifiedAt = 0L,
+                favoriteModifiedAt = null,
+                version = 0L,
+                notes = "",
+            )
     }
 }
+

@@ -11,21 +11,22 @@ class GetMangaWithChapters(
     private val mangaRepository: MangaRepository,
     private val chapterRepository: ChapterRepository,
 ) {
-
-    suspend fun subscribe(id: Long, applyScanlatorFilter: Boolean = false): Flow<Pair<Manga, List<Chapter>>> {
-        return combine(
+    suspend fun subscribe(
+        id: Long,
+        applyScanlatorFilter: Boolean = false,
+    ): Flow<Pair<Manga, List<Chapter>>> =
+        combine(
             mangaRepository.getMangaByIdAsFlow(id),
             chapterRepository.getChapterByMangaIdAsFlow(id, applyScanlatorFilter),
         ) { manga, chapters ->
             Pair(manga, chapters)
         }
-    }
 
-    suspend fun awaitManga(id: Long): Manga {
-        return mangaRepository.getMangaById(id)
-    }
+    suspend fun awaitManga(id: Long): Manga = mangaRepository.getMangaById(id)
 
-    suspend fun awaitChapters(id: Long, applyScanlatorFilter: Boolean = false): List<Chapter> {
-        return chapterRepository.getChapterByMangaId(id, applyScanlatorFilter)
-    }
+    suspend fun awaitChapters(
+        id: Long,
+        applyScanlatorFilter: Boolean = false,
+    ): List<Chapter> = chapterRepository.getChapterByMangaId(id, applyScanlatorFilter)
 }
+

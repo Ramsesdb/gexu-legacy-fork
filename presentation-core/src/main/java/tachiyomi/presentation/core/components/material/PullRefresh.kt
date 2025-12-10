@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.layout.Box
@@ -30,20 +32,22 @@ fun PullRefresh(
 ) {
     val state = rememberPullToRefreshState()
     Box(
-        modifier = modifier
-            .pullToRefresh(
-                isRefreshing = refreshing,
-                state = state,
-                enabled = enabled,
-                onRefresh = onRefresh,
-            ),
+        modifier =
+            modifier
+                .pullToRefresh(
+                    isRefreshing = refreshing,
+                    state = state,
+                    enabled = enabled,
+                    onRefresh = onRefresh,
+                ),
     ) {
         content()
 
         PullToRefreshDefaults.Indicator(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(indicatorPadding),
+            modifier =
+                Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(indicatorPadding),
             isRefreshing = refreshing,
             state = state,
             containerColor = MaterialTheme.colorScheme.surfaceVariant,
@@ -51,3 +55,4 @@ fun PullRefresh(
         )
     }
 }
+

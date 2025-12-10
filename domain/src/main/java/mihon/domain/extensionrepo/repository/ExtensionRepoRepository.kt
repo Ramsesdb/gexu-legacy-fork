@@ -4,7 +4,6 @@ import kotlinx.coroutines.flow.Flow
 import mihon.domain.extensionrepo.model.ExtensionRepo
 
 interface ExtensionRepoRepository {
-
     fun subscribeAll(): Flow<List<ExtensionRepo>>
 
     suspend fun getAll(): List<ExtensionRepo>
@@ -45,3 +44,4 @@ interface ExtensionRepoRepository {
 
     suspend fun deleteRepo(baseUrl: String)
 }
+

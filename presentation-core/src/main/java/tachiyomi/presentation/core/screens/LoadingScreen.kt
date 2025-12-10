@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.screens
 
 import androidx.compose.foundation.layout.Box
@@ -16,3 +18,4 @@ fun LoadingScreen(modifier: Modifier = Modifier) {
         CircularProgressIndicator()
     }
 }
+

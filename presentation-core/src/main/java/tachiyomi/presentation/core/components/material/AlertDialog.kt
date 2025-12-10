@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.layout.Box
@@ -48,13 +50,13 @@ fun AlertDialogContent(
                 }
 
                 Box(
-                    modifier = Modifier
-                        .padding(
-                            start = DialogPadding,
-                            end = DialogPadding,
-                            bottom = DialogPadding,
-                        )
-                        .align(Alignment.End),
+                    modifier =
+                        Modifier
+                            .padding(
+                                start = DialogPadding,
+                                end = DialogPadding,
+                                bottom = DialogPadding,
+                            ).align(Alignment.End),
                 ) {
                     CompositionLocalProvider(
                         LocalContentColor provides MaterialTheme.colorScheme.primary,
@@ -76,18 +78,19 @@ fun AlertDialogContent(
     content: @Composable (ColumnScope.() -> Unit)? = null,
 ) {
     Column(
-        modifier = modifier
-            .sizeIn(minWidth = MinWidth, maxWidth = MaxWidth),
+        modifier =
+            modifier
+                .sizeIn(minWidth = MinWidth, maxWidth = MaxWidth),
     ) {
         if (icon != null || title != null) {
             Column(
-                modifier = Modifier
-                    .padding(
-                        start = DialogPadding,
-                        top = DialogPadding,
-                        end = DialogPadding,
-                    )
-                    .fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .padding(
+                            start = DialogPadding,
+                            top = DialogPadding,
+                            end = DialogPadding,
+                        ).fillMaxWidth(),
             ) {
                 icon?.let {
                     CompositionLocalProvider(
@@ -139,3 +142,4 @@ private val TextPadding = PaddingValues(bottom = 24.dp)
 
 private val MinWidth = 280.dp
 private val MaxWidth = 560.dp
+

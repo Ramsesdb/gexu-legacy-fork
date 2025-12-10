@@ -8,7 +8,6 @@ import org.junit.jupiter.api.parallel.ExecutionMode
 
 @Execution(ExecutionMode.CONCURRENT)
 class LibraryFlagsTest {
-
     @Test
     fun `Check the amount of flags`() {
         LibraryDisplayMode.values.size shouldBe 4
@@ -34,10 +33,11 @@ class LibraryFlagsTest {
 
     @Test
     fun `Test Flag plus operator with old flag as base`() {
-        val currentSort = LibrarySort(
-            LibrarySort.Type.UnreadCount,
-            LibrarySort.Direction.Descending,
-        )
+        val currentSort =
+            LibrarySort(
+                LibrarySort.Type.UnreadCount,
+                LibrarySort.Direction.Descending,
+            )
         currentSort.flag shouldBe 0b00001100
 
         val sort = LibrarySort(LibrarySort.Type.DateAdded, LibrarySort.Direction.Ascending)
@@ -55,3 +55,4 @@ class LibraryFlagsTest {
         flag shouldBe 0b01000000
     }
 }
+

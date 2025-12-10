@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Column
@@ -25,9 +27,10 @@ fun LazyColumnWithAction(
     content: LazyListScope.() -> Unit,
 ) {
     Column(
-        modifier = modifier
-            .padding(contentPadding)
-            .fillMaxSize(),
+        modifier =
+            modifier
+                .padding(contentPadding)
+                .fillMaxSize(),
     ) {
         LazyColumn(
             modifier = Modifier.weight(1f),
@@ -37,9 +40,10 @@ fun LazyColumnWithAction(
         HorizontalDivider()
 
         Button(
-            modifier = Modifier
-                .padding(horizontal = 16.dp, vertical = 8.dp)
-                .fillMaxWidth(),
+            modifier =
+                Modifier
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .fillMaxWidth(),
             enabled = actionEnabled,
             onClick = onClickAction,
         ) {
@@ -50,3 +54,4 @@ fun LazyColumnWithAction(
         }
     }
 }
+

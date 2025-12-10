@@ -14,11 +14,16 @@ class ReorderCategory(
 ) {
     private val mutex = Mutex()
 
-    suspend fun await(category: Category, newIndex: Int) = withNonCancellableContext {
+    suspend fun await(
+        category: Category,
+        newIndex: Int,
+    ) = withNonCancellableContext {
         mutex.withLock {
-            val categories = categoryRepository.getAll()
-                .filterNot(Category::isSystemCategory)
-                .toMutableList()
+            val categories =
+                categoryRepository
+                    .getAll()
+                    .filterNot(Category::isSystemCategory)
+                    .toMutableList()
 
             val currentIndex = categories.indexOfFirst { it.id == category.id }
             if (currentIndex == -1) {
@@ -28,12 +33,13 @@ class ReorderCategory(
             try {
                 categories.add(newIndex, categories.removeAt(currentIndex))
 
-                val updates = categories.mapIndexed { index, category ->
-                    CategoryUpdate(
-                        id = category.id,
-                        order = index.toLong(),
-                    )
-                }
+                val updates =
+                    categories.mapIndexed { index, category ->
+                        CategoryUpdate(
+                            id = category.id,
+                            order = index.toLong(),
+                        )
+                    }
 
                 categoryRepository.updatePartial(updates)
                 Result.Success
@@ -46,7 +52,12 @@ class ReorderCategory(
 
     sealed interface Result {
         data object Success : Result
+
         data object Unchanged : Result
-        data class InternalError(val error: Throwable) : Result
+
+        data class InternalError(
+            val error: Throwable,
+        ) : Result
     }
 }
+

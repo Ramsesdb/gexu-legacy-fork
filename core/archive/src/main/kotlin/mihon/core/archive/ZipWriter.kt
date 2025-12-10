@@ -10,7 +10,10 @@ import me.zhanghai.android.libarchive.ArchiveException
 import java.io.Closeable
 import java.nio.ByteBuffer
 
-class ZipWriter(val context: Context, file: UniFile) : Closeable {
+class ZipWriter(
+    val context: Context,
+    file: UniFile,
+) : Closeable {
     private val pfd = file.openFileDescriptor(context, "wt")
     private val archive = Archive.writeNew()
     private val entry = ArchiveEntry.new2(archive)
@@ -54,20 +57,22 @@ class ZipWriter(val context: Context, file: UniFile) : Closeable {
     }
 }
 
-private fun StructStat.toArchiveStat() = ArchiveEntry.StructStat().apply {
-    stDev = st_dev
-    stMode = st_mode
-    stNlink = st_nlink.toInt()
-    stUid = st_uid
-    stGid = st_gid
-    stRdev = st_rdev
-    stSize = st_size
-    stBlksize = st_blksize
-    stBlocks = st_blocks
-    stAtim = st_atime.toTimespec()
-    stMtim = st_mtime.toTimespec()
-    stCtim = st_ctime.toTimespec()
-    stIno = st_ino
-}
+private fun StructStat.toArchiveStat() =
+    ArchiveEntry.StructStat().apply {
+        stDev = st_dev
+        stMode = st_mode
+        stNlink = st_nlink.toInt()
+        stUid = st_uid
+        stGid = st_gid
+        stRdev = st_rdev
+        stSize = st_size
+        stBlksize = st_blksize
+        stBlocks = st_blocks
+        stAtim = st_atime.toTimespec()
+        stMtim = st_mtime.toTimespec()
+        stCtim = st_ctime.toTimespec()
+        stIno = st_ino
+    }
 
 private fun Long.toTimespec() = ArchiveEntry.StructTimespec().also { it.tvSec = this }
+

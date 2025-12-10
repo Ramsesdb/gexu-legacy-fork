@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.animation.AnimatedContent
@@ -56,10 +58,11 @@ fun CombinedCircularProgressIndicator(
             val rotation by infiniteTransition.animateFloat(
                 initialValue = 0f,
                 targetValue = 360f,
-                animationSpec = infiniteRepeatable(
-                    animation = tween(2000, easing = LinearEasing),
-                    repeatMode = RepeatMode.Restart,
-                ),
+                animationSpec =
+                    infiniteRepeatable(
+                        animation = tween(2000, easing = LinearEasing),
+                        repeatMode = RepeatMode.Restart,
+                    ),
                 label = "rotation",
             )
             val animatedProgress by animateFloatAsState(
@@ -85,14 +88,15 @@ private fun CombinedCircularProgressIndicatorPreview() {
                 Button(
                     modifier = Modifier.fillMaxWidth(),
                     onClick = {
-                        progress = when (progress) {
-                            0f -> 0.15f
-                            0.15f -> 0.25f
-                            0.25f -> 0.5f
-                            0.5f -> 0.75f
-                            0.75f -> 0.95f
-                            else -> 0f
-                        }
+                        progress =
+                            when (progress) {
+                                0f -> 0.15f
+                                0.15f -> 0.25f
+                                0.25f -> 0.5f
+                                0.5f -> 0.75f
+                                0.75f -> 0.95f
+                                else -> 0f
+                            }
                     },
                 ) {
                     Text("change")
@@ -101,12 +105,14 @@ private fun CombinedCircularProgressIndicatorPreview() {
         ) {
             Box(
                 contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(it),
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .padding(it),
             ) {
                 CombinedCircularProgressIndicator(progress = { progress })
             }
         }
     }
 }
+

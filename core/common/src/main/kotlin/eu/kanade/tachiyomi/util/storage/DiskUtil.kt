@@ -14,12 +14,12 @@ import java.nio.CharBuffer
 import java.nio.charset.CodingErrorAction
 
 object DiskUtil {
-
     /**
      * Returns the root folders of all the available external storages.
      */
-    fun getExternalStorages(context: Context): List<File> {
-        return ContextCompat.getExternalFilesDirs(context, null)
+    fun getExternalStorages(context: Context): List<File> =
+        ContextCompat
+            .getExternalFilesDirs(context, null)
             .filterNotNull()
             .mapNotNull {
                 val file = File(it.absolutePath.substringBefore("/Android/"))
@@ -30,11 +30,8 @@ object DiskUtil {
                     null
                 }
             }
-    }
 
-    fun hashKeyForDisk(key: String): String {
-        return Hash.md5(key)
-    }
+    fun hashKeyForDisk(key: String): String = Hash.md5(key)
 
     fun getDirectorySize(f: File): Long {
         var size: Long = 0
@@ -51,43 +48,43 @@ object DiskUtil {
     /**
      * Gets the total space for the disk that a file path points to, in bytes.
      */
-    fun getTotalStorageSpace(file: File): Long {
-        return try {
+    fun getTotalStorageSpace(file: File): Long =
+        try {
             val stat = StatFs(file.absolutePath)
             stat.blockCountLong * stat.blockSizeLong
         } catch (_: Exception) {
             -1L
         }
-    }
 
     /**
      * Gets the available space for the disk that a file path points to, in bytes.
      */
-    fun getAvailableStorageSpace(file: File): Long {
-        return try {
+    fun getAvailableStorageSpace(file: File): Long =
+        try {
             val stat = StatFs(file.absolutePath)
             stat.availableBlocksLong * stat.blockSizeLong
         } catch (_: Exception) {
             -1L
         }
-    }
 
     /**
      * Gets the available space for the disk that a file path points to, in bytes.
      */
-    fun getAvailableStorageSpace(f: UniFile): Long {
-        return try {
+    fun getAvailableStorageSpace(f: UniFile): Long =
+        try {
             val stat = StatFs(f.uri.path)
             stat.availableBlocksLong * stat.blockSizeLong
         } catch (_: Exception) {
             -1L
         }
-    }
 
     /**
      * Don't display downloaded chapters in gallery apps creating `.nomedia`.
      */
-    fun createNoMediaFile(dir: UniFile?, context: Context?) {
+    fun createNoMediaFile(
+        dir: UniFile?,
+        context: Context?,
+    ) {
         if (dir != null && dir.exists()) {
             val nomedia = dir.findFile(NOMEDIA_FILE)
             if (nomedia == null) {
@@ -100,7 +97,10 @@ object DiskUtil {
     /**
      * Scans the given file so that it can be shown in gallery apps, for example.
      */
-    fun scanMedia(context: Context, uri: Uri) {
+    fun scanMedia(
+        context: Context,
+        uri: Uri,
+    ) {
         MediaScannerConnection.scanFile(context, arrayOf(uri.path), null, null)
     }
 
@@ -168,7 +168,10 @@ object DiskUtil {
     /**
      * Truncate a string to a maximum length, while maintaining valid Unicode encoding.
      */
-    fun truncateToLength(s: String, maxBytes: Int): String {
+    fun truncateToLength(
+        s: String,
+        maxBytes: Int,
+    ): String {
         val charset = Charsets.UTF_8
         val decoder = charset.newDecoder()
         val sba = s.toByteArray(charset)
@@ -205,3 +208,4 @@ object DiskUtil {
     // reserved characters.
     const val MAX_FILE_NAME_BYTES = 240
 }
+

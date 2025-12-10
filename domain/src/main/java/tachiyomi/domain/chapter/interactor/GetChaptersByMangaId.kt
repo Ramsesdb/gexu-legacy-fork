@@ -8,13 +8,15 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 class GetChaptersByMangaId(
     private val chapterRepository: ChapterRepository,
 ) {
-
-    suspend fun await(mangaId: Long, applyScanlatorFilter: Boolean = false): List<Chapter> {
-        return try {
+    suspend fun await(
+        mangaId: Long,
+        applyScanlatorFilter: Boolean = false,
+    ): List<Chapter> =
+        try {
             chapterRepository.getChapterByMangaId(mangaId, applyScanlatorFilter)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             emptyList()
         }
-    }
 }
+

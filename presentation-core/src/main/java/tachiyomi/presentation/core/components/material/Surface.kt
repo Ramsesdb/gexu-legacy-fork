@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.BorderStroke
@@ -57,25 +59,26 @@ fun Surface(
         LocalAbsoluteTonalElevation provides absoluteElevation,
     ) {
         Box(
-            modifier = modifier
-                .minimumInteractiveComponentSize()
-                .surface(
-                    shape = shape,
-                    backgroundColor = surfaceColorAtElevation(
-                        color = color,
-                        elevation = absoluteElevation,
+            modifier =
+                modifier
+                    .minimumInteractiveComponentSize()
+                    .surface(
+                        shape = shape,
+                        backgroundColor =
+                            surfaceColorAtElevation(
+                                color = color,
+                                elevation = absoluteElevation,
+                            ),
+                        border = border,
+                        shadowElevation = shadowElevation,
+                    ).combinedClickable(
+                        interactionSource = interactionSource,
+                        indication = ripple(),
+                        enabled = enabled,
+                        role = Role.Button,
+                        onLongClick = onLongClick,
+                        onClick = onClick,
                     ),
-                    border = border,
-                    shadowElevation = shadowElevation,
-                )
-                .combinedClickable(
-                    interactionSource = interactionSource,
-                    indication = ripple(),
-                    enabled = enabled,
-                    role = Role.Button,
-                    onLongClick = onLongClick,
-                    onClick = onClick,
-                ),
             propagateMinConstraints = true,
         ) {
             content()
@@ -96,16 +99,19 @@ private fun Modifier.surface(
 
 @Composable
 @ReadOnlyComposable
-private fun surfaceColorAtElevation(color: Color, elevation: Dp): Color {
-    return if (color == MaterialTheme.colorScheme.surface) {
+private fun surfaceColorAtElevation(
+    color: Color,
+    elevation: Dp,
+): Color =
+    if (color == MaterialTheme.colorScheme.surface) {
         MaterialTheme.colorScheme.surfaceColorAtElevation(elevation)
     } else {
         color
     }
-}
 
 private fun ColorScheme.surfaceColorAtElevation(elevation: Dp): Color {
     if (elevation == 0.dp) return surface
     val alpha = ((4.5f * ln(elevation.value + 1)) + 2f) / 100f
     return surfaceTint.copy(alpha = alpha).compositeOver(surface)
 }
+

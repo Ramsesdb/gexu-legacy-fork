@@ -26,22 +26,25 @@ fun LockedWidget(
     foreground: ColorProvider,
     modifier: GlanceModifier = GlanceModifier,
 ) {
-    val intent = Intent(LocalContext.current, Class.forName(Constants.MAIN_ACTIVITY)).apply {
-        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    }
+    val intent =
+        Intent(LocalContext.current, Class.forName(Constants.MAIN_ACTIVITY)).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        }
     Box(
-        modifier = modifier
-            .clickable(actionStartActivity(intent))
-            .padding(8.dp),
+        modifier =
+            modifier
+                .clickable(actionStartActivity(intent))
+                .padding(8.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             text = stringResource(MR.strings.appwidget_unavailable_locked),
-            style = TextStyle(
-                color = foreground,
-                fontSize = 12.sp,
-                textAlign = TextAlign.Center,
-            ),
+            style =
+                TextStyle(
+                    color = foreground,
+                    fontSize = 12.sp,
+                    textAlign = TextAlign.Center,
+                ),
         )
     }
 }

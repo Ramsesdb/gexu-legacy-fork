@@ -7,8 +7,6 @@ import tachiyomi.domain.source.repository.SourceRepository
 class GetSourcesWithNonLibraryManga(
     private val repository: SourceRepository,
 ) {
-
-    fun subscribe(): Flow<List<SourceWithCount>> {
-        return repository.getSourcesWithNonLibraryManga()
-    }
+    fun subscribe(): Flow<List<SourceWithCount>> = repository.getSourcesWithNonLibraryManga()
 }
+

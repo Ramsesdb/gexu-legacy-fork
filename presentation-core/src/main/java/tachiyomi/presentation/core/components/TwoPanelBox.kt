@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components
 
 import androidx.compose.foundation.layout.Box
@@ -31,16 +33,19 @@ fun TwoPanelBox(
         val firstWidth = (width / 2).coerceAtMost(450.dp)
         val secondWidth = width - firstWidth
         Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .width(firstWidth + startPadding),
+            modifier =
+                Modifier
+                    .align(Alignment.TopStart)
+                    .width(firstWidth + startPadding),
             content = startContent,
         )
         Box(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .width(secondWidth + endPadding),
+            modifier =
+                Modifier
+                    .align(Alignment.TopEnd)
+                    .width(secondWidth + endPadding),
             content = endContent,
         )
     }
 }
+

@@ -27,12 +27,11 @@ object WebViewUtil {
      * Example of Chrome on Android:
      *   Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.3
      */
-    fun getInferredUserAgent(context: Context): String {
-        return WebView(context)
+    fun getInferredUserAgent(context: Context): String =
+        WebView(context)
             .getDefaultUserAgentString()
             .replace("; Android .*?\\)".toRegex(), "; Android 10; K)")
             .replace("Version/.* Chrome/".toRegex(), "Chrome/")
-    }
 
     fun getVersion(context: Context): String {
         val webView = WebView.getCurrentWebViewPackage() ?: return "how did you get here?"
@@ -55,24 +54,22 @@ object WebViewUtil {
         return context.packageManager.hasSystemFeature(PackageManager.FEATURE_WEBVIEW)
     }
 
-    fun spoofedPackageName(context: Context): String {
-        return try {
+    fun spoofedPackageName(context: Context): String =
+        try {
             context.packageManager.getPackageInfo(CHROME_PACKAGE, PackageManager.GET_META_DATA)
 
             CHROME_PACKAGE
         } catch (_: PackageManager.NameNotFoundException) {
             SYSTEM_SETTINGS_PACKAGE
         }
+}
+
+fun WebView.isOutdated(): Boolean = getWebViewMajorVersion() < WebViewUtil.MINIMUM_WEBVIEW_VERSION
+
+suspend fun WebView.getHtml(): String =
+    suspendCancellableCoroutine {
+        evaluateJavascript("document.documentElement.outerHTML") { html -> it.resume(html) }
     }
-}
-
-fun WebView.isOutdated(): Boolean {
-    return getWebViewMajorVersion() < WebViewUtil.MINIMUM_WEBVIEW_VERSION
-}
-
-suspend fun WebView.getHtml(): String = suspendCancellableCoroutine {
-    evaluateJavascript("document.documentElement.outerHTML") { html -> it.resume(html) }
-}
 
 @SuppressLint("SetJavaScriptEnabled")
 fun WebView.setDefaultSettings() {
@@ -114,3 +111,4 @@ private fun WebView.getDefaultUserAgentString(): String {
 
     return defaultUserAgentString
 }
+

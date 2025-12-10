@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -11,7 +13,10 @@ import androidx.compose.ui.unit.sp
 import tachiyomi.presentation.core.components.Pill
 
 @Composable
-fun TabText(text: String, badgeCount: Int? = null) {
+fun TabText(
+    text: String,
+    badgeCount: Int? = null,
+) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
 
     Row(
@@ -31,3 +36,4 @@ fun TabText(text: String, badgeCount: Int? = null) {
         }
     }
 }
+

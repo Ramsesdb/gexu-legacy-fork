@@ -12,9 +12,8 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 class ChapterRepositoryImpl(
     private val handler: DatabaseHandler,
 ) : ChapterRepository {
-
-    override suspend fun addAll(chapters: List<Chapter>): List<Chapter> {
-        return try {
+    override suspend fun addAll(chapters: List<Chapter>): List<Chapter> =
+        try {
             handler.await(inTransaction = true) {
                 chapters.map { chapter ->
                     chaptersQueries.insert(
@@ -39,7 +38,6 @@ class ChapterRepositoryImpl(
             logcat(LogPriority.ERROR, e)
             emptyList()
         }
-    }
 
     override suspend fun update(chapterUpdate: ChapterUpdate) {
         partialUpdate(chapterUpdate)
@@ -80,52 +78,53 @@ class ChapterRepositoryImpl(
         }
     }
 
-    override suspend fun getChapterByMangaId(mangaId: Long, applyScanlatorFilter: Boolean): List<Chapter> {
-        return handler.awaitList {
+    override suspend fun getChapterByMangaId(
+        mangaId: Long,
+        applyScanlatorFilter: Boolean,
+    ): List<Chapter> =
+        handler.awaitList {
             chaptersQueries.getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
         }
-    }
 
-    override suspend fun getScanlatorsByMangaId(mangaId: Long): List<String> {
-        return handler.awaitList {
+    override suspend fun getScanlatorsByMangaId(mangaId: Long): List<String> =
+        handler.awaitList {
             chaptersQueries.getScanlatorsByMangaId(mangaId) { it.orEmpty() }
         }
-    }
 
-    override fun getScanlatorsByMangaIdAsFlow(mangaId: Long): Flow<List<String>> {
-        return handler.subscribeToList {
+    override fun getScanlatorsByMangaIdAsFlow(mangaId: Long): Flow<List<String>> =
+        handler.subscribeToList {
             chaptersQueries.getScanlatorsByMangaId(mangaId) { it.orEmpty() }
         }
-    }
 
-    override suspend fun getBookmarkedChaptersByMangaId(mangaId: Long): List<Chapter> {
-        return handler.awaitList {
+    override suspend fun getBookmarkedChaptersByMangaId(mangaId: Long): List<Chapter> =
+        handler.awaitList {
             chaptersQueries.getBookmarkedChaptersByMangaId(
                 mangaId,
                 ::mapChapter,
             )
         }
-    }
 
-    override suspend fun getChapterById(id: Long): Chapter? {
-        return handler.awaitOneOrNull { chaptersQueries.getChapterById(id, ::mapChapter) }
-    }
+    override suspend fun getChapterById(id: Long): Chapter? = handler.awaitOneOrNull { chaptersQueries.getChapterById(id, ::mapChapter) }
 
-    override suspend fun getChapterByMangaIdAsFlow(mangaId: Long, applyScanlatorFilter: Boolean): Flow<List<Chapter>> {
-        return handler.subscribeToList {
+    override suspend fun getChapterByMangaIdAsFlow(
+        mangaId: Long,
+        applyScanlatorFilter: Boolean,
+    ): Flow<List<Chapter>> =
+        handler.subscribeToList {
             chaptersQueries.getChaptersByMangaId(mangaId, applyScanlatorFilter.toLong(), ::mapChapter)
         }
-    }
 
-    override suspend fun getChapterByUrlAndMangaId(url: String, mangaId: Long): Chapter? {
-        return handler.awaitOneOrNull {
+    override suspend fun getChapterByUrlAndMangaId(
+        url: String,
+        mangaId: Long,
+    ): Chapter? =
+        handler.awaitOneOrNull {
             chaptersQueries.getChapterByUrlAndMangaId(
                 url,
                 mangaId,
                 ::mapChapter,
             )
         }
-    }
 
     private fun mapChapter(
         id: Long,
@@ -144,20 +143,22 @@ class ChapterRepositoryImpl(
         version: Long,
         @Suppress("UNUSED_PARAMETER")
         isSyncing: Long,
-    ): Chapter = Chapter(
-        id = id,
-        mangaId = mangaId,
-        read = read,
-        bookmark = bookmark,
-        lastPageRead = lastPageRead,
-        dateFetch = dateFetch,
-        sourceOrder = sourceOrder,
-        url = url,
-        name = name,
-        dateUpload = dateUpload,
-        chapterNumber = chapterNumber,
-        scanlator = scanlator,
-        lastModifiedAt = lastModifiedAt,
-        version = version,
-    )
+    ): Chapter =
+        Chapter(
+            id = id,
+            mangaId = mangaId,
+            read = read,
+            bookmark = bookmark,
+            lastPageRead = lastPageRead,
+            dateFetch = dateFetch,
+            sourceOrder = sourceOrder,
+            url = url,
+            name = name,
+            dateUpload = dateUpload,
+            chapterNumber = chapterNumber,
+            scanlator = scanlator,
+            lastModifiedAt = lastModifiedAt,
+            version = version,
+        )
 }
+

@@ -9,7 +9,6 @@ import tachiyomi.i18n.MR
 class SecurityPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
-
     fun useAuthenticator() = preferenceStore.getBoolean("use_biometric_lock", false)
 
     fun lockAppAfter() = preferenceStore.getInt("lock_app_after", 0)
@@ -22,14 +21,18 @@ class SecurityPreferences(
      * For app lock. Will be set when there is a pending timed lock.
      * Otherwise this pref should be deleted.
      */
-    fun lastAppClosed() = preferenceStore.getLong(
-        Preference.appStateKey("last_app_closed"),
-        0,
-    )
+    fun lastAppClosed() =
+        preferenceStore.getLong(
+            Preference.appStateKey("last_app_closed"),
+            0,
+        )
 
-    enum class SecureScreenMode(val titleRes: StringResource) {
+    enum class SecureScreenMode(
+        val titleRes: StringResource,
+    ) {
         ALWAYS(MR.strings.lock_always),
         INCOGNITO(MR.strings.pref_incognito_mode),
         NEVER(MR.strings.lock_never),
     }
 }
+

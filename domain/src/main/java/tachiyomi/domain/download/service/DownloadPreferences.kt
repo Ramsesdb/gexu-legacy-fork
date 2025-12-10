@@ -5,11 +5,11 @@ import tachiyomi.core.common.preference.PreferenceStore
 class DownloadPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
-
-    fun downloadOnlyOverWifi() = preferenceStore.getBoolean(
-        "pref_download_only_over_wifi_key",
-        true,
-    )
+    fun downloadOnlyOverWifi() =
+        preferenceStore.getBoolean(
+            "pref_download_only_over_wifi_key",
+            true,
+        )
 
     fun saveChaptersAsCBZ() = preferenceStore.getBoolean("save_chapter_as_cbz", true)
 
@@ -19,10 +19,11 @@ class DownloadPreferences(
 
     fun removeAfterReadSlots() = preferenceStore.getInt("remove_after_read_slots", -1)
 
-    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean(
-        "pref_remove_after_marked_as_read_key",
-        false,
-    )
+    fun removeAfterMarkedAsRead() =
+        preferenceStore.getBoolean(
+            "pref_remove_after_marked_as_read_key",
+            false,
+        )
 
     fun removeBookmarkedChapters() = preferenceStore.getBoolean("pref_remove_bookmarked", false)
 
@@ -32,8 +33,7 @@ class DownloadPreferences(
 
     fun downloadNewChapterCategories() = preferenceStore.getStringSet(DOWNLOAD_NEW_CATEGORIES_PREF_KEY, emptySet())
 
-    fun downloadNewChapterCategoriesExclude() =
-        preferenceStore.getStringSet(DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY, emptySet())
+    fun downloadNewChapterCategoriesExclude() = preferenceStore.getStringSet(DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY, emptySet())
 
     fun downloadNewUnreadChaptersOnly() = preferenceStore.getBoolean("download_new_unread_chapters_only", false)
 
@@ -41,10 +41,12 @@ class DownloadPreferences(
         private const val REMOVE_EXCLUDE_CATEGORIES_PREF_KEY = "remove_exclude_categories"
         private const val DOWNLOAD_NEW_CATEGORIES_PREF_KEY = "download_new_categories"
         private const val DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY = "download_new_categories_exclude"
-        val categoryPreferenceKeys = setOf(
-            REMOVE_EXCLUDE_CATEGORIES_PREF_KEY,
-            DOWNLOAD_NEW_CATEGORIES_PREF_KEY,
-            DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY,
-        )
+        val categoryPreferenceKeys =
+            setOf(
+                REMOVE_EXCLUDE_CATEGORIES_PREF_KEY,
+                DOWNLOAD_NEW_CATEGORIES_PREF_KEY,
+                DOWNLOAD_NEW_CATEGORIES_EXCLUDE_PREF_KEY,
+            )
     }
 }
+

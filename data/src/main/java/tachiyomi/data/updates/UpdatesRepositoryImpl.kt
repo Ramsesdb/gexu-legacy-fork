@@ -9,13 +9,12 @@ import tachiyomi.domain.updates.repository.UpdatesRepository
 class UpdatesRepositoryImpl(
     private val databaseHandler: DatabaseHandler,
 ) : UpdatesRepository {
-
     override suspend fun awaitWithRead(
         read: Boolean,
         after: Long,
         limit: Long,
-    ): List<UpdatesWithRelations> {
-        return databaseHandler.awaitList {
+    ): List<UpdatesWithRelations> =
+        databaseHandler.awaitList {
             updatesViewQueries.getUpdatesByReadStatus(
                 read = read,
                 after = after,
@@ -23,20 +22,21 @@ class UpdatesRepositoryImpl(
                 mapper = ::mapUpdatesWithRelations,
             )
         }
-    }
 
-    override fun subscribeAll(after: Long, limit: Long): Flow<List<UpdatesWithRelations>> {
-        return databaseHandler.subscribeToList {
+    override fun subscribeAll(
+        after: Long,
+        limit: Long,
+    ): Flow<List<UpdatesWithRelations>> =
+        databaseHandler.subscribeToList {
             updatesViewQueries.getRecentUpdates(after, limit, ::mapUpdatesWithRelations)
         }
-    }
 
     override fun subscribeWithRead(
         read: Boolean,
         after: Long,
         limit: Long,
-    ): Flow<List<UpdatesWithRelations>> {
-        return databaseHandler.subscribeToList {
+    ): Flow<List<UpdatesWithRelations>> =
+        databaseHandler.subscribeToList {
             updatesViewQueries.getUpdatesByReadStatus(
                 read = read,
                 after = after,
@@ -44,7 +44,6 @@ class UpdatesRepositoryImpl(
                 mapper = ::mapUpdatesWithRelations,
             )
         }
-    }
 
     private fun mapUpdatesWithRelations(
         mangaId: Long,
@@ -62,24 +61,27 @@ class UpdatesRepositoryImpl(
         coverLastModified: Long,
         dateUpload: Long,
         dateFetch: Long,
-    ): UpdatesWithRelations = UpdatesWithRelations(
-        mangaId = mangaId,
-        mangaTitle = mangaTitle,
-        chapterId = chapterId,
-        chapterName = chapterName,
-        scanlator = scanlator,
-        chapterUrl = chapterUrl,
-        read = read,
-        bookmark = bookmark,
-        lastPageRead = lastPageRead,
-        sourceId = sourceId,
-        dateFetch = dateFetch,
-        coverData = MangaCover(
+    ): UpdatesWithRelations =
+        UpdatesWithRelations(
             mangaId = mangaId,
+            mangaTitle = mangaTitle,
+            chapterId = chapterId,
+            chapterName = chapterName,
+            scanlator = scanlator,
+            chapterUrl = chapterUrl,
+            read = read,
+            bookmark = bookmark,
+            lastPageRead = lastPageRead,
             sourceId = sourceId,
-            isMangaFavorite = favorite,
-            url = thumbnailUrl,
-            lastModified = coverLastModified,
-        ),
-    )
+            dateFetch = dateFetch,
+            coverData =
+                MangaCover(
+                    mangaId = mangaId,
+                    sourceId = sourceId,
+                    isMangaFavorite = favorite,
+                    url = thumbnailUrl,
+                    lastModified = coverLastModified,
+                ),
+        )
 }
+

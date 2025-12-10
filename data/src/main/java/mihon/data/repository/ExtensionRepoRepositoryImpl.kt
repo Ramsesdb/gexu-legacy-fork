@@ -11,27 +11,21 @@ import tachiyomi.data.DatabaseHandler
 class ExtensionRepoRepositoryImpl(
     private val handler: DatabaseHandler,
 ) : ExtensionRepoRepository {
-    override fun subscribeAll(): Flow<List<ExtensionRepo>> {
-        return handler.subscribeToList { extension_reposQueries.findAll(::mapExtensionRepo) }
-    }
+    override fun subscribeAll(): Flow<List<ExtensionRepo>> = handler.subscribeToList { extension_reposQueries.findAll(::mapExtensionRepo) }
 
-    override suspend fun getAll(): List<ExtensionRepo> {
-        return handler.awaitList { extension_reposQueries.findAll(::mapExtensionRepo) }
-    }
+    override suspend fun getAll(): List<ExtensionRepo> = handler.awaitList { extension_reposQueries.findAll(::mapExtensionRepo) }
 
-    override suspend fun getRepo(baseUrl: String): ExtensionRepo? {
-        return handler.awaitOneOrNull { extension_reposQueries.findOne(baseUrl, ::mapExtensionRepo) }
-    }
+    override suspend fun getRepo(baseUrl: String): ExtensionRepo? =
+        handler.awaitOneOrNull {
+            extension_reposQueries.findOne(baseUrl, ::mapExtensionRepo)
+        }
 
-    override suspend fun getRepoBySigningKeyFingerprint(fingerprint: String): ExtensionRepo? {
-        return handler.awaitOneOrNull {
+    override suspend fun getRepoBySigningKeyFingerprint(fingerprint: String): ExtensionRepo? =
+        handler.awaitOneOrNull {
             extension_reposQueries.findOneBySigningKeyFingerprint(fingerprint, ::mapExtensionRepo)
         }
-    }
 
-    override fun getCount(): Flow<Int> {
-        return handler.subscribeToOne { extension_reposQueries.count() }.map { it.toInt() }
-    }
+    override fun getCount(): Flow<Int> = handler.subscribeToOne { extension_reposQueries.count() }.map { it.toInt() }
 
     override suspend fun insertRepo(
         baseUrl: String,
@@ -73,9 +67,7 @@ class ExtensionRepoRepositoryImpl(
         }
     }
 
-    override suspend fun deleteRepo(baseUrl: String) {
-        return handler.await { extension_reposQueries.delete(baseUrl) }
-    }
+    override suspend fun deleteRepo(baseUrl: String) = handler.await { extension_reposQueries.delete(baseUrl) }
 
     private fun mapExtensionRepo(
         baseUrl: String,
@@ -83,11 +75,13 @@ class ExtensionRepoRepositoryImpl(
         shortName: String?,
         website: String,
         signingKeyFingerprint: String,
-    ): ExtensionRepo = ExtensionRepo(
-        baseUrl = baseUrl,
-        name = name,
-        shortName = shortName,
-        website = website,
-        signingKeyFingerprint = signingKeyFingerprint,
-    )
+    ): ExtensionRepo =
+        ExtensionRepo(
+            baseUrl = baseUrl,
+            name = name,
+            shortName = shortName,
+            website = website,
+            signingKeyFingerprint = signingKeyFingerprint,
+        )
 }
+

@@ -7,8 +7,7 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class GetDuplicateLibraryManga(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend operator fun invoke(manga: Manga): List<MangaWithChapterCount> {
-        return mangaRepository.getDuplicateLibraryManga(manga.id, manga.title.lowercase())
-    }
+    suspend operator fun invoke(manga: Manga): List<MangaWithChapterCount> =
+        mangaRepository.getDuplicateLibraryManga(manga.id, manga.title.lowercase())
 }
+

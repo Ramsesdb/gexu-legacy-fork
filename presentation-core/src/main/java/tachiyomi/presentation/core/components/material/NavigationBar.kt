@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.compose.foundation.layout.Row
@@ -37,12 +39,14 @@ fun NavigationBar(
         modifier = modifier,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(windowInsets)
-                .height(80.dp)
-                .selectableGroup(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .windowInsetsPadding(windowInsets)
+                    .height(80.dp)
+                    .selectableGroup(),
             content = content,
         )
     }
 }
+

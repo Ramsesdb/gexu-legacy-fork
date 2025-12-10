@@ -11,7 +11,6 @@ class SetMangaDefaultChapterFlags(
     private val setMangaChapterFlags: SetMangaChapterFlags,
     private val getFavorites: GetFavorites,
 ) {
-
     suspend fun await(manga: Manga) {
         withNonCancellableContext {
             with(libraryPreferences) {
@@ -34,3 +33,4 @@ class SetMangaDefaultChapterFlags(
         }
     }
 }
+

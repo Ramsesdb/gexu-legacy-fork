@@ -9,21 +9,19 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class GetManga(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend fun await(id: Long): Manga? {
-        return try {
+    suspend fun await(id: Long): Manga? =
+        try {
             mangaRepository.getMangaById(id)
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e)
             null
         }
-    }
 
-    suspend fun subscribe(id: Long): Flow<Manga> {
-        return mangaRepository.getMangaByIdAsFlow(id)
-    }
+    suspend fun subscribe(id: Long): Flow<Manga> = mangaRepository.getMangaByIdAsFlow(id)
 
-    fun subscribe(url: String, sourceId: Long): Flow<Manga?> {
-        return mangaRepository.getMangaByUrlAndSourceIdAsFlow(url, sourceId)
-    }
+    fun subscribe(
+        url: String,
+        sourceId: Long,
+    ): Flow<Manga?> = mangaRepository.getMangaByUrlAndSourceIdAsFlow(url, sourceId)
 }
+

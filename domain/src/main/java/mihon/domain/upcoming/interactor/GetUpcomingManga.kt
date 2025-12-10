@@ -8,13 +8,12 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class GetUpcomingManga(
     private val mangaRepository: MangaRepository,
 ) {
+    private val includedStatuses =
+        setOf(
+            SManga.ONGOING.toLong(),
+            SManga.PUBLISHING_FINISHED.toLong(),
+        )
 
-    private val includedStatuses = setOf(
-        SManga.ONGOING.toLong(),
-        SManga.PUBLISHING_FINISHED.toLong(),
-    )
-
-    suspend fun subscribe(): Flow<List<Manga>> {
-        return mangaRepository.getUpcomingManga(includedStatuses)
-    }
+    suspend fun subscribe(): Flow<List<Manga>> = mangaRepository.getUpcomingManga(includedStatuses)
 }
+

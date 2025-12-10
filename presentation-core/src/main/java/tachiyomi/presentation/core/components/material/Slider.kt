@@ -1,3 +1,5 @@
+@file:Suppress("FunctionName")
+
 package tachiyomi.presentation.core.components.material
 
 import androidx.annotation.IntRange
@@ -47,3 +49,4 @@ fun Slider(
         track = track,
     )
 }
+

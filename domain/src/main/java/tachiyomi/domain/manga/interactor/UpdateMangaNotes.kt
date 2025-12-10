@@ -6,13 +6,15 @@ import tachiyomi.domain.manga.repository.MangaRepository
 class UpdateMangaNotes(
     private val mangaRepository: MangaRepository,
 ) {
-
-    suspend operator fun invoke(mangaId: Long, notes: String): Boolean {
-        return mangaRepository.update(
+    suspend operator fun invoke(
+        mangaId: Long,
+        notes: String,
+    ): Boolean =
+        mangaRepository.update(
             MangaUpdate(
                 id = mangaId,
                 notes = notes,
             ),
         )
-    }
 }
+

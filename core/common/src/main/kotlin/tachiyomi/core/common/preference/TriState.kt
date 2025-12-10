@@ -6,11 +6,11 @@ enum class TriState {
     ENABLED_NOT, // Enabled with "not" filter
     ;
 
-    fun next(): TriState {
-        return when (this) {
+    fun next(): TriState =
+        when (this) {
             DISABLED -> ENABLED_IS
             ENABLED_IS -> ENABLED_NOT
             ENABLED_NOT -> DISABLED
         }
-    }
 }
+

@@ -7,7 +7,10 @@ import java.io.InputStream
 import java.nio.ByteBuffer
 import kotlin.concurrent.Volatile
 
-internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
+internal class ArchiveInputStream(
+    buffer: Long,
+    size: Long,
+) : InputStream() {
     private val lock = Any()
 
     @Volatile
@@ -34,7 +37,11 @@ internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
         return if (oneByteBuffer.hasRemaining()) oneByteBuffer.get().toUByte().toInt() else -1
     }
 
-    override fun read(b: ByteArray, off: Int, len: Int): Int {
+    override fun read(
+        b: ByteArray,
+        off: Int,
+        len: Int,
+    ): Int {
         val buffer = ByteBuffer.wrap(b, off, len)
         read(buffer)
         return if (buffer.hasRemaining()) buffer.remaining() else -1
@@ -55,9 +62,11 @@ internal class ArchiveInputStream(buffer: Long, size: Long) : InputStream() {
         Archive.readFree(archive)
     }
 
-    fun getNextEntry() = Archive.readNextHeader(archive).takeUnless { it == 0L }?.let { entry ->
-        val name = ArchiveEntry.pathnameUtf8(entry) ?: ArchiveEntry.pathname(entry)?.decodeToString() ?: return null
-        val isFile = ArchiveEntry.filetype(entry) == ArchiveEntry.AE_IFREG
-        ArchiveEntry(name, isFile)
-    }
+    fun getNextEntry() =
+        Archive.readNextHeader(archive).takeUnless { it == 0L }?.let { entry ->
+            val name = ArchiveEntry.pathnameUtf8(entry) ?: ArchiveEntry.pathname(entry)?.decodeToString() ?: return null
+            val isFile = ArchiveEntry.filetype(entry) == ArchiveEntry.AE_IFREG
+            ArchiveEntry(name, isFile)
+        }
 }
+

@@ -18,20 +18,22 @@ object TrackMapper {
         startDate: Long,
         finishDate: Long,
         private: Boolean,
-    ): Track = Track(
-        id = id,
-        mangaId = mangaId,
-        trackerId = syncId,
-        remoteId = remoteId,
-        libraryId = libraryId,
-        title = title,
-        lastChapterRead = lastChapterRead,
-        totalChapters = totalChapters,
-        status = status,
-        score = score,
-        remoteUrl = remoteUrl,
-        startDate = startDate,
-        finishDate = finishDate,
-        private = private,
-    )
+    ): Track =
+        Track(
+            id = id,
+            mangaId = mangaId,
+            trackerId = syncId,
+            remoteId = remoteId,
+            libraryId = libraryId,
+            title = title,
+            lastChapterRead = lastChapterRead,
+            totalChapters = totalChapters,
+            status = status,
+            score = score,
+            remoteUrl = remoteUrl,
+            startDate = startDate,
+            finishDate = finishDate,
+            private = private,
+        )
 }
+

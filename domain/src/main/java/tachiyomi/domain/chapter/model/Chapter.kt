@@ -19,32 +19,33 @@ data class Chapter(
     val isRecognizedNumber: Boolean
         get() = chapterNumber >= 0f
 
-    fun copyFrom(other: Chapter): Chapter {
-        return copy(
+    fun copyFrom(other: Chapter): Chapter =
+        copy(
             name = other.name,
             url = other.url,
             dateUpload = other.dateUpload,
             chapterNumber = other.chapterNumber,
             scanlator = other.scanlator?.ifBlank { null },
         )
-    }
 
     companion object {
-        fun create() = Chapter(
-            id = -1,
-            mangaId = -1,
-            read = false,
-            bookmark = false,
-            lastPageRead = 0,
-            dateFetch = 0,
-            sourceOrder = 0,
-            url = "",
-            name = "",
-            dateUpload = -1,
-            chapterNumber = -1.0,
-            scanlator = null,
-            lastModifiedAt = 0,
-            version = 1,
-        )
+        fun create() =
+            Chapter(
+                id = -1,
+                mangaId = -1,
+                read = false,
+                bookmark = false,
+                lastPageRead = 0,
+                dateFetch = 0,
+                sourceOrder = 0,
+                url = "",
+                name = "",
+                dateUpload = -1,
+                chapterNumber = -1.0,
+                scanlator = null,
+                lastModifiedAt = 0,
+                version = 1,
+            )
     }
 }
+

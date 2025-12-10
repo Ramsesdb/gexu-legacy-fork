@@ -10,30 +10,21 @@ import tachiyomi.domain.category.repository.CategoryRepository
 class CategoryRepositoryImpl(
     private val handler: DatabaseHandler,
 ) : CategoryRepository {
+    override suspend fun get(id: Long): Category? = handler.awaitOneOrNull { categoriesQueries.getCategory(id, ::mapCategory) }
 
-    override suspend fun get(id: Long): Category? {
-        return handler.awaitOneOrNull { categoriesQueries.getCategory(id, ::mapCategory) }
-    }
+    override suspend fun getAll(): List<Category> = handler.awaitList { categoriesQueries.getCategories(::mapCategory) }
 
-    override suspend fun getAll(): List<Category> {
-        return handler.awaitList { categoriesQueries.getCategories(::mapCategory) }
-    }
+    override fun getAllAsFlow(): Flow<List<Category>> = handler.subscribeToList { categoriesQueries.getCategories(::mapCategory) }
 
-    override fun getAllAsFlow(): Flow<List<Category>> {
-        return handler.subscribeToList { categoriesQueries.getCategories(::mapCategory) }
-    }
-
-    override suspend fun getCategoriesByMangaId(mangaId: Long): List<Category> {
-        return handler.awaitList {
+    override suspend fun getCategoriesByMangaId(mangaId: Long): List<Category> =
+        handler.awaitList {
             categoriesQueries.getCategoriesByMangaId(mangaId, ::mapCategory)
         }
-    }
 
-    override fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>> {
-        return handler.subscribeToList {
+    override fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>> =
+        handler.subscribeToList {
             categoriesQueries.getCategoriesByMangaId(mangaId, ::mapCategory)
         }
-    }
 
     override suspend fun insert(category: Category) {
         handler.await {
@@ -87,12 +78,12 @@ class CategoryRepositoryImpl(
         name: String,
         order: Long,
         flags: Long,
-    ): Category {
-        return Category(
+    ): Category =
+        Category(
             id = id,
             name = name,
             order = order,
             flags = flags,
         )
-    }
 }
+

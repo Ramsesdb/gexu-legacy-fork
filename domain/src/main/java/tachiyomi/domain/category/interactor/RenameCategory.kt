@@ -10,12 +10,15 @@ import tachiyomi.domain.category.repository.CategoryRepository
 class RenameCategory(
     private val categoryRepository: CategoryRepository,
 ) {
-
-    suspend fun await(categoryId: Long, name: String) = withNonCancellableContext {
-        val update = CategoryUpdate(
-            id = categoryId,
-            name = name,
-        )
+    suspend fun await(
+        categoryId: Long,
+        name: String,
+    ) = withNonCancellableContext {
+        val update =
+            CategoryUpdate(
+                id = categoryId,
+                name = name,
+            )
 
         try {
             categoryRepository.updatePartial(update)
@@ -26,10 +29,17 @@ class RenameCategory(
         }
     }
 
-    suspend fun await(category: Category, name: String) = await(category.id, name)
+    suspend fun await(
+        category: Category,
+        name: String,
+    ) = await(category.id, name)
 
     sealed interface Result {
         data object Success : Result
-        data class InternalError(val error: Throwable) : Result
+
+        data class InternalError(
+            val error: Throwable,
+        ) : Result
     }
 }
+

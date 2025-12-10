@@ -9,19 +9,24 @@ import kotlin.math.floor
  * Replaces the given string to have at most [count] characters using [replacement] at its end.
  * If [replacement] is longer than [count] an exception will be thrown when `length > count`.
  */
-fun String.chop(count: Int, replacement: String = "…"): String {
-    return if (length > count) {
+fun String.chop(
+    count: Int,
+    replacement: String = "…",
+): String =
+    if (length > count) {
         take(count - replacement.length) + replacement
     } else {
         this
     }
-}
 
 /**
  * Replaces the given string to have at most [count] characters using [replacement] near the center.
  * If [replacement] is longer than [count] an exception will be thrown when `length > count`.
  */
-fun String.truncateCenter(count: Int, replacement: String = "..."): String {
+fun String.truncateCenter(
+    count: Int,
+    replacement: String = "...",
+): String {
     if (length <= count) {
         return this
     }
@@ -42,9 +47,7 @@ fun String.compareToCaseInsensitiveNaturalOrder(other: String): Int {
 /**
  * Returns the size of the string as the number of bytes.
  */
-fun String.byteSize(): Int {
-    return toByteArray(StandardCharsets.UTF_8).size
-}
+fun String.byteSize(): Int = toByteArray(StandardCharsets.UTF_8).size
 
 /**
  * Returns a string containing the first [n] bytes from this string, or the entire string if this
@@ -62,6 +65,5 @@ fun String.takeBytes(n: Int): String {
 /**
  * HTML-decode the string
  */
-fun String.htmlDecode(): String {
-    return this.parseAsHtml().toString()
-}
+fun String.htmlDecode(): String = this.parseAsHtml().toString()
+
