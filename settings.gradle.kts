@@ -8,10 +8,13 @@ pluginManagement {
         }
     }
     repositories {
+        // Orden recomendado con mirrors estables
         gradlePluginPortal()
         google()
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
-        maven(url = "https://www.jitpack.io")
     }
 }
 
@@ -27,11 +30,16 @@ dependencyResolutionManagement {
             from(files("gradle/compose.versions.toml"))
         }
     }
-    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    // Preferir repos definidos aquí sobre los de proyecto
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        mavenCentral()
+        // Orden recomendado con mirrors estables
         google()
-        maven(url = "https://www.jitpack.io")
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://repo1.maven.org/maven2")
+        mavenCentral()
+        maven(url = "https://jitpack.io") // el proyecto usa artefactos de JitPack
     }
 }
 
