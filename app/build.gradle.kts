@@ -28,6 +28,7 @@ android {
     namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
 
     defaultConfig {
+        // rebranding: installable applicationId for Gexu (keep namespace for extensions)
         applicationId = "com.ramsesbr.gexu" // nuevo ID instalable
 
         versionCode = 13
@@ -320,3 +321,4 @@ buildscript {
         classpath(kotlinx.gradle)
     }
 }
+

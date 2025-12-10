@@ -3,6 +3,7 @@
     android:height="108dp"
     android:viewportWidth="432"
     android:viewportHeight="432">
+    <!-- rebranding: simple foreground mark for Gexu (placeholder) -->
     <group android:translateX="52" android:translateY="52">
         <path
             android:pathData="M164,0C73.4,0 0,73.4 0,164s73.4,164 164,164 164,-73.4 164,-164S254.6,0 164,0z"
@@ -17,3 +18,4 @@
             android:fillColor="#E0F2FE" />
     </group>
 </vector>
+
