@@ -14,4 +14,9 @@ local.properties
 
 # macOS specific files
 .DS_Store
-/logs
+
+# Log and temp files
+logs/
+*.log
+*.txt
+
