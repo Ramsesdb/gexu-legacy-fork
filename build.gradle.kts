@@ -1,4 +1,12 @@
 buildscript {
+    repositories {
+        google()
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://repo1.maven.org/maven2")
+        mavenCentral()
+        maven(url = "https://jitpack.io")
+    }
     dependencies {
         classpath(libs.android.shortcut.gradle)
     }

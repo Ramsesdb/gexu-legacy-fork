@@ -6,25 +6,30 @@ import mihon.buildlogic.getGitSha
 plugins {
     id("mihon.android.application")
     id("mihon.android.application.compose")
-    id("com.github.zellius.shortcut-helper")
     kotlin("plugin.serialization")
     alias(libs.plugins.aboutLibraries)
 }
 
-if (Config.includeTelemetry) {
-    pluginManager.apply {
-        apply(libs.plugins.google.services.get().pluginId)
-        apply(libs.plugins.firebase.crashlytics.get().pluginId)
+// Aplicar el plugin de shortcuts mediante classpath para evitar uso del Plugin Portal
+afterEvaluate {
+    apply(plugin = "com.github.zellius.shortcut-helper")
+    // Configurar la extensión vía reflexión para no depender del accessor generado por el DSL de plugins
+    extensions.findByName("shortcutHelper")?.let { ext ->
+        runCatching {
+            ext.javaClass.methods.firstOrNull {
+                it.name == "setFilePath" &&
+                    it.parameterCount == 1
+            }?.invoke(ext, "./shortcuts.xml")
+        }
     }
 }
 
-shortcutHelper.setFilePath("./shortcuts.xml")
-
 android {
-    namespace = "eu.kanade.tachiyomi"
+    namespace = "eu.kanade.tachiyomi" // mantener para compatibilidad de extensiones
 
     defaultConfig {
-        applicationId = "app.mihon"
+        // rebranding: installable applicationId for Gexu (keep namespace for extensions)
+        applicationId = "com.ramsesbr.gexu" // nuevo ID instalable
 
         versionCode = 16
         versionName = "0.19.3"
@@ -32,16 +37,27 @@ android {
         buildConfigField("String", "COMMIT_COUNT", "\"${getCommitCount()}\"")
         buildConfigField("String", "COMMIT_SHA", "\"${getGitSha()}\"")
         buildConfigField("String", "BUILD_TIME", "\"${getBuildTime(useLastCommitTime = false)}\"")
-        buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
+        buildConfigField("boolean", "TELEMETRY_INCLUDED", "false")
         buildConfigField("boolean", "UPDATER_ENABLED", "${Config.enableUpdater}")
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        minSdk = 26
+    }
+
+    flavorDimensions += "default"
+    productFlavors {
+        create("standard") {
+            dimension = "default"
+        }
     }
 
     buildTypes {
         val debug by getting {
-            applicationIdSuffix = ".dev"
-            versionNameSuffix = "-${getCommitCount()}"
+            isMinifyEnabled = false
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            // ...existing code...
             isPseudoLocalesEnabled = true
         }
         val release by getting {
@@ -304,3 +320,4 @@ buildscript {
         classpath(kotlinx.gradle)
     }
 }
+
