@@ -1,86 +1,128 @@
 <div align="center">
 
-<a href="https://mihon.app">
-    <img src="./.github/assets/logo.png" alt="Mihon logo" title="Mihon logo" width="80"/>
-</a>
+<img src="./.github/assets/logo.png" alt="Gexu logo" title="Gexu logo" width="120"/>
 
-# Mihon [App](#)
+# Gexu
 
-### Full-featured reader
-Discover and read manga, webtoons, comics, and more – easier than ever on your Android device.
+### Geek Nexus: Smart manga reader with AI-powered features
 
-[![Discord server](https://img.shields.io/discord/1195734228319617024.svg?label=&labelColor=6A7EC2&color=7389D8&logo=discord&logoColor=FFFFFF)](https://discord.gg/mihon)
-[![GitHub downloads](https://img.shields.io/github/downloads/mihonapp/mihon/total?label=downloads&labelColor=27303D&color=0D1117&logo=github&logoColor=FFFFFF&style=flat)](https://mihon.app/download)
+**Gexu** is a SFW-focused fork of Mihon/Tachiyomi with **modern UX**, **tablet-friendly design**, and **intelligent features** (recommendations, Q&A, summaries, semantic search), while maintaining **full compatibility** with extensions and backups.
 
-[![CI](https://img.shields.io/github/actions/workflow/status/mihonapp/mihon/build.yml?labelColor=27303D)](https://github.com/mihonapp/mihon/actions/workflows/build_push.yml)
-[![License: Apache-2.0](https://img.shields.io/github/license/mihonapp/mihon?labelColor=27303D&color=0877d2)](/LICENSE)
-[![Translation status](https://img.shields.io/weblate/progress/mihon?labelColor=27303D&color=946300)](https://hosted.weblate.org/engage/mihon/)
-
-## Download
-
-[![Mihon Stable](https://img.shields.io/github/release/mihonapp/mihon.svg?maxAge=3600&label=Stable&labelColor=06599d&color=043b69)](https://mihon.app/download)
-[![Mihon Beta](https://img.shields.io/github/v/release/mihonapp/mihon-preview.svg?maxAge=3600&label=Beta&labelColor=2c2c47&color=1c1c39)](https://mihon.app/download)
-
-*Requires Android 8.0 or higher.*
-
-## Features
-
-<div align="left">
-
-* Local reading of content.
-* A configurable reader with multiple viewers, reading directions and other settings.
-* Tracker support: [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://mangaupdates.com), [Shikimori](https://shikimori.one), and [Bangumi](https://bgm.tv/) support.
-* Categories to organize your library.
-* Light and dark themes.
-* Schedule updating your library for new chapters.
-* Create backups locally to read offline or to your desired cloud service.
-* Plus much more...
+[![CI](https://img.shields.io/github/actions/workflow/status/Ramsesdb/gexu/build.yml?branch=main&labelColor=27303D)](https://github.com/Ramsesdb/gexu/actions/workflows/build.yml)
+[![License: Apache-2.0](https://img.shields.io/github/license/Ramsesdb/gexu?labelColor=27303D&color=0877d2)](/LICENSE)
+[![Latest Release](https://img.shields.io/github/v/release/Ramsesdb/gexu?labelColor=27303D&color=06599d)](https://github.com/Ramsesdb/gexu/releases)
 
 </div>
 
-## Contributing
+---
 
-[Code of conduct](./CODE_OF_CONDUCT.md) · [Contributing guide](./CONTRIBUTING.md)
+## 🎯 Core Principles
 
-Pull requests are welcome. For major changes, please open an issue first to discuss what you would like to change.
+- **SFW by default** — Adult content hidden with optional PIN/biometric unlock
+- **Full compatibility** — Works with `.tachibk` backups and Mihon/Tachiyomi extensions
+- **Performance first** — 60fps scrolling, lazy loading, efficient caching
+- **Modern UI** — Clean bottom navigation, tablet-optimized layouts
 
-Before reporting a new issue, take a look at the [FAQ](https://mihon.app/docs/faq/general), the [changelog](https://mihon.app/changelogs/) and the already opened [issues](https://github.com/mihonapp/mihon/issues); if you got any questions, join our [Discord server](https://discord.gg/mihon).
+## 🚀 Roadmap (MVP Features)
 
+- [x] **Rebranding foundation** — New identity, icon, app name
+- [ ] **Bottom navigation** — Library / Recents / Updates / More
+- [ ] **Enhanced reader** — Dual-page spread support for tablets in landscape
+- [ ] **SFW toggle** — Global filter with protected access
+- [ ] **Multi-source feed** — Unified updates from 3-5 favorite sources
+- [ ] **Multi-source merge** — Combine chapters from different sources for same series
+- [ ] **Novel mode** — Text viewer with TTS, customizable typography
+- [ ] **AI features** — Recommendations, semantic search, chat Q&A, chapter recaps
 
-### Repositories
+## 📦 Download & Install
 
-[![mihonapp/website - GitHub](https://github-readme-stats.vercel.app/api/pin/?username=mihonapp&repo=website&bg_color=161B22&text_color=c9d1d9&title_color=0877d2&icon_color=0877d2&border_radius=8&hide_border=true&description_lines_count=2)](https://github.com/mihonapp/website/)
-[![mihonapp/bitmap.kt - GitHub](https://github-readme-stats.vercel.app/api/pin/?username=mihonapp&repo=bitmap.kt&bg_color=161B22&text_color=c9d1d9&title_color=0877d2&icon_color=0877d2&border_radius=8&hide_border=true&description_lines_count=2)](https://github.com/mihonapp/bitmap.kt/)
+*Releases coming soon. For now, build from source:*
 
-### Credits
+### Build (Debug)
 
-Thank you to all the people who have contributed!
+```bash
+./gradlew :app:assembleStandardDebug
+adb install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
+```
 
-<a href="https://github.com/mihonapp/mihon/graphs/contributors">
-    <img src="https://contrib.rocks/image?repo=mihonapp/mihon" alt="Mihon app contributors" title="Mihon app contributors" width="800"/>
-</a>
+**Requirements:** Android 8.0+ (API 26) • ~100MB storage
 
-### Disclaimer
+### Build (Release)
 
-The developer(s) of this application does not have any affiliation with the content providers available, and this application hosts zero content.
+```bash
+./gradlew :app:assembleStandardRelease
+```
 
-### License
+---
 
-<pre>
+## 🛠️ Technical Details
+
+| Property | Value |
+|----------|-------|
+| **Application ID** | `com.ramsesbr.gexu` |
+| **Namespace** | `eu.kanade.tachiyomi` (for extension compatibility) |
+| **Min SDK** | 26 (Android 8.0) |
+| **Target SDK** | 35 (Android 15) |
+| **Language** | Kotlin 100% |
+| **Architecture** | Multi-module (MVVM + Jetpack Compose) |
+
+### Deep Link Schemes
+
+Gexu supports the following URL schemes for compatibility and future features:
+
+- `gexu://` — Primary scheme
+- `tachiyomi://` — Legacy compatibility
+- `mihon://` — Upstream compatibility
+
+## 🔒 SFW Stance
+
+Gexu hides adult/NSFW content by default. Users can optionally enable it with PIN or biometric authentication in future releases. This makes Gexu suitable for general audiences while respecting user choice.
+
+## 🤝 Contributing
+
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
+
+Before contributing:
+- Read our [Code of Conduct](./CODE_OF_CONDUCT.md)
+- Check the [Contributing Guide](./CONTRIBUTING.md)
+- Review open [issues](https://github.com/Ramsesdb/gexu/issues)
+
+## 💙 Credits
+
+**Gexu** is built on the shoulders of giants:
+
+- **[Mihon](https://mihon.app)** — The upstream foundation
+- **[Tachiyomi](https://tachiyomi.org)** — The original reader
+- Community forks: [J2K](https://github.com/Jays2Kings/tachiyomiJ2K), [Yōkai](https://github.com/null2264/yokai), [SY](https://github.com/jobobby04/TachiyomiSY), [Komikku](https://github.com/komikku-app/komikku)
+
+Thank you to all contributors who make the manga reader ecosystem thrive! 🙏
+
+## 📜 License
+
+```
 Copyright © 2015 Javier Tomás
 Copyright © 2024 Mihon Open Source Project
+Copyright © 2024 Gexu Project
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
 
-http://www.apache.org/licenses/LICENSE-2.0
+    http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-</pre>
+```
+
+---
+
+<div align="center">
+
+**Made with ❤️ for the manga reading community**
+
+[Report Bug](https://github.com/Ramsesdb/gexu/issues) · [Request Feature](https://github.com/Ramsesdb/gexu/issues) · [Discussions](https://github.com/Ramsesdb/gexu/discussions)
 
 </div>
