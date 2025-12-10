@@ -1,0 +1,99 @@
+name: Upstream sweep
+on:
+  workflow_dispatch:
+    inputs:
+      head_branch:
+        description: "Branch to PR from"
+        required: true
+        default: "feat/rebranding-gexu"
+      base_branch:
+        description: "PR base"
+        required: true
+        default: "main"
+  schedule:
+    - cron: "0 6 * * *"
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    env:
+      HEAD_BRANCH: ${{ github.event.inputs.head_branch || format('ci/upstream-sweep-{0}', github.run_id) }}
+      BASE_BRANCH: ${{ github.event.inputs.base_branch || 'main' }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Protect workflow files
+        run: |
+          set -euo pipefail
+          git restore --staged --worktree -- .github/workflows || true
+          git update-index --skip-worktree -- .github/workflows || true
+      - name: Ensure vendor remotes (fetch-only)
+        run: |
+          set -euo pipefail
+          add_or_update() {
+            local name="$1" url="$2"
+            if git remote get-url "$name" >/dev/null 2>&1; then
+              git remote set-url "$name" "$url"
+            else
+              git remote add "$name" "$url"
+            fi
+            git remote set-url --push "$name" no_push || true
+          }
+          add_or_update upstream https://github.com/mihonapp/mihon.git
+          add_or_update j2k https://github.com/Jays2Kings/tachiyomiJ2K.git
+          add_or_update sy https://github.com/jobobby04/TachiyomiSY.git
+          add_or_update yokai https://github.com/keiyoushi/Yokai.git
+          add_or_update neko https://github.com/nekomangaorg/Neko.git
+          add_or_update komikku https://github.com/komikku-app/komikku.git
+          git remote -v
+      - name: Debug context
+        run: |
+          set -x
+          git --version
+          git remote -v
+          git branch -a
+          for r in origin upstream j2k sy yokai neko komikku; do
+            git remote get-url "$r" && git ls-remote --symref "$r" HEAD || true
+          done
+
+      - name: Sync vendors
+        run: bash scripts/vendors_sync.sh
+
+      - name: Prepare head branch
+        run: |
+          set -euo pipefail
+          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
+          BASE_BRANCH=${BASE_BRANCH:-main}
+          : "${HEAD_BRANCH:?HEAD_BRANCH is empty. Use workflow inputs or set a default.}"
+          : "${BASE_BRANCH:?BASE_BRANCH is empty. Use workflow inputs or set a default.}"
+          if git show-ref --verify --quiet "refs/heads/$HEAD_BRANCH"; then
+            git checkout "$HEAD_BRANCH"
+          elif git ls-remote --exit-code origin "$HEAD_BRANCH" >/dev/null 2>&1; then
+            git checkout -b "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          else
+            git checkout -b "$HEAD_BRANCH"
+          fi
+          git push origin "$HEAD_BRANCH" --set-upstream
+
+      - name: Create or update PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO_OWNER: ${{ github.repository_owner }}
+          HEAD_BRANCH: ${{ env.HEAD_BRANCH }}
+          BASE_BRANCH: ${{ env.BASE_BRANCH }}
+        run: |
+          set -euo pipefail
+          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
+          BASE_BRANCH=${BASE_BRANCH:-main}
+          export PR_BRANCH="$HEAD_BRANCH"
+          export BASE_BRANCH
+          bash scripts/create_or_update_pr.sh
