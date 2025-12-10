@@ -21,3 +21,12 @@ jobs:
         uses: gradle/actions/setup-gradle@v3
       - name: Make gradlew executable
         run: chmod +x gradlew
+      - name: Build Debug APK
+        run: ./gradlew assembleStandardDebug
+      - name: Upload Debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: gexu-debug-${{ github.sha }}
+          path: app/build/outputs/apk/standard/debug/*.apk
+          retention-days: 7
+

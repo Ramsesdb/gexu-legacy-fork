@@ -1,99 +1,90 @@
-name: Upstream sweep
+name: Sync with Mihon Upstream
 on:
   workflow_dispatch:
     inputs:
-      head_branch:
-        description: "Branch to PR from"
-        required: true
-        default: "feat/rebranding-gexu"
-      base_branch:
-        description: "PR base"
-        required: true
-        default: "main"
+      create_pr:
+        description: "Create PR after sync"
+        type: boolean
+        default: true
   schedule:
-    - cron: "0 6 * * *"
-  push:
-    branches: ["main"]
+    # Run weekly on Sundays at 6:00 UTC
+    - cron: "0 6 * * 0"
 
 permissions:
   contents: write
   pull-requests: write
 
 jobs:
-  sweep:
+  sync:
     runs-on: ubuntu-latest
     env:
-      HEAD_BRANCH: ${{ github.event.inputs.head_branch || format('ci/upstream-sweep-{0}', github.run_id) }}
-      BASE_BRANCH: ${{ github.event.inputs.base_branch || 'main' }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Protect workflow files
-        run: |
-          set -euo pipefail
-          git restore --staged --worktree -- .github/workflows || true
-          git update-index --skip-worktree -- .github/workflows || true
-      - name: Ensure vendor remotes (fetch-only)
-        run: |
-          set -euo pipefail
-          add_or_update() {
-            local name="$1" url="$2"
-            if git remote get-url "$name" >/dev/null 2>&1; then
-              git remote set-url "$name" "$url"
-            else
-              git remote add "$name" "$url"
-            fi
-            git remote set-url --push "$name" no_push || true
-          }
-          add_or_update upstream https://github.com/mihonapp/mihon.git
-          add_or_update j2k https://github.com/Jays2Kings/tachiyomiJ2K.git
-          add_or_update sy https://github.com/jobobby04/TachiyomiSY.git
-          add_or_update yokai https://github.com/keiyoushi/Yokai.git
-          add_or_update neko https://github.com/nekomangaorg/Neko.git
-          add_or_update komikku https://github.com/komikku-app/komikku.git
-          git remote -v
-      - name: Debug context
-        run: |
-          set -x
-          git --version
-          git remote -v
-          git branch -a
-          for r in origin upstream j2k sy yokai neko komikku; do
-            git remote get-url "$r" && git ls-remote --symref "$r" HEAD || true
-          done
 
-      - name: Sync vendors
-        run: bash scripts/vendors_sync.sh
-
-      - name: Prepare head branch
+      - name: Configure Git
         run: |
-          set -euo pipefail
-          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
-          BASE_BRANCH=${BASE_BRANCH:-main}
-          : "${HEAD_BRANCH:?HEAD_BRANCH is empty. Use workflow inputs or set a default.}"
-          : "${BASE_BRANCH:?BASE_BRANCH is empty. Use workflow inputs or set a default.}"
-          if git show-ref --verify --quiet "refs/heads/$HEAD_BRANCH"; then
-            git checkout "$HEAD_BRANCH"
-          elif git ls-remote --exit-code origin "$HEAD_BRANCH" >/dev/null 2>&1; then
-            git checkout -b "$HEAD_BRANCH" "origin/$HEAD_BRANCH"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream remote
+        run: |
+          if git remote get-url upstream >/dev/null 2>&1; then
+            git remote set-url upstream https://github.com/mihonapp/mihon.git
           else
-            git checkout -b "$HEAD_BRANCH"
+            git remote add upstream https://github.com/mihonapp/mihon.git
           fi
-          git push origin "$HEAD_BRANCH" --set-upstream
+          git remote set-url --push upstream no_push
 
-      - name: Create or update PR
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          REPO_OWNER: ${{ github.repository_owner }}
-          HEAD_BRANCH: ${{ env.HEAD_BRANCH }}
-          BASE_BRANCH: ${{ env.BASE_BRANCH }}
+      - name: Fetch upstream
+        run: git fetch upstream --no-tags
+
+      - name: Check for new commits
+        id: check
         run: |
-          set -euo pipefail
-          HEAD_BRANCH=${HEAD_BRANCH:-ci/upstream-sweep-default}
-          BASE_BRANCH=${BASE_BRANCH:-main}
-          export PR_BRANCH="$HEAD_BRANCH"
-          export BASE_BRANCH
-          bash scripts/create_or_update_pr.sh
+          BEHIND=$(git rev-list --count main..upstream/main)
+          echo "behind=$BEHIND" >> $GITHUB_OUTPUT
+          echo "Commits behind upstream: $BEHIND"
+
+      - name: Create sync branch
+        if: steps.check.outputs.behind != '0'
+        run: |
+          BRANCH_NAME="sync/upstream-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH_NAME" main
+          echo "SYNC_BRANCH=$BRANCH_NAME" >> $GITHUB_ENV
+
+      - name: Merge upstream (no workflows)
+        if: steps.check.outputs.behind != '0'
+        run: |
+          # Protect our workflows
+          git update-index --skip-worktree .github/workflows/* || true
+          
+          # Try to merge upstream
+          if git merge upstream/main --no-edit -m "chore: sync with mihonapp/mihon"; then
+            echo "MERGE_SUCCESS=true" >> $GITHUB_ENV
+          else
+            echo "MERGE_SUCCESS=false" >> $GITHUB_ENV
+            echo "::warning::Merge conflicts detected. Manual resolution required."
+            git merge --abort
+          fi
+
+      - name: Push sync branch
+        if: steps.check.outputs.behind != '0' && env.MERGE_SUCCESS == 'true'
+        run: git push origin "$SYNC_BRANCH" --set-upstream
+
+      - name: Create Pull Request
+        if: steps.check.outputs.behind != '0' && env.MERGE_SUCCESS == 'true' && (github.event.inputs.create_pr == 'true' || github.event_name == 'schedule')
+        run: |
+          gh pr create \
+            --base main \
+            --head "$SYNC_BRANCH" \
+            --title "🔄 Sync with Mihon upstream" \
+            --body "This PR syncs Gexu with the latest changes from [mihonapp/mihon](https://github.com/mihonapp/mihon).
+
+          **Commits behind:** ${{ steps.check.outputs.behind }}
+          
+          Please review the changes before merging." \
+            --draft
