@@ -48,16 +48,16 @@ internal class ExtensionApi {
     }
 
     private suspend fun getExtensions(extRepo: ExtensionRepo): List<Extension.Available> {
-        val repoBaseUrl = extRepo.baseUrl
+        val repoBaseUrl = extRepo.baseUrl.removeSuffix("/")
         return try {
             val response = networkService.client
                 .newCall(GET("$repoBaseUrl/index.min.json"))
                 .awaitSuccess()
 
             with(json) {
-                response
-                    .parseAs<List<ExtensionJsonObject>>()
-                    .toExtensions(repoBaseUrl)
+                val parsed = response.parseAs<List<ExtensionJsonObject>>()
+                logcat(LogPriority.INFO) { "ExtensionApi: Parsed ${parsed.size} extensions from $repoBaseUrl" }
+                parsed.toExtensions(repoBaseUrl)
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Failed to get extensions from $repoBaseUrl" }
@@ -110,10 +110,10 @@ internal class ExtensionApi {
 
     private fun List<ExtensionJsonObject>.toExtensions(repoUrl: String): List<Extension.Available> {
         return this
-            .filter {
-                val libVersion = it.extractLibVersion()
-                libVersion >= ExtensionLoader.LIB_VERSION_MIN && libVersion <= ExtensionLoader.LIB_VERSION_MAX
-            }
+            //.filter {
+            //    val libVersion = it.extractLibVersion()
+            //    libVersion >= ExtensionLoader.LIB_VERSION_MIN && libVersion <= ExtensionLoader.LIB_VERSION_MAX
+            //}
             .map {
                 Extension.Available(
                     name = it.name.substringAfter("Tachiyomi: "),

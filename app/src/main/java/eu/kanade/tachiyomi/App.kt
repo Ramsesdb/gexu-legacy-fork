@@ -56,6 +56,7 @@ import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -81,6 +82,10 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         super<Application>.onCreate()
         patchInjekt()
         TelemetryConfig.init(applicationContext)
+        // Initialize PdfBox asynchronously to prevent main thread freeze/black screen
+        Thread {
+            PDFBoxResourceLoader.init(applicationContext)
+        }.start()
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
 
