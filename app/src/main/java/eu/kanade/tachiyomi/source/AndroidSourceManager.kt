@@ -51,11 +51,7 @@ class AndroidSourceManager(
                 .collectLatest { extensions ->
                     val mutableMap = ConcurrentHashMap<Long, Source>(
                         mapOf(
-                            LocalSource.ID to LocalSource(
-                                context,
-                                Injekt.get(),
-                                Injekt.get(),
-                            ),
+                            LocalSource.ID to LocalSource(),
                         ),
                     )
                     extensions.forEach { extension ->

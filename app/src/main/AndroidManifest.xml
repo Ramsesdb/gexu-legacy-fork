@@ -68,7 +68,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="tachiyomi" />
-                <data android:scheme="gexu" />
                 <data android:host="add-repo" />
             </intent-filter>
 
@@ -98,6 +97,8 @@
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\.tachibk" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.tachibk" />
             </intent-filter>
+
+
 
             <!--suppress AndroidDomInspection -->
             <meta-data
@@ -176,7 +177,6 @@
                 <category android:name="android.intent.category.BROWSABLE" />
 
                 <data android:scheme="mihon" />
-                <data android:scheme="gexu" />
 
                 <data android:host="anilist-auth" />
                 <data android:host="bangumi-auth" />

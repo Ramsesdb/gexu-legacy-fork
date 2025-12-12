@@ -209,6 +209,16 @@ data class BrowseSourceScreen(
                 }
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+            floatingActionButton = {
+                if (screenModel.source is LocalSource) {
+                    ImportPdfFab(
+                        onImportComplete = {
+                            // Refresh the list after import
+                            screenModel.search()
+                        }
+                    )
+                }
+            },
         ) { paddingValues ->
             BrowseSourceContent(
                 source = screenModel.source,

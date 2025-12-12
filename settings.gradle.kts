@@ -40,6 +40,7 @@ dependencyResolutionManagement {
         maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
         maven(url = "https://jitpack.io") // el proyecto usa artefactos de JitPack
+        maven(url = "https://maven.ghostscript.com")
     }
 }
 

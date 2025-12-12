@@ -82,6 +82,7 @@ import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.updaterEnabled
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -96,13 +97,22 @@ import mihon.core.migration.Migrator
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.release.interactor.GetApplicationRelease
+import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.source.local.LocalSource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
+
 
 class MainActivity : BaseActivity() {
 
@@ -177,6 +187,7 @@ class MainActivity : BaseActivity() {
                         // Reset Incognito Mode on relaunch
                         preferences.incognitoMode().set(false)
                     }
+                    ready = true
                 }
                 LaunchedEffect(navigator.lastItem) {
                     (navigator.lastItem as? BrowseSourceScreen)?.sourceId
@@ -388,6 +399,7 @@ class MainActivity : BaseActivity() {
     }
 
     private fun handleIntentAction(intent: Intent, navigator: Navigator): Boolean {
+        logcat(LogPriority.INFO) { "Intent Listener: Action=${intent.action}, Data=${intent.data}, Type=${intent.type}" }
         val notificationId = intent.getIntExtra("notificationId", -1)
         if (notificationId > -1) {
             NotificationReceiver.dismissNotification(
@@ -434,8 +446,24 @@ class MainActivity : BaseActivity() {
                 null
             }
             Intent.ACTION_VIEW -> {
+                val uri = intent.data
+                val mimeType = intent.type
+                logcat(LogPriority.ERROR) { "Intent received: Action=${intent.action}, Type=$mimeType, Data=$uri" }
+
+                // Handling PDF files
+                if (mimeType == "application/pdf" || uri?.toString()?.endsWith(".pdf", true) == true) {
+                    uri?.let { pdfUri ->
+                        lifecycleScope.launchIO {
+                            try {
+                                handlePdfImport(pdfUri, navigator)
+                            } catch (e: Exception) {
+                                logcat(LogPriority.ERROR, e) { "Failed to import PDF" }
+                            }
+                        }
+                    }
+                }
                 // Handling opening of backup files
-                if (intent.data.toString().endsWith(".tachibk")) {
+                else if (intent.data.toString().endsWith(".tachibk")) {
                     navigator.popUntilRoot()
                     navigator.push(RestoreBackupScreen(intent.data.toString()))
                 }
@@ -448,7 +476,7 @@ class MainActivity : BaseActivity() {
                 }
                 null
             }
-            else -> return false
+            else -> null
         }
 
         if (tabToOpen != null) {
@@ -457,6 +485,71 @@ class MainActivity : BaseActivity() {
 
         ready = true
         return true
+    }
+
+
+
+    private suspend fun handlePdfImport(pdfUri: android.net.Uri, navigator: Navigator) {
+        val storageManager: StorageManager = Injekt.get()
+        val localDir = storageManager.getLocalSourceDirectory()
+
+        if (localDir == null) {
+            logcat(LogPriority.ERROR) { "Local source directory not configured" }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                toast("Local source directory not configured")
+            }
+            return
+        }
+
+        // Get filename from URI
+        val fileName = contentResolver.query(pdfUri, null, null, null, null)?.use { cursor ->
+            val nameIndex = cursor.getColumnIndex(android.provider.OpenableColumns.DISPLAY_NAME)
+            cursor.moveToFirst()
+            if (nameIndex >= 0) cursor.getString(nameIndex) else null
+        } ?: pdfUri.lastPathSegment ?: "imported.pdf"
+
+        // Create manga folder based on PDF name (without extension)
+        val mangaName = fileName.removeSuffix(".pdf").removeSuffix(".PDF")
+        val mangaDir = localDir.createDirectory(mangaName)
+
+        if (mangaDir == null) {
+            logcat(LogPriority.ERROR) { "Failed to create manga directory: $mangaName" }
+            return
+        }
+
+        // Copy PDF to manga folder
+        val pdfFile = mangaDir.createFile(fileName)
+        if (pdfFile == null) {
+            logcat(LogPriority.ERROR) { "Failed to create PDF file" }
+            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                toast("Failed to create PDF file")
+            }
+            return
+        }
+
+        contentResolver.openInputStream(pdfUri)?.use { input ->
+            pdfFile.openOutputStream().use { output ->
+                input.copyTo(output)
+            }
+        }
+
+        logcat { "PDF imported successfully: $mangaName/$fileName" }
+
+        // Persist Manga in DB so we can open it immediately
+        val toLocalManga: NetworkToLocalManga = Injekt.get()
+        val newManga = Manga.create().copy(
+            url = mangaName,
+            title = mangaName,
+            source = 0L // LocalSource.ID
+        )
+        val manga = toLocalManga(newManga)
+
+        // Navigate to Manga Details
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+            navigator.popUntilRoot()
+            navigator.push(MangaScreen(manga.id, true))
+            toast("Opening PDF...")
+        }
     }
 
     companion object {
