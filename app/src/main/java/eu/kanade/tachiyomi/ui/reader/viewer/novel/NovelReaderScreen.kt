@@ -23,6 +23,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.TextFields
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -58,15 +60,30 @@ fun NovelReaderScreen(
     initialOffset: Long,
     prefs: NovelPrefs,
     menuVisible: Boolean,
+    showTextMode: Boolean = true,
+    hasExtractedText: Boolean = false,
+    hasOriginalImages: Boolean = false,
+    isPdfMode: Boolean = false,
+    targetPageIndex: Int? = null,
+    onTargetPageConsumed: () -> Unit = {},
     onOffsetChanged: (Long) -> Unit,
     onPrefsChanged: (NovelPrefs) -> Unit,
     onExtractOcr: () -> Unit,
+    onToggleTextMode: () -> Unit = {},
     onRenderPage: (suspend (Int, Int) -> android.graphics.Bitmap?)? = null,
     onBack: () -> Unit,
     onToggleMenu: () -> Unit,
     onPageChanged: (Int) -> Unit,
 ) {
     val listState = rememberLazyListState()
+
+    // Handle navigation from slider
+    LaunchedEffect(targetPageIndex) {
+        if (targetPageIndex != null && targetPageIndex >= 0) {
+            listState.scrollToItem(targetPageIndex)
+            onTargetPageConsumed()
+        }
+    }
 
     // Notify parent of current page changes with debounce/throttling
     // snapshotFlow emits only when the value changes (distinctUntilChanged is implicit)
@@ -109,8 +126,8 @@ fun NovelReaderScreen(
                         }
                     }
                 }
-            } else if (ocrProgress != null && textPages.isEmpty()) {
-                // OCR in progress but no text yet - show full loading indicator
+            } else if (ocrProgress != null && textPages.isEmpty() && showTextMode) {
+                // OCR in progress but no text yet - show full loading indicator (only in text mode)
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -237,8 +254,13 @@ fun NovelReaderScreen(
                 NovelReaderControls(
                     prefs = prefs,
                     hasImages = images.isNotEmpty(),
+                    showTextMode = showTextMode,
+                    hasExtractedText = hasExtractedText,
+                    hasOriginalImages = hasOriginalImages,
+                    isPdfMode = isPdfMode,
                     onPrefsChanged = onPrefsChanged,
                     onExtractOcr = onExtractOcr,
+                    onToggleTextMode = onToggleTextMode,
                     onToggleMenu = onToggleMenu
                 )
             }
@@ -250,8 +272,13 @@ fun NovelReaderScreen(
 fun NovelReaderControls(
     prefs: NovelPrefs,
     hasImages: Boolean,
+    showTextMode: Boolean = true,
+    hasExtractedText: Boolean = false,
+    hasOriginalImages: Boolean = false,
+    isPdfMode: Boolean = false,
     onPrefsChanged: (NovelPrefs) -> Unit,
     onExtractOcr: () -> Unit,
+    onToggleTextMode: () -> Unit = {},
     onToggleMenu: () -> Unit,
 ) {
     var showFontSettings by remember { mutableStateOf(false) }
@@ -278,8 +305,34 @@ fun NovelReaderControls(
                 modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
             )
 
-            // OCR Button - Always visible at top when images present
-            if (hasImages) {
+            // Toggle Text/Image mode - Show when we have original images
+            // For PDFs: show toggle even without extracted text (can toggle between PDF pages and text view)
+            // For OCR images: show toggle when we have both text and images
+            if (hasOriginalImages && (hasExtractedText || isPdfMode)) {
+                androidx.compose.material3.FilledTonalButton(
+                    onClick = {
+                        onToggleTextMode()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        if (showTextMode) Icons.Default.Visibility
+                        else Icons.Default.TextFields,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        if (showTextMode) "Ver Imágenes" else "Ver Texto",
+                        style = MaterialTheme.typography.labelMedium
+                    )
+                }
+                Spacer(modifier = Modifier.size(8.dp))
+            }
+
+            // OCR Button - Show when in text mode with images, or when only images are available
+            if (hasImages && showTextMode) {
                 androidx.compose.material3.FilledTonalButton(
                     onClick = {
                         onToggleMenu()

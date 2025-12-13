@@ -60,6 +60,9 @@ fun ImportPdfFab(
     var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
     var selectedPdfName by remember { mutableStateOf("") }
     var existingNovels by remember { mutableStateOf<List<String>>(emptyList()) }
+    var showDuplicateDialog by remember { mutableStateOf(false) }
+    var duplicateInfo by remember { mutableStateOf<DuplicateInfo?>(null) }
+    var pendingNovelName by remember { mutableStateOf("") }
 
     val pdfPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument()
@@ -93,8 +96,39 @@ fun ImportPdfFab(
             },
             onConfirm = { novelName ->
                 scope.launch {
-                    importPdf(context, selectedPdfUri!!, novelName)
-                    showDialog = false
+                    val duplicate = checkForDuplicate(novelName, selectedPdfName)
+                    if (duplicate != null) {
+                        pendingNovelName = novelName
+                        duplicateInfo = duplicate
+                        showDialog = false
+                        showDuplicateDialog = true
+                    } else {
+                        importPdf(context, selectedPdfUri!!, novelName, DuplicateAction.CREATE_COPY)
+                        showDialog = false
+                        selectedPdfUri = null
+                        onImportComplete()
+                    }
+                }
+            }
+        )
+    }
+
+    if (showDuplicateDialog && duplicateInfo != null) {
+        DuplicateFileDialog(
+            fileName = duplicateInfo!!.fileName,
+            novelName = duplicateInfo!!.novelName,
+            onDismiss = {
+                showDuplicateDialog = false
+                duplicateInfo = null
+                selectedPdfUri = null
+            },
+            onAction = { action ->
+                scope.launch {
+                    if (action != DuplicateAction.SKIP) {
+                        importPdf(context, selectedPdfUri!!, pendingNovelName, action)
+                    }
+                    showDuplicateDialog = false
+                    duplicateInfo = null
                     selectedPdfUri = null
                     onImportComplete()
                 }
@@ -234,6 +268,68 @@ private sealed class ImportOption {
     data object ExistingNovel : ImportOption()
 }
 
+private sealed class DuplicateAction {
+    data object SKIP : DuplicateAction()
+    data object REPLACE : DuplicateAction()
+    data object CREATE_COPY : DuplicateAction()
+}
+
+private data class DuplicateInfo(
+    val fileName: String,
+    val novelName: String,
+)
+
+@Composable
+private fun DuplicateFileDialog(
+    fileName: String,
+    novelName: String,
+    onDismiss: () -> Unit,
+    onAction: (DuplicateAction) -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = {
+            Icon(
+                imageVector = Icons.Default.Description,
+                contentDescription = null,
+                modifier = Modifier.size(48.dp),
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = { Text("Archivo duplicado") },
+        text = {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "El archivo \"$fileName\" ya existe en la novela \"$novelName\".",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                Text(
+                    text = "¿Qué deseas hacer?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { onAction(DuplicateAction.REPLACE) }) {
+                Text("Reemplazar")
+            }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = { onAction(DuplicateAction.SKIP) }) {
+                    Text("Saltar")
+                }
+                TextButton(onClick = { onAction(DuplicateAction.CREATE_COPY) }) {
+                    Text("Crear copia")
+                }
+            }
+        }
+    )
+}
+
 private fun getFileName(context: Context, uri: Uri): String {
     return context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
         val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
@@ -253,7 +349,21 @@ private fun getExistingNovels(): List<String> {
         ?: emptyList()
 }
 
-private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String) {
+private fun checkForDuplicate(novelName: String, fileName: String): DuplicateInfo? {
+    val storageManager: StorageManager = Injekt.get()
+    val localDir = storageManager.getLocalSourceDirectory() ?: return null
+
+    val novelDir = localDir.findFile(novelName) ?: return null
+
+    // Check if file with same name exists
+    if (novelDir.findFile(fileName) != null) {
+        return DuplicateInfo(fileName, novelName)
+    }
+
+    return null
+}
+
+private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String, action: DuplicateAction) {
     withContext(Dispatchers.IO) {
         val storageManager: StorageManager = Injekt.get()
         val localDir = storageManager.getLocalSourceDirectory() ?: return@withContext
@@ -266,13 +376,24 @@ private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String) 
         // Get filename
         val fileName = getFileName(context, pdfUri)
 
-        // Check if file exists and generate unique name
-        var finalFileName = fileName
-        var counter = 1
-        while (novelDir.findFile(finalFileName) != null) {
-            val baseName = fileName.removeSuffix(".pdf").removeSuffix(".PDF")
-            finalFileName = "$baseName ($counter).pdf"
-            counter++
+        val finalFileName = when (action) {
+            DuplicateAction.REPLACE -> {
+                // Delete existing file first
+                novelDir.findFile(fileName)?.delete()
+                fileName
+            }
+            DuplicateAction.CREATE_COPY -> {
+                // Generate unique name
+                var newName = fileName
+                var counter = 1
+                while (novelDir.findFile(newName) != null) {
+                    val baseName = fileName.removeSuffix(".pdf").removeSuffix(".PDF")
+                    newName = "$baseName ($counter).pdf"
+                    counter++
+                }
+                newName
+            }
+            DuplicateAction.SKIP -> return@withContext
         }
 
         // Create and copy file
@@ -285,3 +406,4 @@ private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String) 
         }
     }
 }
+
