@@ -256,6 +256,7 @@ dependencies {
 
     // HTML parser
     implementation(libs.jsoup)
+    implementation("net.dankito.readability4j:readability4j:1.0.8")
 
     // Disk
     implementation(libs.disklrucache)

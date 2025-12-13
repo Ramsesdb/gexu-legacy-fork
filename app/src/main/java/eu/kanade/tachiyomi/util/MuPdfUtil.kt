@@ -125,8 +125,85 @@ object MuPdfUtil {
         }
     }
 
-    // Note: extractPageText not implemented - toStructuredText() API requires specific options
-    // For text extraction, use PdfUtil with PdfBox instead
+    /**
+     * Extract text from a single page using MuPDF's native text extraction.
+     * Much faster than PdfBox and produces no log spam.
+     */
+    fun extractPageText(document: Document, pageIndex: Int): String {
+        return try {
+            val page = document.loadPage(pageIndex)
+            val sText = page.toStructuredText("preserve-whitespace")
+            val blocks = sText.blocks
+
+            val sb = StringBuilder()
+            for (block in blocks) {
+                if (block.lines != null) {
+                    for (line in block.lines) {
+                        // Access chars array - each TextChar has a 'c' property for the Unicode codepoint
+                        if (line.chars != null) {
+                            for (textChar in line.chars) {
+                                // Convert Unicode codepoint (int) to actual character
+                                sb.append(textChar.c.toChar())
+                            }
+                        }
+                        sb.append("\n")
+                    }
+                }
+                sb.append("\n")
+            }
+
+            sText.destroy()
+            page.destroy()
+
+            sb.toString().trim()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            ""
+        }
+    }
+
+    /**
+     * Extract text from all pages of a document with progress callback.
+     * Uses MuPDF native extraction - much faster than PdfBox.
+     */
+    suspend fun extractTextFromDocument(
+        document: Document,
+        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+    ): List<String> = withContext(Dispatchers.Default) {
+        val pageCount = document.countPages()
+        val pages = ArrayList<String>(pageCount)
+
+        // Check if first page has text (fail fast for image-only PDFs)
+        if (pageCount > 0) {
+            val firstPageText = extractPageText(document, 0)
+            if (firstPageText.isBlank() && pageCount > 1) {
+                val secondPageText = extractPageText(document, 1)
+                if (secondPageText.isBlank()) {
+                    return@withContext emptyList()
+                }
+            }
+        }
+
+        for (pageIndex in 0 until pageCount) {
+            val text = extractPageText(document, pageIndex)
+            pages.add(text)
+
+            // Report progress every page for first 10, then every 10 pages
+            val pageNum = pageIndex + 1
+            val shouldReport = pageNum <= 10 || pageNum % 10 == 0 || pageNum == pageCount
+
+            if (shouldReport) {
+                onProgress(pageNum, pageCount, pages.toList())
+            }
+
+            // Yield every 10 pages to keep UI responsive
+            if (pageIndex % 10 == 9) {
+                kotlinx.coroutines.yield()
+            }
+        }
+
+        pages
+    }
 
     /**
      * Close document and release resources
