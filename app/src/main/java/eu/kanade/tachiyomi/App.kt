@@ -84,6 +84,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         TelemetryConfig.init(applicationContext)
         // Initialize PdfBox asynchronously to prevent main thread freeze/black screen
         Thread {
+            // Suppress verbose PdfBox debug logs BEFORE initialization
+            // These flood logcat and consume CPU without providing user value
+            suppressPdfBoxLogs()
             PDFBoxResourceLoader.init(applicationContext)
         }.start()
 
@@ -273,3 +276,18 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 }
 
 private const val ACTION_DISABLE_INCOGNITO_MODE = "tachi.action.DISABLE_INCOGNITO_MODE"
+
+/**
+ * Suppress verbose PdfBox-Android debug logs.
+ * PdfBox logs thousands of "Type 7 GSUB lookup table is not supported" messages
+ * that flood logcat and waste CPU cycles. This sets log level to WARNING.
+ */
+private fun suppressPdfBoxLogs() {
+    val level = java.util.logging.Level.WARNING
+    // Suppress all PdfBox-related loggers
+    java.util.logging.Logger.getLogger("com.tom_roush").level = level
+    java.util.logging.Logger.getLogger("com.tom_roush.pdfbox").level = level
+    java.util.logging.Logger.getLogger("com.tom_roush.fontbox").level = level
+    java.util.logging.Logger.getLogger("org.apache.pdfbox").level = level
+    java.util.logging.Logger.getLogger("org.apache.fontbox").level = level
+}

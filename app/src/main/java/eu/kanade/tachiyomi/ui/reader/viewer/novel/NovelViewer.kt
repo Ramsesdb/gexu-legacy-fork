@@ -29,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import kotlinx.coroutines.flow.MutableStateFlow
 import eu.kanade.tachiyomi.util.PdfUtil
+import eu.kanade.tachiyomi.util.MuPdfUtil
 import java.io.File
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
@@ -63,6 +64,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private val isLoading = MutableStateFlow(true)
     private val loadingMessage = MutableStateFlow<String?>(null)
     private val ocrProgress = MutableStateFlow<Pair<Int, Int>?>(null) // current, total
+    private val lastUserVisiblePage = MutableStateFlow(0)
 
     // Page tracking for image-based chapters
     private var currentChapter: ReaderChapter? = null
@@ -72,9 +74,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private var pdfDocument: com.artifex.mupdf.fitz.Document? = null
     private var pdfFile: File? = null
 
-    // Cache for extracted PDF text (avoids re-extraction on re-entry)
     companion object {
-        private val pdfTextCache = mutableMapOf<String, String>()
+        private const val PDF_CACHE_FILENAME = "novel_viewer_current.pdf"
     }
 
     override fun getView(): View = composeView
@@ -126,6 +127,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             },
             onRenderPage = pdfRenderer,
             onPageChanged = { listIndex ->
+                 // Update user position for Lazy OCR
+                 lastUserVisiblePage.value = listIndex
+
                  // listIndex maps to the items in LazyColumn.
                  // We have items(images) then items(textPages) then item(spacer).
                  // So the total items = images.size + textPages.size + 1 (spacer).
@@ -169,11 +173,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             return
         }
 
-        // Clear images and start showing text progressively
+        // DON'T clear images - keep them visible while OCR runs in background
+        // User can view images while we extract text progressively
         withContext(Dispatchers.Main) {
-            images.value = emptyList()
-            content.value = emptyList()
-            ocrProgress.value = null
+            // Keep images visible: images.value = ... (don't clear!)
+            content.value = emptyList()  // Clear only text content
+            ocrProgress.value = 0 to currentImages.size  // Show initial progress
         }
 
         // Store text for each page separately for proper page tracking
@@ -201,12 +206,27 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 } else null
 
                 try {
-                    var index = 1
-                    for (imgUrl in currentImages) {
+                    // LAZY OCR LOOP
+                    // Process pages only when user is near them
+                    var index = 0 // Start from first image
+                    val bufferSize = 4 // Keep 4 pages ahead converted
+
+                    while (index < currentImages.size && isActive) {
+                        val userPage = lastUserVisiblePage.value
+                        val targetPage = userPage + bufferSize
+
+                        // If we are ahead of buffer, wait
+                        if (index > targetPage) {
+                            delay(500)
+                            continue
+                        }
+
+                        val imgUrl = currentImages[index]
+
                         // Check cancellation
                         if (!isActive) throw CancellationException()
 
-                        logcat { "OCR: Processing image $index: $imgUrl" }
+                        logcat { "OCR: Processing image ${index + 1}: $imgUrl" }
 
                         val bitmap: android.graphics.Bitmap? = if (isPdfMode && ocrPdfDoc != null) {
                             // Use private doc - NO MUTEX needed vs UI
@@ -239,21 +259,37 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 val task = recognizer.process(inputImage)
                                 val ocrResult = Tasks.await(task)
 
-                                // Store page text
-                                if (ocrResult.text.isNotBlank()) {
-                                    pageTexts.add(ocrResult.text.trim())
-                                }
+                                // Store page text (even if empty, to maintain index alignment)
+                                val extracted = if (ocrResult.text.isNotBlank()) ocrResult.text.trim() else ""
+                                pageTexts.add(extracted)
 
                                 // Update content in real-time
                                 withContext(Dispatchers.Main) {
                                     val currentPages = pageTexts.toList()
                                     content.value = currentPages
-                                    ocrProgress.value = index to total
-                                    // Update total pages but don't move the user repeatedly while loading
-                                    updateOcrPageCounter(index, total, updatePosition = false)
+                                    // Show progress: (index+1) / total
+                                    ocrProgress.value = (index + 1) to total
+
+                                    // Update total pages without moving position
+                                    updateOcrPageCounter(index + 1, total, updatePosition = false)
                                 }
                             } catch (e: Exception) {
-                                logcat(LogPriority.ERROR) { "OCR: Error processing page $index: ${e.message}" }
+                                logcat(LogPriority.ERROR) { "OCR: Error processing page ${index + 1}: ${e.message}" }
+                                // Add empty placeholder to keep alignment?
+                                // Actually pageTexts logic requires 1:1 mapping if we want reliable indexes?
+                                // Current logic: content.value is list of texts.
+                                // If I skip one, then text for page 5 might appear at index 4?
+                                // Yes. So I MUST add a string even if error.
+                                pageTexts.add("[Error OCR]")
+                                withContext(Dispatchers.Main) {
+                                    content.value = pageTexts.toList()
+                                }
+                            }
+                        } else {
+                             // Failed to load bitmap
+                             pageTexts.add("") // Empty text placeholder
+                             withContext(Dispatchers.Main) {
+                                content.value = pageTexts.toList()
                             }
                         }
                         index++
@@ -268,20 +304,28 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
             // Final update
             withContext(Dispatchers.Main) {
+                ocrProgress.value = null  // Clear progress indicator
                 if (pageTexts.isNotEmpty()) {
                     content.value = pageTexts
+                    images.value = emptyList()  // Only now clear images - we have text to show
                     // Finish: ensure we have total pages, stay on current or move to 1?
                     // Let's just update total. If user was reading, they stay.
                     updateOcrPageCounter(pageTexts.size, pageTexts.size, updatePosition = false)
                 } else {
-                    content.value = listOf("No se pudo extraer texto.")
+                    // Keep images visible if OCR failed
+                    logcat { "OCR: No text extracted, keeping images visible" }
                 }
             }
 
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "OCR: Critical error: ${e.message}" }
              withContext(Dispatchers.Main) {
-                content.value = if (pageTexts.isNotEmpty()) pageTexts else listOf("Error al procesar OCR.")
+                ocrProgress.value = null  // Clear progress on error
+                if (pageTexts.isNotEmpty()) {
+                    content.value = pageTexts
+                    images.value = emptyList()
+                }
+                // If no text was extracted, images remain visible as fallback
             }
         }
     }
@@ -310,6 +354,37 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         }
     }
 
+    /**
+     * Cleanup stale PDF cache files from old code that used timestamp-based names.
+     * Also manages PDF text cache to prevent excessive disk usage.
+     */
+    private fun cleanupStalePdfCache() {
+        try {
+            val cacheDir = activity.cacheDir
+            cacheDir.listFiles()?.forEach { file ->
+                // Delete old timestamp-based PDF files and temp stream files
+                if (file.name.startsWith("current_pdf_") ||
+                    file.name.startsWith("temp_stream_") ||
+                    file.name.startsWith("pdf_cover_")) {
+                    file.delete()
+                }
+            }
+
+            // Manage PDF text cache directory - keep only last 5 cached PDFs
+            val pdfTextCacheDir = java.io.File(cacheDir, "pdf_text_cache")
+            if (pdfTextCacheDir.exists()) {
+                val cacheFiles = pdfTextCacheDir.listFiles()
+                    ?.filter { it.name.startsWith("pdf_text_cache_") }
+                    ?.sortedByDescending { it.lastModified() }
+
+                // Keep only the 5 most recent cache files
+                cacheFiles?.drop(5)?.forEach { it.delete() }
+            }
+        } catch (e: Exception) {
+            // Ignore cleanup errors
+        }
+    }
+
     override fun setChapters(chapters: ViewerChapters) {
         val chapter = chapters.currChapter
         currentChapter = chapter
@@ -319,13 +394,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 isLoading.value = true
                 content.value = emptyList()
                 images.value = emptyList() // Reset images
-                // Reset state safely
+                // Reset state safely and cleanup old PDF cache files
                 pdfMutex.withLock {
                     pdfDocument?.let { try { it.destroy() } catch (e: Exception) {} }
                     pdfDocument = null
                     pdfFile?.delete()
                     pdfFile = null
                 }
+                // Cleanup any stale PDF temp files (from crashes or old code)
+                cleanupStalePdfCache()
 
                 val mangaId = chapter.chapter.manga_id ?: return@launch
 // ... rest of setChapters
@@ -439,91 +516,149 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 var isAdTrap = false
 
                 // Only attempt text extraction if NOT Cloudflare
+                // Only attempt text extraction if NOT Cloudflare
                 if (!isCloudflare) {
                      content.value = listOf("Procesando texto...")
 
-                    // Pre-process HTML
-                    val processedHtml = rawContent.replace(Regex("(?i)<br\\s*/?>"), "\n")
-                    val doc = Jsoup.parse(processedHtml)
+                     var extractedText: List<String>? = null
 
-                    // 1. Remove obvious junk
-                    val junkSelectors = listOf(
-                        "script", "style", "nav", "footer", "header", "aside",
-                        ".sidebar", ".widget", ".menu", ".comments", "#comments",
-                        ".pagination", ".pager", ".breadcrumb", ".social", ".share"
-                    )
-                    junkSelectors.forEach { doc.select(it).remove() }
+                     try {
+                         // 1. Try Readability4J (Best quality)
+                         val readability = net.dankito.readability4j.Readability4J(currentUrl.value ?: "", rawContent)
+                         val article = readability.parse()
 
-                    val junkRegex = "(?i)comment|meta|footer|foot|header|menu|nav|pagination|pager|sidebar|ad|share|social|popup|cookie|banner".toRegex()
-                    doc.allElements.forEach { el ->
-                        if (el.id().matches(junkRegex) || el.className().matches(junkRegex)) {
-                            el.remove()
-                        }
-                    }
+                         if (article.textContent != null && article.textContent!!.length > 200) {
+                             val sb = StringBuilder()
 
-                    // 2. Score paragraphs
-                    var bestContainer: org.jsoup.nodes.Element? = null
-                    var maxScore = 0.0
-
-                    val candidates = doc.select("div, article, section, td")
-                    for (candidate in candidates) {
-                        val text = candidate.text()
-                        if (text.length < 100) continue
-                        if (isMostlyPageNumbers(text)) continue
-
-                        val paragraphs = candidate.select("p")
-                        val links = candidate.select("a")
-                        val linkTextLength = links.sumOf { it.text().length }
-                        val linkDensity = if (text.isNotEmpty()) linkTextLength.toDouble() / text.length else 1.0
-                        if (linkDensity > 0.25) continue
-
-                        var score = text.length.toDouble() * 0.1
-                        score += paragraphs.size * 50
-                        if (paragraphs.isEmpty() && text.length > 2000) score -= 1000
-                        val className = candidate.className().lowercase()
-                        if (className.contains("content") || className.contains("article") || className.contains("story") || className.contains("post")) score += 500
-
-                        if (score > maxScore) {
-                            maxScore = score
-                            bestContainer = candidate
-                        }
-                    }
-
-                    val target = if (bestContainer != null && !isMostlyPageNumbers(bestContainer.text())) bestContainer else doc.body()
-
-                    // 3. Final construction
-                    val title = doc.title()
-                        .replace(Regex("(?i)(read|free|manga|online|page|chapter).*"), "")
-                        .trim()
-                        .trimEnd('-', '|')
-
-                    // AD-TRAP DETECTION
-                    isAdTrap = title.contains("Sweet Tooth", true) ||
-                                   title.contains("Recipes", true) ||
-                                   title.contains("Captcha", true) ||
-                                   doc.text().contains("Click here to continue", true)
-
-                    if (!isAdTrap) {
-                        if (title.isNotEmpty()) sb.append(title).append("\n\n")
-
-                        val rawTextLines = target.text().lines()
-                        rawTextLines.forEach { line ->
-                            val t = line.trim()
-                             if (t.length > 3 && !pageNumberRegex.matches(t) && !t.contains("Next Chapter", true)) {
-                                 sb.append(t).append("\n\n")
+                             // Add Title
+                             if (!article.title.isNullOrEmpty()) {
+                                 sb.append(article.title).append("\n\n")
+                             } else {
+                                 // Fallback title from Jsoup if missing
+                                 val docTitle = Jsoup.parse(rawContent).title()
+                                     .replace(Regex("(?i)(read|free|manga|online|page|chapter).*"), "")
+                                     .trim().trimEnd('-', '|')
+                                 if (docTitle.isNotEmpty()) sb.append(docTitle).append("\n\n")
                              }
+
+                             // Add Byline/Author if present
+                             if (!article.byline.isNullOrEmpty()) {
+                                 sb.append("By: ${article.byline}").append("\n\n")
+                             }
+
+                             // Process content
+                             sb.append(article.textContent)
+
+                             val lines = sb.toString().lines()
+                                 .map { it.trim() }
+                                 .filter { it.isNotBlank() && !pageNumberRegex.matches(it) && !it.contains("Next Chapter", true) }
+
+                             if (lines.isNotEmpty()) {
+                                 extractedText = lines
+                                 logcat { "NovelViewer: Extracted content via Readability4J" }
+                             }
+                         }
+                     } catch (e: Exception) {
+                         logcat(LogPriority.WARN) { "NovelViewer: Readability4J failed: ${e.message}" }
+                     }
+
+                     // 2. Fallback to manual Jsoup heuristic if Readability4J failed or returned little text
+                     if (extractedText == null || extractedText.isEmpty()) {
+                         logcat { "NovelViewer: Readability4J returned empty, falling back to Jsoup heuristics" }
+
+                        // Pre-process HTML
+                        val processedHtml = rawContent.replace(Regex("(?i)<br\\s*/?>"), "\n")
+                        val doc = Jsoup.parse(processedHtml)
+
+                        // 1. Remove obvious junk
+                        val junkSelectors = listOf(
+                            "script", "style", "nav", "footer", "header", "aside",
+                            ".sidebar", ".widget", ".menu", ".comments", "#comments",
+                            ".pagination", ".pager", ".breadcrumb", ".social", ".share"
+                        )
+                        junkSelectors.forEach { doc.select(it).remove() }
+
+                        val junkRegex = "(?i)comment|meta|footer|foot|header|menu|nav|pagination|pager|sidebar|ad|share|social|popup|cookie|banner".toRegex()
+                        doc.allElements.forEach { el ->
+                            if (el.id().matches(junkRegex) || el.className().matches(junkRegex)) {
+                                el.remove()
+                            }
                         }
-                    } else {
-                         withContext(Dispatchers.Main) {
+
+                        // 2. Score paragraphs
+                        var bestContainer: org.jsoup.nodes.Element? = null
+                        var maxScore = 0.0
+
+                        val candidates = doc.select("div, article, section, td")
+                        for (candidate in candidates) {
+                            val text = candidate.text()
+                            if (text.length < 100) continue
+                            if (isMostlyPageNumbers(text)) continue
+
+                            val paragraphs = candidate.select("p")
+                            val links = candidate.select("a")
+                            val linkTextLength = links.sumOf { it.text().length }
+                            val linkDensity = if (text.isNotEmpty()) linkTextLength.toDouble() / text.length else 1.0
+                            if (linkDensity > 0.25) continue
+
+                            var score = text.length.toDouble() * 0.1
+                            score += paragraphs.size * 50
+                            if (paragraphs.isEmpty() && text.length > 2000) score -= 1000
+                            val className = candidate.className().lowercase()
+                            if (className.contains("content") || className.contains("article") || className.contains("story") || className.contains("post")) score += 500
+
+                            if (score > maxScore) {
+                                maxScore = score
+                                bestContainer = candidate
+                            }
+                        }
+
+                        val target = if (bestContainer != null && !isMostlyPageNumbers(bestContainer.text())) bestContainer else doc.body()
+
+                        // 3. Final construction
+                        val title = doc.title()
+                            .replace(Regex("(?i)(read|free|manga|online|page|chapter).*"), "")
+                            .trim()
+                            .trimEnd('-', '|')
+
+                        // AD-TRAP DETECTION
+                        isAdTrap = title.contains("Sweet Tooth", true) ||
+                                       title.contains("Recipes", true) ||
+                                       title.contains("Captcha", true) ||
+                                       doc.text().contains("Click here to continue", true)
+
+                        if (!isAdTrap) {
+                             val sb = StringBuilder()
+                            if (title.isNotEmpty()) sb.append(title).append("\n\n")
+
+                            val rawTextLines = target.text().lines()
+                            val cleanLines = rawTextLines
+                                .map { it.trim() }
+                                .filter { it.length > 3 && !pageNumberRegex.matches(it) && !it.contains("Next Chapter", true) }
+
+                            if (cleanLines.isNotEmpty()) {
+                                cleanLines.forEach { sb.append(it).append("\n\n") }
+                                extractedText = sb.toString().split("\n\n").filter { it.isNotBlank() }
+                            }
+                        }
+                     }
+
+                     // FINALIZE
+                     if (extractedText != null && extractedText.isNotEmpty() && !isAdTrap) {
+                          withContext(Dispatchers.Main) {
                             isLoading.value = false
-                            content.value = listOf("Contenido no válido.")
+                            content.value = extractedText
+                            images.value = emptyList()
                         }
-                    }
+                        return@launch
+                     } else {
+                         // Triggers failure block below
+                         isAdTrap = true // Force fallback to images if both methods failed
+                     }
                 }
 
-
-                // CHECK RESULT & FALLBACK
-                if (isCloudflare || sb.length < 150 || isAdTrap) {
+                // CHECK RESULT & FALLBACK (Logic preserved but simplified check)
+                if (isCloudflare || isAdTrap) {
                     // Try to fetch images using standard Extension Logic
                     val foundImages = fetchImages(httpSource, chapter.chapter)
 
@@ -538,17 +673,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             }
                         }
                     }
-                } else {
-                     // SUCCESS TEXT
-                     withContext(Dispatchers.Main) {
-                        isLoading.value = false
-                        content.value = sb.toString().split("\n\n").filter { it.isNotBlank() }
-                        images.value = emptyList()
-                    }
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isLoading.value = false
+                    logcat(LogPriority.ERROR) { "NovelViewer: Error loading chapter: ${e.message}" }
                     content.value = listOf("Error al cargar el capítulo.")
                 }
             }
@@ -674,7 +803,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
             // Copy PDF to cache first (needed for both text extraction and MuPDF)
             val cacheDir = activity.cacheDir
-            val pdfCacheFile = java.io.File(cacheDir, "current_pdf_${System.currentTimeMillis()}.pdf")
+            val pdfCacheFile = java.io.File(cacheDir, PDF_CACHE_FILENAME)
 
             withContext(Dispatchers.Main) {
                 loadingMessage.value = "Preparando PDF..."
@@ -695,25 +824,31 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 return
             }
 
-            // ATTEMPT NATIVE TEXT EXTRACTION (READING MODE)
+            // ATTEMPT NATIVE TEXT EXTRACTION USING MUPDF (much faster, no log spam)
             var extractedPages = emptyList<String>()
             try {
                 withContext(Dispatchers.Main) {
-                    loadingMessage.value = "Verificando modo lectura..."
+                    loadingMessage.value = "Extrayendo texto..."
                 }
 
-                extractedPages = PdfUtil.extractPdfPagesProgressive(pdfCacheFile) { page: Int, total: Int, pages: List<String> ->
-                     loadingMessage.value = "Extrayendo texto: pág $page de $total..."
+                // Open document with MuPDF for text extraction
+                val muPdfDoc = MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
+                if (muPdfDoc != null) {
+                    extractedPages = MuPdfUtil.extractTextFromDocument(muPdfDoc) { page: Int, total: Int, pages: List<String> ->
+                        withContext(Dispatchers.Main) {
+                            loadingMessage.value = "Extrayendo texto: pág $page de $total..."
 
-                     if (pages.isNotEmpty()) {
-                         content.value = pages
-                         // Update chapter definition but DO NOT move the reader position
-                         updateOcrPageCounter(page, total, updatePosition = false)
-                     }
+                            if (pages.isNotEmpty()) {
+                                content.value = pages
+                                updateOcrPageCounter(page, total, updatePosition = false)
+                            }
+                        }
+                    }
+                    MuPdfUtil.closeDocument(muPdfDoc)
                 }
 
                 if (extractedPages.isNotEmpty()) {
-                     logcat { "NovelViewer: Text extracted natively (${extractedPages.size} pages)" }
+                     logcat { "NovelViewer: Text extracted with MuPDF (${extractedPages.size} pages)" }
                      withContext(Dispatchers.Main) {
                          isLoading.value = false
                          loadingMessage.value = null
@@ -732,7 +867,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                      }
                 }
             } catch (e: Exception) {
-                logcat(LogPriority.WARN) { "NovelViewer: Native extraction failed: ${e.message}" }
+                logcat(LogPriority.WARN) { "NovelViewer: MuPDF text extraction failed: ${e.message}" }
                 // Continue to image fallback
             }
 

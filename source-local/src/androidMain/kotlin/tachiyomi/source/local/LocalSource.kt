@@ -42,7 +42,7 @@ import tachiyomi.source.local.io.Archive
 import tachiyomi.source.local.io.Format
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import tachiyomi.source.local.metadata.fillMetadata
-import uy.kohesive.injekt.injectLazy
+import uy.kohesive.injekt.api.get
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -53,17 +53,18 @@ import tachiyomi.domain.source.model.Source as DomainSource
 
 actual class LocalSource : CatalogueSource, UnmeteredSource {
 
-    private val context: Application by injectLazy<Application>()
-    private val fileSystem: LocalSourceFileSystem by injectLazy<LocalSourceFileSystem>()
-    private val coverManager: LocalCoverManager by injectLazy<LocalCoverManager>()
-    private val xml: XML by injectLazy<XML>()
-    private val json: Json by injectLazy<Json>()
+    // Use eager injection to avoid lazy blocking on main thread
+    private val context: Application = Injekt.get()
+    private val fileSystem: LocalSourceFileSystem = Injekt.get()
+    private val coverManager: LocalCoverManager = Injekt.get()
+    private val xml: XML = Injekt.get()
+    private val json: Json = Injekt.get()
 
     @Suppress("PrivatePropertyName")
-    private val PopularFilters = FilterList(OrderBy.Popular(context))
+    private val PopularFilters by lazy { FilterList(OrderBy.Popular(context)) }
 
     @Suppress("PrivatePropertyName")
-    private val LatestFilters = FilterList(OrderBy.Latest(context))
+    private val LatestFilters by lazy { FilterList(OrderBy.Latest(context)) }
 
     override val name: String = context.stringResource(MR.strings.local_source)
 

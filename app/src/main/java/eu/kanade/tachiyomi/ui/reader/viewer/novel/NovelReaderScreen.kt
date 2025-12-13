@@ -109,8 +109,8 @@ fun NovelReaderScreen(
                         }
                     }
                 }
-            } else if (ocrProgress != null) {
-                // OCR in progress - show progress indicator
+            } else if (ocrProgress != null && textPages.isEmpty()) {
+                // OCR in progress but no text yet - show full loading indicator
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -137,8 +137,6 @@ fun NovelReaderScreen(
                     )
                 }
             } else {
-                // Content area
-                // Content area
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
@@ -151,8 +149,27 @@ fun NovelReaderScreen(
                         .padding(horizontal = 16.dp),
                     contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
                 ) {
-                    if (images.isNotEmpty()) {
-                        items(images) { imageUrl ->
+                    // 1. Show extracted text first
+                    if (textPages.isNotEmpty()) {
+                        items(textPages) { pageText ->
+                            Text(
+                                text = pageText,
+                                style = TextStyle(
+                                    fontSize = prefs.fontSizeSp.sp,
+                                    lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
+                                    color = prefs.theme.textColor()
+                                ),
+                                modifier = Modifier.padding(bottom = 24.dp)
+                            )
+                        }
+                    }
+
+                    // 2. Show remaining images (those that haven't been processed yet)
+                    // This creates the effect of replacing images with text as OCR progresses
+                    val processedCount = textPages.size
+                    if (images.size > processedCount) {
+                        val remainingImages = images.subList(processedCount, images.size)
+                        items(remainingImages) { imageUrl ->
                             if (imageUrl.startsWith("pdf://")) {
                                 val pageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
                                 PdfPageItem(
@@ -174,17 +191,33 @@ fun NovelReaderScreen(
                         }
                     }
 
-                    if (textPages.isNotEmpty()) {
-                        items(textPages) { pageText ->
-                            Text(
-                                text = pageText,
-                                style = TextStyle(
-                                    fontSize = prefs.fontSizeSp.sp,
-                                    lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
-                                    color = prefs.theme.textColor()
-                                ),
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
+                    // Progress bar at bottom content when OCR is running
+                    if (ocrProgress != null && textPages.isNotEmpty()) {
+                        item {
+                            Surface(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                color = prefs.theme.backgroundColor(),
+                                shape = RoundedCornerShape(8.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    androidx.compose.material3.LinearProgressIndicator(
+                                        progress = { ocrProgress.first.toFloat() / ocrProgress.second.toFloat() },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                    )
+                                    Text(
+                                        text = "Extrayendo texto: ${ocrProgress.first} de ${ocrProgress.second}",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = prefs.theme.textColor().copy(alpha = 0.7f),
+                                        modifier = Modifier.padding(top = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     }
 

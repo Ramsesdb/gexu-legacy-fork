@@ -80,3 +80,22 @@
 # Firebase
 -keep class com.google.firebase.installations.** { *; }
 -keep interface com.google.firebase.installations.** { *; }
+
+##---------------Begin: proguard configuration for PdfBox-Android  ----------
+# Strip verbose debug logging from PdfBox-Android in release builds
+# This removes thousands of "GSUB lookup table is not supported" warnings
+-assumenosideeffects class android.util.Log {
+    public static int d(...);
+    public static int v(...);
+}
+# Keep PdfBox classes needed for PDF text extraction
+-keep class com.tom_roush.pdfbox.** { *; }
+-keep class com.tom_roush.fontbox.** { *; }
+-keep class com.tom_roush.harmony.** { *; }
+-dontwarn com.tom_roush.**
+##---------------End: proguard configuration for PdfBox-Android  ----------
+
+##---------------Begin: proguard configuration for MuPDF  ----------
+-keep class com.artifex.mupdf.fitz.** { *; }
+-dontwarn com.artifex.mupdf.**
+##---------------End: proguard configuration for MuPDF  ----------
