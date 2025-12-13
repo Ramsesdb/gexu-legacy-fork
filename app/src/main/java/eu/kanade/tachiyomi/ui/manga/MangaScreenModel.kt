@@ -87,6 +87,8 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
+import tachiyomi.source.local.io.LocalSourceFileSystem
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -832,14 +834,58 @@ class MangaScreenModel(
         screenModelScope.launchNonCancellable {
             try {
                 successState?.let { state ->
-                    downloadManager.deleteChapters(
-                        chapters,
-                        state.manga,
-                        state.source,
-                    )
+                    if (state.manga.isLocal()) {
+                        // For local source, delete the physical files and DB entries
+                        deleteLocalChapters(chapters, state.manga)
+                    } else {
+                        downloadManager.deleteChapters(
+                            chapters,
+                            state.manga,
+                            state.source,
+                        )
+                    }
                 }
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
+            }
+        }
+    }
+
+    /**
+     * Deletes local source chapters (physical files and database entries).
+     */
+    private suspend fun deleteLocalChapters(chapters: List<Chapter>, manga: Manga) {
+        withIOContext {
+            val fileSystem: LocalSourceFileSystem = Injekt.get()
+            val chapterRepository: ChapterRepository = Injekt.get()
+
+            val baseDir = fileSystem.getBaseDirectory() ?: return@withIOContext
+
+            for (chapter in chapters) {
+                try {
+                    // Parse the chapter URL to get manga dir and chapter file
+                    // URL format is "mangaName/chapterFileName"
+                    val parts = chapter.url.split("/", limit = 2)
+                    if (parts.size == 2) {
+                        val mangaDirName = parts[0]
+                        val chapterFileName = parts[1]
+
+                        val mangaDir = baseDir.findFile(mangaDirName)
+                        val chapterFile = mangaDir?.findFile(chapterFileName)
+
+                        // Delete the physical file
+                        chapterFile?.delete()
+                    }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Error deleting local chapter file: ${chapter.name}" }
+                }
+            }
+
+            // Remove chapters from database
+            try {
+                chapterRepository.removeChaptersWithIds(chapters.map { it.id })
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Error removing chapters from database" }
             }
         }
     }

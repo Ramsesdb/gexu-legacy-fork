@@ -60,11 +60,14 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private val prefs = mutableStateOf(NovelPrefs())
     private val content = MutableStateFlow<List<String>>(emptyList())
     private val images = MutableStateFlow<List<String>>(emptyList())
+    private val originalImages = MutableStateFlow<List<String>>(emptyList()) // Preserve original images for toggle
     private val currentUrl = MutableStateFlow<String?>(null)
     private val isLoading = MutableStateFlow(true)
     private val loadingMessage = MutableStateFlow<String?>(null)
     private val ocrProgress = MutableStateFlow<Pair<Int, Int>?>(null) // current, total
     private val lastUserVisiblePage = MutableStateFlow(0)
+    private val showTextMode = MutableStateFlow(true) // true = show text, false = show images/PDF
+    private val targetPageIndex = MutableStateFlow<Int?>(null) // Target page for slider navigation
 
     // Page tracking for image-based chapters
     private var currentChapter: ReaderChapter? = null
@@ -92,11 +95,14 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private fun Content() {
         val textList by content.collectAsState()
         val imageList by images.collectAsState()
+        val originalImageList by originalImages.collectAsState()
         val url by currentUrl.collectAsState()
         val readerState by activity.viewModel.state.collectAsState()
         val loading by isLoading.collectAsState()
         val loadMsg by loadingMessage.collectAsState()
         val ocrProg by ocrProgress.collectAsState()
+        val textMode by showTextMode.collectAsState()
+        val targetPage by targetPageIndex.collectAsState()
         var currentPrefs by remember { prefs }
 
         // Define renderer for PDF pages - Remember to avoid recomposition
@@ -105,8 +111,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         }
 
         NovelReaderScreen(
-            textPages = textList,
-            images = imageList,
+            textPages = if (textMode) textList else emptyList(),
+            images = if (textMode) imageList else originalImageList,
             url = url,
             isLoading = loading,
             loadingMessage = loadMsg,
@@ -114,6 +120,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             initialOffset = 0L,
             prefs = currentPrefs,
             menuVisible = readerState.menuVisible,
+            showTextMode = textMode,
+            hasExtractedText = textList.isNotEmpty(),
+            hasOriginalImages = originalImageList.isNotEmpty(),
+            isPdfMode = originalImageList.firstOrNull()?.startsWith("pdf://") == true,
+            targetPageIndex = targetPage,
+            onTargetPageConsumed = { targetPageIndex.value = null },
             onOffsetChanged = { /* Save progress */ },
             onPrefsChanged = { newPrefs -> currentPrefs = newPrefs },
             onBack = {
@@ -121,6 +133,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             },
             onToggleMenu = {
                 activity.toggleMenu()
+            },
+            onToggleTextMode = {
+                showTextMode.value = !showTextMode.value
             },
             onExtractOcr = {
                 scope.launch { extractTextFromImages() }
@@ -394,6 +409,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 isLoading.value = true
                 content.value = emptyList()
                 images.value = emptyList() // Reset images
+                originalImages.value = emptyList() // Reset original images
+                showTextMode.value = true // Reset to text mode
                 // Reset state safely and cleanup old PDF cache files
                 pdfMutex.withLock {
                     pdfDocument?.let { try { it.destroy() } catch (e: Exception) {} }
@@ -726,6 +743,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     withContext(Dispatchers.Main) {
                         isLoading.value = false
                         images.value = imageUrls
+                        originalImages.value = imageUrls // Save original images for toggle
                         content.value = emptyList()
 
                         // Notify activity of the first page to update counter
@@ -935,6 +953,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 loadingMessage.value = null
                 content.value = emptyList() // No text content initially
                 images.value = virtualImages // Show virtual pages
+                originalImages.value = virtualImages // Save original images for toggle
             }
 
             logcat { "NovelViewer: Ready for lazy rendering of $pageCount pages" }
@@ -989,7 +1008,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     }
 
     override fun moveToPage(page: ReaderPage) {
-        // No-op for now
+        val position = virtualPages.indexOf(page)
+        if (position != -1) {
+            targetPageIndex.value = position
+        } else {
+            logcat { "NovelViewer: Page $page not found in virtualPages" }
+        }
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
