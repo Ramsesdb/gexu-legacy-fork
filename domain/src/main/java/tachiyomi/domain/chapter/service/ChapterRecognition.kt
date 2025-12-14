@@ -30,6 +30,16 @@ object ChapterRecognition {
      */
     private val unwantedWhiteSpace = Regex("""\s(?=extra|special|omake)""")
 
+    /**
+     * Pattern to detect chapter ranges in compilations/novels
+     * Examples:
+     *   - "Shadow_Slave 1801 - 1900" -> uses 1900
+     *   - "Novel_Name 100-200" -> uses 200
+     *   - "Book Chapters 50 to 100" -> uses 100
+     */
+    private val chapterRangePattern = Regex("""(\d+)\s*[-–—]\s*(\d+)""")
+    private val chapterRangeWithTo = Regex("""(\d+)\s+(?:to|a|al)\s+(\d+)""", RegexOption.IGNORE_CASE)
+
     fun parseChapterNumber(
         mangaTitle: String,
         chapterName: String,
@@ -40,10 +50,33 @@ object ChapterRecognition {
             return chapterNumber
         }
 
-        // Get chapter title with lower case
-        val cleanChapterName = chapterName.lowercase()
-            // Remove manga title from chapter title.
+        // First, check for chapter range patterns BEFORE modifying the string
+        // This handles cases like "Shadow_Slave 1801 - 1900" or "Novel 100-200"
+        val cleanNameForRange = chapterName.lowercase()
             .replace(mangaTitle.lowercase(), "").trim()
+
+        // Try to find a chapter range pattern (e.g., "1801 - 1900" or "1801-1900")
+        // Return START number for proper ordering; gap calculation uses full range from chapter name
+        chapterRangePattern.find(cleanNameForRange)?.let { match ->
+            val startNum = match.groupValues[1].toDoubleOrNull()
+            val endNum = match.groupValues[2].toDoubleOrNull()
+            // Validate it's a proper range (end > start, reasonable difference)
+            if (startNum != null && endNum != null && endNum > startNum && (endNum - startNum) <= 500) {
+                return startNum
+            }
+        }
+
+        // Try alternate pattern with "to" (e.g., "100 to 200" or "100 a 200")
+        chapterRangeWithTo.find(cleanNameForRange)?.let { match ->
+            val startNum = match.groupValues[1].toDoubleOrNull()
+            val endNum = match.groupValues[2].toDoubleOrNull()
+            if (startNum != null && endNum != null && endNum > startNum && (endNum - startNum) <= 500) {
+                return startNum
+            }
+        }
+
+        // Standard processing for non-range chapter names
+        val cleanChapterName = cleanNameForRange
             // Remove comma's or hyphens.
             .replace(',', '.')
             .replace('-', '.')
