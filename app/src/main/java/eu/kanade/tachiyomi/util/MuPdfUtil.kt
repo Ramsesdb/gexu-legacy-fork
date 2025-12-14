@@ -169,39 +169,64 @@ object MuPdfUtil {
     suspend fun extractTextFromDocument(
         document: Document,
         onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+    ): List<String> = extractTextWithPriority(document, 0, onProgress)
+
+    /**
+     * Extract text starting around specific page index for instant loading.
+     */
+    suspend fun extractTextWithPriority(
+        document: Document,
+        startPage: Int,
+        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
     ): List<String> = withContext(Dispatchers.Default) {
         val pageCount = document.countPages()
+        // Initialize list with empty strings
         val pages = ArrayList<String>(pageCount)
+        repeat(pageCount) { pages.add("") }
 
-        // Check if first page has text (fail fast for image-only PDFs)
+        // Fast fail: Check if document has text at startPage (or near it)
+        val checkPage = startPage.coerceIn(0, (pageCount - 1).coerceAtLeast(0))
         if (pageCount > 0) {
-            val firstPageText = extractPageText(document, 0)
-            if (firstPageText.isBlank() && pageCount > 1) {
-                val secondPageText = extractPageText(document, 1)
-                if (secondPageText.isBlank()) {
+            val text = extractPageText(document, checkPage)
+            if (text.isBlank() && pageCount > 1) {
+                // Try one more page just in case startPage was an illustration
+                val nextCheck = (checkPage + 1) % pageCount
+                val nextText = extractPageText(document, nextCheck)
+                if (nextText.isBlank()) {
                     return@withContext emptyList()
                 }
             }
         }
 
-        for (pageIndex in 0 until pageCount) {
-            val text = extractPageText(document, pageIndex)
-            pages.add(text)
+        // Define priority range: startPage ± 5
+        val rangeStart = (startPage - 5).coerceAtLeast(0)
+        val rangeEnd = (startPage + 10).coerceAtMost(pageCount)
 
-            // Report progress every page for first 10, then every 10 pages
-            val pageNum = pageIndex + 1
-            val shouldReport = pageNum <= 10 || pageNum % 10 == 0 || pageNum == pageCount
-
-            if (shouldReport) {
-                onProgress(pageNum, pageCount, pages.toList())
-            }
-
-            // Yield every 10 pages to keep UI responsive
-            if (pageIndex % 10 == 9) {
-                kotlinx.coroutines.yield()
-            }
+        // 1. Extract priority range FIRST
+        for (i in rangeStart until rangeEnd) {
+            pages[i] = extractPageText(document, i)
         }
 
+        // Report immediately with priority pages ready (others are empty but placeholders exist)
+        onProgress(rangeEnd, pageCount, pages.toList())
+
+        // 2. Extract the rest (before priority range)
+        for (i in 0 until rangeStart) {
+            pages[i] = extractPageText(document, i)
+            if (i % 10 == 0) onProgress(i, pageCount, pages.toList())
+        }
+
+        // 3. Extract the rest (after priority range)
+        for (i in rangeEnd until pageCount) {
+             pages[i] = extractPageText(document, i)
+             if (i % 10 == 0) {
+                 onProgress(i, pageCount, pages.toList())
+                 kotlinx.coroutines.yield()
+             }
+        }
+
+        // Final report
+        onProgress(pageCount, pageCount, pages.toList())
         pages
     }
 
