@@ -9,6 +9,8 @@ import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -65,7 +67,9 @@ class LibraryUpdateNotifier(
      * Bitmap of the app for notifications.
      */
     private val notificationBitmap by lazy {
-        BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+        val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+        drawable?.toBitmap(NOTIF_ICON_SIZE, NOTIF_ICON_SIZE)
+            ?: BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
     }
 
     /**
@@ -156,6 +160,7 @@ class LibraryUpdateNotifier(
             setContentTitle(context.stringResource(MR.strings.notification_update_error, failed))
             setContentText(context.stringResource(MR.strings.action_show_errors))
             setSmallIcon(R.drawable.ic_notification)
+            setLargeIcon(notificationBitmap)
 
             setContentIntent(NotificationReceiver.openErrorLogPendingActivity(context, uri))
         }

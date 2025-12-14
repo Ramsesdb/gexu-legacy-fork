@@ -77,6 +77,7 @@ import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.ui.reader.viewer.novel.NovelTheme
 import eu.kanade.tachiyomi.util.MuPdfUtil
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.logcat
@@ -152,13 +153,19 @@ fun DirectPdfReader(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
-    // PDF document state
+    // PDF document state - separate documents for rendering vs text extraction
     var pdfDocument by remember { mutableStateOf<Document?>(null) }
+    var textExtractionDocument by remember { mutableStateOf<Document?>(null) }
     var pageCount by remember { mutableIntStateOf(0) }
     var currentPage by remember { mutableIntStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var tempPdfFile by remember { mutableStateOf<File?>(null) }
+
+    // Single-threaded dispatcher for PDF rendering to avoid native concurrency issues
+    val pdfRenderDispatcher = remember {
+        java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher()
+    }
 
     // UI state
     var menuVisible by remember { mutableStateOf(false) }
@@ -188,16 +195,20 @@ fun DirectPdfReader(
 
                 tempPdfFile = tempFile
 
-                // Open with MuPDF
+                // Open with MuPDF - one for rendering
                 val doc = MuPdfUtil.openDocument(tempFile.absolutePath)
                 if (doc == null) {
                     throw Exception("No se pudo abrir el PDF")
                 }
 
+                // Open a second instance for text extraction (avoids concurrency issues)
+                val textDoc = MuPdfUtil.openDocument(tempFile.absolutePath)
+
                 val count = MuPdfUtil.getPageCount(doc)
 
                 withContext(Dispatchers.Main) {
                     pdfDocument = doc
+                    textExtractionDocument = textDoc
                     pageCount = count
                     isLoading = false
                 }
@@ -222,7 +233,6 @@ fun DirectPdfReader(
     }
 
     // Sync UI with currentPage whenever viewMode changes
-    // This fixes the issue where switching back to scroll mode resets position to 0
     LaunchedEffect(prefs.viewMode) {
         if (prefs.viewMode == PdfViewMode.PDF_ORIGINAL || prefs.viewMode == PdfViewMode.TEXT_SCROLL) {
             listState.scrollToItem(currentPage)
@@ -233,68 +243,103 @@ fun DirectPdfReader(
     DisposableEffect(Unit) {
         onDispose {
             pdfDocument?.let { MuPdfUtil.closeDocument(it) }
+            textExtractionDocument?.let { MuPdfUtil.closeDocument(it) }
             tempPdfFile?.delete()
             pageCache.values.forEach { it.recycle() }
+            pdfRenderDispatcher.close()
         }
     }
 
-    // Function to extract text
+    // Function to extract text - optimized for instant feel
     fun extractText(switchToBookMode: Boolean = false) {
-        val doc = pdfDocument ?: return
+        val doc = textExtractionDocument ?: return
         if (isExtractingText) return
 
-        scope.launch {
+        val totalPages = pageCount
+        val startPage = currentPage.coerceIn(0, (totalPages - 1).coerceAtLeast(0))
+
+        // Initialize with empty pages and switch mode IMMEDIATELY
+        textPages = List(totalPages) { "" }
+        prefs = prefs.copy(
+            viewMode = if (switchToBookMode) PdfViewMode.TEXT_BOOK else PdfViewMode.TEXT_SCROLL
+        )
+
+        // Extract in background
+        scope.launch(Dispatchers.Default) {
             isExtractingText = true
-            extractionProgress = 0 to pageCount
+            val extractedPages = ArrayList<String>(totalPages)
+            repeat(totalPages) { extractedPages.add("") }
 
             try {
-                // Determine start page based on what user is currently looking at
-                // This ensures "Instant" loading feeling by prioritizing visible pages
-                val startPage = currentPage
+                // Extract current page FIRST for instant feedback
+                if (startPage in extractedPages.indices) {
+                    extractedPages[startPage] = MuPdfUtil.extractPageText(doc, startPage)
+                    withContext(Dispatchers.Main) { textPages = extractedPages.toList() }
+                }
 
-                val pages = MuPdfUtil.extractTextWithPriority(doc, startPage) { current, total, pagesSoFar ->
-                    extractionProgress = current to total
-                    // Update text progressively
-                    if (pagesSoFar.isNotEmpty()) {
-                        textPages = pagesSoFar
+                // Extract radiating outward from current position
+                var extracted = 1
+                val maxRadius = maxOf(startPage, totalPages - startPage - 1)
+
+                for (radius in 1..maxRadius) {
+                    val before = startPage - radius
+                    if (before >= 0) {
+                        extractedPages[before] = MuPdfUtil.extractPageText(doc, before)
+                        extracted++
+                    }
+
+                    val after = startPage + radius
+                    if (after < totalPages) {
+                        extractedPages[after] = MuPdfUtil.extractPageText(doc, after)
+                        extracted++
+                    }
+
+                    // Update UI every 5 pages
+                    if (extracted % 5 == 0) {
+                        withContext(Dispatchers.Main) {
+                            textPages = extractedPages.toList()
+                            extractionProgress = extracted to totalPages
+                        }
+                        kotlinx.coroutines.yield()
                     }
                 }
 
-                textPages = pages
+                // Final update
+                withContext(Dispatchers.Main) {
+                    textPages = extractedPages.toList()
 
-                if (pages.isEmpty() || pages.all { it.isBlank() }) {
-                    withContext(Dispatchers.Main) {
+                    if (extractedPages.all { it.isBlank() }) {
                         Toast.makeText(
                             context,
                             "El PDF no contiene texto extraíble (puede ser escaneado)",
                             Toast.LENGTH_LONG
                         ).show()
+                        prefs = prefs.copy(viewMode = PdfViewMode.PDF_ORIGINAL)
                     }
-                } else {
-                    // Switch to text mode
-                    prefs = prefs.copy(
-                        viewMode = if (switchToBookMode) PdfViewMode.TEXT_BOOK else PdfViewMode.TEXT_SCROLL
-                    )
                 }
             } finally {
-                isExtractingText = false
-                extractionProgress = null
+                withContext(Dispatchers.Main) {
+                    isExtractingText = false
+                    extractionProgress = null
+                }
             }
         }
     }
 
-    // Render page function
+    // Render page function - uses single-threaded dispatcher for native safety
     suspend fun renderPage(pageIndex: Int, width: Int): Bitmap? {
         if (pageIndex < 0 || pageIndex >= pageCount) return null
-
-        // Check cache first
         pageCache[pageIndex]?.let { return it }
-
         val doc = pdfDocument ?: return null
 
-        return withContext(Dispatchers.IO) {
-            MuPdfUtil.renderPage(doc, pageIndex, width)?.also { bitmap ->
-                pageCache[pageIndex] = bitmap
+        return withContext(pdfRenderDispatcher) {
+            try {
+                MuPdfUtil.renderPage(doc, pageIndex, width)?.also { bitmap ->
+                    pageCache[pageIndex] = bitmap
+                }
+            } catch (e: Exception) {
+                logcat { "Error rendering page $pageIndex: ${e.message}" }
+                null
             }
         }
     }

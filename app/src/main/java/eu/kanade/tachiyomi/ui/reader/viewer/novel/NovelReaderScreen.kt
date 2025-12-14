@@ -660,8 +660,8 @@ fun NovelReaderControls(
                 Spacer(modifier = Modifier.size(8.dp))
             }
 
-            // OCR Button - Show when in text mode with images, or when only images are available
-            if (hasImages && showTextMode) {
+            // OCR Button - Show when images are available (user can trigger OCR manually)
+            if (hasImages) {
                 FilledTonalButton(
                     onClick = {
                         onToggleMenu()
