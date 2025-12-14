@@ -4,6 +4,8 @@ import android.app.PendingIntent
 import android.content.Context
 import android.graphics.BitmapFactory
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
+import androidx.core.graphics.drawable.toBitmap
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.model.Download
@@ -28,9 +30,15 @@ internal class DownloadNotifier(private val context: Context) {
 
     private val preferences: SecurityPreferences by injectLazy()
 
+    private val notificationBitmap by lazy {
+        val drawable = ContextCompat.getDrawable(context, R.mipmap.ic_launcher)
+        drawable?.toBitmap(NOTIF_ICON_SIZE, NOTIF_ICON_SIZE)
+            ?: BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
+    }
+
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
-            setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
+            setLargeIcon(notificationBitmap)
             setAutoCancel(false)
             setOnlyAlertOnce(true)
         }
@@ -38,6 +46,7 @@ internal class DownloadNotifier(private val context: Context) {
 
     private val errorNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_ERROR) {
+            setLargeIcon(notificationBitmap)
             setAutoCancel(false)
         }
     }
@@ -228,3 +237,5 @@ internal class DownloadNotifier(private val context: Context) {
         isDownloading = false
     }
 }
+
+private const val NOTIF_ICON_SIZE = 192

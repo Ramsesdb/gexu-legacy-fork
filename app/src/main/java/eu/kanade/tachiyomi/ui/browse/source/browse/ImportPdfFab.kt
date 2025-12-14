@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.browse.source.browse
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
+import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
@@ -13,14 +14,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -29,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -36,8 +43,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.hippo.unifile.UniFile
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -46,7 +54,7 @@ import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
 /**
- * FAB for importing PDFs into LocalSource
+ * FAB for importing PDFs into LocalSource - supports multiple file selection
  */
 @Composable
 fun ImportPdfFab(
@@ -56,20 +64,33 @@ fun ImportPdfFab(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
 
+    // State for multiple files
     var showDialog by remember { mutableStateOf(false) }
-    var selectedPdfUri by remember { mutableStateOf<Uri?>(null) }
-    var selectedPdfName by remember { mutableStateOf("") }
+    var selectedPdfUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var selectedPdfNames by remember { mutableStateOf<List<String>>(emptyList()) }
     var existingNovels by remember { mutableStateOf<List<String>>(emptyList()) }
+
+    // Import progress state
+    var isImporting by remember { mutableStateOf(false) }
+    var importProgress by remember { mutableFloatStateOf(0f) }
+    var importingFileName by remember { mutableStateOf("") }
+
+    // Duplicate handling state
     var showDuplicateDialog by remember { mutableStateOf(false) }
     var duplicateInfo by remember { mutableStateOf<DuplicateInfo?>(null) }
     var pendingNovelName by remember { mutableStateOf("") }
+    var pendingUris by remember { mutableStateOf<List<Uri>>(emptyList()) }
+    var currentDuplicateIndex by remember { mutableStateOf(0) }
+    var applyToAll by remember { mutableStateOf(false) }
+    var globalDuplicateAction by remember { mutableStateOf<DuplicateAction?>(null) }
 
+    // Multiple file picker
     val pdfPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri ->
-        if (uri != null) {
-            selectedPdfUri = uri
-            selectedPdfName = getFileName(context, uri)
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            selectedPdfUris = uris
+            selectedPdfNames = uris.map { getFileName(context, it) }
             existingNovels = getExistingNovels()
             showDialog = true
         }
@@ -82,55 +103,204 @@ fun ImportPdfFab(
     ) {
         Icon(
             imageVector = Icons.Default.Add,
-            contentDescription = "Importar PDF",
+            contentDescription = "Importar PDFs",
         )
     }
 
-    if (showDialog && selectedPdfUri != null) {
-        ImportPdfDialog(
-            pdfName = selectedPdfName,
+    // Main import dialog
+    if (showDialog && selectedPdfUris.isNotEmpty()) {
+        ImportMultiplePdfDialog(
+            fileCount = selectedPdfUris.size,
+            fileNames = selectedPdfNames,
             existingNovels = existingNovels,
             onDismiss = {
                 showDialog = false
-                selectedPdfUri = null
+                selectedPdfUris = emptyList()
+                selectedPdfNames = emptyList()
             },
             onConfirm = { novelName ->
+                showDialog = false
+                pendingNovelName = novelName
+                pendingUris = selectedPdfUris
+                currentDuplicateIndex = 0
+                applyToAll = false
+                globalDuplicateAction = null
+
+                // Start importing
                 scope.launch {
-                    val duplicate = checkForDuplicate(novelName, selectedPdfName)
-                    if (duplicate != null) {
-                        pendingNovelName = novelName
-                        duplicateInfo = duplicate
-                        showDialog = false
-                        showDuplicateDialog = true
-                    } else {
-                        importPdf(context, selectedPdfUri!!, novelName, DuplicateAction.CREATE_COPY)
-                        showDialog = false
-                        selectedPdfUri = null
-                        onImportComplete()
+                    isImporting = true
+                    importProgress = 0f
+
+                    val totalFiles = pendingUris.size
+                    var importedCount = 0
+                    var skippedCount = 0
+
+                    for ((index, uri) in pendingUris.withIndex()) {
+                        val fileName = getFileName(context, uri)
+                        importingFileName = fileName
+                        importProgress = index.toFloat() / totalFiles
+
+                        // Check for duplicate
+                        val duplicate = checkForDuplicate(novelName, fileName)
+
+                        val action = if (duplicate != null) {
+                            if (globalDuplicateAction != null) {
+                                globalDuplicateAction!!
+                            } else {
+                                // Show duplicate dialog and wait for user response
+                                currentDuplicateIndex = index
+                                duplicateInfo = duplicate
+                                showDuplicateDialog = true
+
+                                // Wait for user to make a choice (this will be handled by callback)
+                                // For now, skip and let the dialog handle it
+                                continue
+                            }
+                        } else {
+                            DuplicateAction.CREATE_COPY
+                        }
+
+                        if (action != DuplicateAction.SKIP) {
+                            importPdf(context, uri, novelName, action)
+                            importedCount++
+                        } else {
+                            skippedCount++
+                        }
                     }
+
+                    importProgress = 1f
+                    isImporting = false
+                    importingFileName = ""
+                    selectedPdfUris = emptyList()
+                    selectedPdfNames = emptyList()
+
+                    // Show completion toast
+                    withContext(Dispatchers.Main) {
+                        val message = when {
+                            skippedCount > 0 -> "$importedCount archivos importados, $skippedCount omitidos"
+                            importedCount == 1 -> "Archivo importado correctamente"
+                            else -> "$importedCount archivos importados"
+                        }
+                        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+                    }
+
+                    onImportComplete()
                 }
             }
         )
     }
 
+    // Import progress dialog
+    if (isImporting) {
+        AlertDialog(
+            onDismissRequest = { /* Cannot dismiss while importing */ },
+            icon = {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(48.dp),
+                    color = MaterialTheme.colorScheme.primary
+                )
+            },
+            title = { Text("Importando archivos...") },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = importingFileName,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    LinearProgressIndicator(
+                        progress = { importProgress },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        text = "${(importProgress * 100).toInt()}%",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            },
+            confirmButton = {}
+        )
+    }
+
+    // Duplicate handling dialog (for batch imports)
     if (showDuplicateDialog && duplicateInfo != null) {
-        DuplicateFileDialog(
+        BatchDuplicateFileDialog(
             fileName = duplicateInfo!!.fileName,
             novelName = duplicateInfo!!.novelName,
+            remainingFiles = pendingUris.size - currentDuplicateIndex,
             onDismiss = {
                 showDuplicateDialog = false
                 duplicateInfo = null
-                selectedPdfUri = null
-            },
-            onAction = { action ->
+                // Skip this file and continue with the rest
                 scope.launch {
+                    continueImportAfterDuplicate(
+                        context = context,
+                        novelName = pendingNovelName,
+                        uris = pendingUris,
+                        startIndex = currentDuplicateIndex + 1,
+                        action = DuplicateAction.SKIP,
+                        applyToAll = false,
+                        onProgress = { progress, fileName ->
+                            importProgress = progress
+                            importingFileName = fileName
+                        },
+                        onComplete = { imported, skipped ->
+                            isImporting = false
+                            selectedPdfUris = emptyList()
+                            Toast.makeText(
+                                context,
+                                "$imported importados, $skipped omitidos",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            onImportComplete()
+                        }
+                    )
+                }
+            },
+            onAction = { action, applyAll ->
+                showDuplicateDialog = false
+                duplicateInfo = null
+
+                if (applyAll) {
+                    globalDuplicateAction = action
+                }
+
+                scope.launch {
+                    // First, handle the current file
                     if (action != DuplicateAction.SKIP) {
-                        importPdf(context, selectedPdfUri!!, pendingNovelName, action)
+                        val currentUri = pendingUris[currentDuplicateIndex]
+                        importPdf(context, currentUri, pendingNovelName, action)
                     }
-                    showDuplicateDialog = false
-                    duplicateInfo = null
-                    selectedPdfUri = null
-                    onImportComplete()
+
+                    // Then continue with the rest
+                    continueImportAfterDuplicate(
+                        context = context,
+                        novelName = pendingNovelName,
+                        uris = pendingUris,
+                        startIndex = currentDuplicateIndex + 1,
+                        action = if (applyAll) action else null,
+                        applyToAll = applyAll,
+                        onProgress = { progress, fileName ->
+                            importProgress = progress
+                            importingFileName = fileName
+                        },
+                        onComplete = { imported, skipped ->
+                            isImporting = false
+                            selectedPdfUris = emptyList()
+                            val msg = if (skipped > 0) {
+                                "$imported importados, $skipped omitidos"
+                            } else {
+                                "$imported archivos importados"
+                            }
+                            Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            onImportComplete()
+                        }
+                    )
                 }
             }
         )
@@ -138,37 +308,97 @@ fun ImportPdfFab(
 }
 
 @Composable
-private fun ImportPdfDialog(
-    pdfName: String,
+private fun ImportMultiplePdfDialog(
+    fileCount: Int,
+    fileNames: List<String>,
     existingNovels: List<String>,
     onDismiss: () -> Unit,
     onConfirm: (String) -> Unit,
 ) {
     var selectedOption by remember { mutableStateOf<ImportOption>(ImportOption.NewNovel) }
-    var newNovelName by remember { mutableStateOf(pdfName.removeSuffix(".pdf").removeSuffix(".PDF")) }
+    // For new novel, suggest name from first file or common prefix
+    val suggestedName = remember(fileNames) {
+        if (fileNames.size == 1) {
+            fileNames.first().removeSuffix(".pdf").removeSuffix(".PDF")
+        } else {
+            // Try to find common prefix
+            val commonPrefix = findCommonPrefix(fileNames.map {
+                it.removeSuffix(".pdf").removeSuffix(".PDF")
+            })
+            if (commonPrefix.length > 3) commonPrefix.trimEnd('_', '-', ' ') else "Nueva Novela"
+        }
+    }
+    var newNovelName by remember { mutableStateOf(suggestedName) }
     var selectedExistingNovel by remember { mutableStateOf(existingNovels.firstOrNull() ?: "") }
+    var showFileList by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
             Icon(
-                imageVector = Icons.Default.Description,
+                imageVector = if (fileCount > 1) Icons.Default.Folder else Icons.Default.Description,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
         },
-        title = { Text("Importar PDF") },
+        title = {
+            Text(
+                if (fileCount == 1) "Importar PDF"
+                else "Importar $fileCount PDFs"
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Archivo: $pdfName",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // File summary
+                if (fileCount == 1) {
+                    Text(
+                        text = "Archivo: ${fileNames.first()}",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text(
+                            text = "$fileCount archivos seleccionados",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { showFileList = !showFileList }) {
+                            Text(if (showFileList) "Ocultar" else "Ver lista")
+                        }
+                    }
+
+                    // Expandable file list
+                    if (showFileList) {
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .padding(start = 8.dp)
+                        ) {
+                            items(fileNames) { name ->
+                                Text(
+                                    text = "• $name",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    modifier = Modifier.padding(vertical = 2.dp)
+                                )
+                            }
+                        }
+                    }
+                }
 
                 Spacer(modifier = Modifier.height(8.dp))
 
@@ -252,7 +482,7 @@ private fun ImportPdfDialog(
                     }
                 }
             ) {
-                Text("Importar")
+                Text(if (fileCount == 1) "Importar" else "Importar todo")
             }
         },
         dismissButton = {
@@ -280,12 +510,15 @@ private data class DuplicateInfo(
 )
 
 @Composable
-private fun DuplicateFileDialog(
+private fun BatchDuplicateFileDialog(
     fileName: String,
     novelName: String,
+    remainingFiles: Int,
     onDismiss: () -> Unit,
-    onAction: (DuplicateAction) -> Unit,
+    onAction: (DuplicateAction, Boolean) -> Unit,
 ) {
+    var applyToAll by remember { mutableStateOf(false) }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         icon = {
@@ -303,26 +536,45 @@ private fun DuplicateFileDialog(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "El archivo \"$fileName\" ya existe en la novela \"$novelName\".",
+                    text = "El archivo \"$fileName\" ya existe en \"$novelName\".",
                     style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     text = "¿Qué deseas hacer?",
                     style = MaterialTheme.typography.bodyMedium
                 )
+
+                // Apply to all checkbox (only show if there are more files)
+                if (remainingFiles > 1) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = applyToAll,
+                            onCheckedChange = { applyToAll = it }
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Aplicar a todos los duplicados restantes",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAction(DuplicateAction.REPLACE) }) {
-                Text("Reemplazar")
+            TextButton(onClick = { onAction(DuplicateAction.REPLACE, applyToAll) }) {
+                Text("Reemplazar", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { onAction(DuplicateAction.SKIP) }) {
+                TextButton(onClick = { onAction(DuplicateAction.SKIP, applyToAll) }) {
                     Text("Saltar")
                 }
-                TextButton(onClick = { onAction(DuplicateAction.CREATE_COPY) }) {
+                TextButton(onClick = { onAction(DuplicateAction.CREATE_COPY, applyToAll) }) {
                     Text("Crear copia")
                 }
             }
@@ -407,3 +659,73 @@ private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String, 
     }
 }
 
+private suspend fun continueImportAfterDuplicate(
+    context: Context,
+    novelName: String,
+    uris: List<Uri>,
+    startIndex: Int,
+    action: DuplicateAction?,
+    applyToAll: Boolean,
+    onProgress: (Float, String) -> Unit,
+    onComplete: (imported: Int, skipped: Int) -> Unit,
+) {
+    withContext(Dispatchers.IO) {
+        var imported = 0
+        var skipped = 0
+        val total = uris.size
+
+        for (i in startIndex until uris.size) {
+            val uri = uris[i]
+            val fileName = getFileName(context, uri)
+
+            withContext(Dispatchers.Main) {
+                onProgress(i.toFloat() / total, fileName)
+            }
+
+            val duplicate = checkForDuplicate(novelName, fileName)
+
+            val fileAction = if (duplicate != null && applyToAll && action != null) {
+                action
+            } else if (duplicate != null) {
+                // If not apply to all but there's a duplicate, create copy by default
+                DuplicateAction.CREATE_COPY
+            } else {
+                DuplicateAction.CREATE_COPY
+            }
+
+            if (fileAction != DuplicateAction.SKIP) {
+                importPdf(context, uri, novelName, fileAction)
+                imported++
+            } else {
+                skipped++
+            }
+        }
+
+        withContext(Dispatchers.Main) {
+            onProgress(1f, "")
+            onComplete(imported, skipped)
+        }
+    }
+}
+
+/**
+ * Find common prefix among a list of strings
+ */
+private fun findCommonPrefix(strings: List<String>): String {
+    if (strings.isEmpty()) return ""
+    if (strings.size == 1) return strings.first()
+
+    val first = strings.first()
+    var prefixLength = 0
+
+    for (i in first.indices) {
+        val char = first[i]
+        if (strings.all { it.length > i && it[i] == char }) {
+            prefixLength = i + 1
+        } else {
+            break
+        }
+    }
+
+    return first.substring(0, prefixLength)
+}

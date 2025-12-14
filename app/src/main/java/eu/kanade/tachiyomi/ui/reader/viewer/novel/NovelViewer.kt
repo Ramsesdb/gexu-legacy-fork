@@ -264,16 +264,16 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     var isFirstBatch = true
                     val processedIndices = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
-                    // DYNAMIC OCR LOOP
+                    // DYNAMIC OCR LOOP - OPTIMIZED
                     while (isActive && processedCount < total) {
                         // 1. Determine next best page based on WHERE THE USER IS NOW
                         val center = lastUserVisiblePage.value
 
                         // Priority Ranges:
-                        // A: Center -> Center + 5
-                        // B: Center - 1 -> Center - 3
-                        // C: Center + 6 -> End
-                        // D: Center - 4 -> Start
+                        // A: Immediate View: Center -> Center + 2
+                        // B: Preload Forward: Center + 3 -> Center + 10
+                        // C: Preload Backward: Center - 1 -> Center - 5
+                        // D: Rest of book (Slower)
 
                         var nextIndex = -1
 
@@ -285,23 +285,35 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             return null
                         }
 
-                        // Search in order of priority
-                        nextIndex = findUnprocessed(center..minOf(center + 5, total - 1))
-                            ?: findUnprocessed((center - 1) downTo maxOf(0, center - 3))
-                            ?: findUnprocessed((center + 6) until total)
-                            ?: findUnprocessed((center - 4) downTo 0)
-                            ?: -1
+                        // Search in strict priority order
+                        val pA = findUnprocessed(center..minOf(center + 2, total - 1))
+                        val pB = findUnprocessed((center + 3)..minOf(center + 10, total - 1))
+                        val pC = findUnprocessed((center - 1) downTo maxOf(0, center - 5))
 
-                        if (nextIndex == -1) break // Should not happen loop condition check, but safe break
+                        nextIndex = pA ?: pB ?: pC ?: -1
+
+                        // If nothing immediate, check distant pages but throttling
+                        if (nextIndex == -1) {
+                             val pD = findUnprocessed((center + 11) until total)
+                             val pE = findUnprocessed((center - 6) downTo 0)
+                             nextIndex = pD ?: pE ?: -1
+                        }
+
+                        if (nextIndex == -1) break
 
                         // Mark as processed immediately so we don't pick it again
                         processedIndices.add(nextIndex)
                         val index = nextIndex
 
+                        // Throttle heuristic:
+                        // If the page is "far" (priority D), sleep a bit to save resources
+                        val isFar = index > (center + 10) || index < (center - 5)
+                         if (isFar) {
+                            delay(150) // Slow down for distant pages
+                        }
+
                         // 2. Process the selected index
                         val imgUrl = currentImages[index]
-
-                        // logcat { "OCR: Dynamic processing page ${index + 1} (Users at $center)" }
 
                         val bitmap: android.graphics.Bitmap? = if (isPdfMode && ocrPdfDoc != null) {
                             val pageIndex = imgUrl.removePrefix("pdf://").toInt()
@@ -309,19 +321,27 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         } else if (imgUrl.startsWith("pdf://")) {
                              renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
                         } else {
-                             val request = ImageRequest.Builder(activity)
-                                .data(imgUrl)
-                                .memoryCachePolicy(CachePolicy.ENABLED)
-                                .build()
-                            val result = imageLoader.execute(request)
-                            var bmp = (result.image as? coil3.BitmapImage)?.bitmap
-                            if (bmp != null && bmp.config == android.graphics.Bitmap.Config.HARDWARE) {
-                                bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
-                            }
-                            bmp
+                             // Use standard image loader but check active state before heavy invalidation
+                             if (!isActive) break
+                             try {
+                                 val request = ImageRequest.Builder(activity)
+                                    .data(imgUrl)
+                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                    // Resize to avoid OOM on huge images for OCR
+                                    .size(1080, 1920) // Limit size for OCR efficiency
+                                    .build()
+                                val result = imageLoader.execute(request)
+                                var bmp = (result.image as? coil3.BitmapImage)?.bitmap
+                                if (bmp != null && bmp.config == android.graphics.Bitmap.Config.HARDWARE) {
+                                    bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                }
+                                bmp
+                             } catch(e: Exception) {
+                                 null
+                             }
                         }
 
-                        // Yield for UI
+                        // Yield for UI responsiveness often
                         yield()
 
                         if (bitmap != null) {
@@ -334,26 +354,29 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 pageResults[index] = extracted
                                 processedCount++
 
-                                withContext(Dispatchers.Main) {
-                                    // Update content list efficiently
-                                    val currentList = (0 until total).map { pageResults[it] ?: "" }
-                                    content.value = currentList
-                                    ocrProgress.value = processedCount to total
+                                // Update UI in batches or immediately if it's the current page
+                                val isPriority = index in (center - 2)..(center + 5)
+                                if (isPriority || processedCount % 5 == 0) {
+                                    withContext(Dispatchers.Main) {
+                                        // Update content list efficiently
+                                        val currentList = (0 until total).map { pageResults[it] ?: "" }
+                                        content.value = currentList
+                                        ocrProgress.value = processedCount to total
 
-                                    // Initial Jump logic (only if we are still on the very first batch of actions)
-                                    // With dynamic loop, the first processed IS the priorityStart (since lastUserVisiblePage was set)
-                                    if (isFirstBatch && index == center && extracted.isNotEmpty()) {
-                                        isFirstBatch = false
-                                        // Force update to correct page
-                                        updateOcrPageCounter(1, total, updatePosition = false)
-
-                                        if (virtualPages.isNotEmpty()) {
-                                             val target = center.coerceIn(0, virtualPages.lastIndex)
-                                             moveToPage(virtualPages[target])
+                                        // Initial Jump logic
+                                        if (isFirstBatch && index == center && extracted.isNotEmpty()) {
+                                            isFirstBatch = false
+                                            updateOcrPageCounter(1, total, updatePosition = false)
+                                            if (virtualPages.isNotEmpty()) {
+                                                 val target = center.coerceIn(0, virtualPages.lastIndex)
+                                                 moveToPage(virtualPages[target])
+                                            }
+                                        } else {
+                                             updateOcrPageCounter(1, total, updatePosition = false)
                                         }
-                                    } else {
-                                         updateOcrPageCounter(1, total, updatePosition = false)
                                     }
+                                    // Yield again after UI update
+                                    yield()
                                 }
                             } catch (e: Exception) {
                                 logcat(LogPriority.ERROR) { "OCR: Error page $index: ${e.message}" }
@@ -363,6 +386,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                              pageResults[index] = ""
                         }
                     }
+
                 } finally {
                     if (ocrPdfDoc != null) {
                          eu.kanade.tachiyomi.util.MuPdfUtil.closeDocument(ocrPdfDoc)
@@ -525,8 +549,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                 if (foundImages) {
                     // Extension provided images - we're done!
-                    // User can then use OCR to extract text if needed
+                    // DEFAULT TO WEBTOON MODE (Images) instead of forcing text
                     logcat { "NovelViewer: Extension provided ${images.value.size} images" }
+                    withContext(Dispatchers.Main) {
+                        showTextMode.value = false
+                        isLoading.value = false
+                    }
                     return@launch
                 }
 
