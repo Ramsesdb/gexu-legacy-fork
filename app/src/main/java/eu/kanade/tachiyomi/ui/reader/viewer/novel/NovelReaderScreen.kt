@@ -1,53 +1,77 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.novel
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.PagerDefaults
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import logcat.logcat
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import logcat.logcat
+import kotlin.math.absoluteValue
+
+// Reading direction for novel reader
+enum class ReadingDirection {
+    VERTICAL,  // LazyColumn scroll
+    BOOK       // HorizontalPager (book-style page swipe)
+}
 
 @Composable
 fun NovelReaderScreen(
@@ -64,7 +88,8 @@ fun NovelReaderScreen(
     hasExtractedText: Boolean = false,
     hasOriginalImages: Boolean = false,
     isPdfMode: Boolean = false,
-    targetPageIndex: Int? = null,
+    initialPage: Int = 0, // Saved position - start here directly
+    targetPageIndex: Int? = null, // For slider/manual navigation
     onTargetPageConsumed: () -> Unit = {},
     onOffsetChanged: (Long) -> Unit,
     onPrefsChanged: (NovelPrefs) -> Unit,
@@ -75,26 +100,110 @@ fun NovelReaderScreen(
     onToggleMenu: () -> Unit,
     onPageChanged: (Int) -> Unit,
 ) {
-    val listState = rememberLazyListState()
+    // Calculate total items
+    val totalItems = if (showTextMode) {
+        textPages.size + (images.size - textPages.size).coerceAtLeast(0)
+    } else {
+        images.size.coerceAtLeast(1)
+    }
 
-    // Handle navigation from slider
-    LaunchedEffect(targetPageIndex) {
-        if (targetPageIndex != null && targetPageIndex >= 0) {
-            listState.scrollToItem(targetPageIndex)
+    // Standard state management
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPage)
+    val pagerState = rememberPagerState(
+        initialPage = initialPage,
+        pageCount = { totalItems.coerceAtLeast(1) }
+    )
+
+    // Track if we've done the initial navigation
+    var hasNavigated by remember { mutableStateOf(false) }
+
+    // Initial Scroll Logic for Async Content (e.g. Network Images)
+    // LazyList/Pager init params fail if content isn't loaded yet (totalItems=0).
+    // This watches for content load and forces the jump to saved position.
+    LaunchedEffect(totalItems, initialPage) {
+        if (totalItems > initialPage && initialPage > 0 && !hasNavigated) {
+            logcat { "NovelReaderScreen: Async content loaded ($totalItems items), jumping to saved page $initialPage" }
+            if (prefs.readingDirection == ReadingDirection.BOOK) {
+                pagerState.scrollToPage(initialPage)
+            } else {
+                listState.scrollToItem(initialPage)
+            }
+            hasNavigated = true
+        }
+    }
+
+    // Handle ALL navigation via targetPageIndex (initial position + slider)
+    LaunchedEffect(targetPageIndex, totalItems) {
+        if (targetPageIndex != null && targetPageIndex >= 0 && totalItems > 1) {
+            val safeTarget = targetPageIndex.coerceIn(0, totalItems - 1)
+
+            // Only force scroll if we haven't navigated yet OR if it's a new target
+            if (!hasNavigated || (
+                (prefs.readingDirection == ReadingDirection.VERTICAL && listState.firstVisibleItemIndex != safeTarget) ||
+                (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
+            )) {
+                if (prefs.readingDirection == ReadingDirection.BOOK) {
+                    pagerState.scrollToPage(safeTarget)
+                } else {
+                    listState.scrollToItem(safeTarget)
+                }
+                hasNavigated = true
+            }
             onTargetPageConsumed()
         }
     }
 
-    // Notify parent of current page changes with debounce/throttling
-    // snapshotFlow emits only when the value changes (distinctUntilChanged is implicit)
-    LaunchedEffect(listState) {
-        snapshotFlow { listState.firstVisibleItemIndex }
-            .collect { index ->
-                // Basic throttling validation
-                if (index >= 0) {
-                     onPageChanged(index)
+    // Notify parent of current page changes
+    // Only start tracking after we have content and have navigated to initial position
+    val shouldTrackPages = totalItems > 1 && hasNavigated
+
+    LaunchedEffect(listState, prefs.readingDirection, shouldTrackPages) {
+        if (prefs.readingDirection == ReadingDirection.VERTICAL && shouldTrackPages) {
+            snapshotFlow { listState.firstVisibleItemIndex }
+                .collect { index ->
+                    if (index >= 0) {
+                        onPageChanged(index)
+                    }
+                }
+        }
+    }
+
+    // Track page in book mode
+    LaunchedEffect(pagerState, prefs.readingDirection, shouldTrackPages) {
+        if (prefs.readingDirection == ReadingDirection.BOOK && shouldTrackPages) {
+            snapshotFlow { pagerState.currentPage }
+                .collect { page ->
+                    onPageChanged(page)
+                }
+        }
+    }
+
+    // Track the previous reading direction to detect changes
+    var previousDirection by remember { mutableStateOf(prefs.readingDirection) }
+
+    // Sync position when switching reading directions
+    LaunchedEffect(prefs.readingDirection) {
+        if (prefs.readingDirection != previousDirection && hasNavigated) {
+            val currentPage = when (previousDirection) {
+                ReadingDirection.VERTICAL -> listState.firstVisibleItemIndex
+                ReadingDirection.BOOK -> pagerState.currentPage
+            }
+
+            // Apply to the new mode
+            when (prefs.readingDirection) {
+                ReadingDirection.VERTICAL -> {
+                    if (currentPage >= 0 && currentPage < totalItems) {
+                        listState.scrollToItem(currentPage)
+                    }
+                }
+                ReadingDirection.BOOK -> {
+                    if (currentPage >= 0 && currentPage < totalItems) {
+                        pagerState.scrollToPage(currentPage)
+                    }
                 }
             }
+            previousDirection = prefs.readingDirection
+        }
     }
 
     Surface(
@@ -121,7 +230,7 @@ fun NovelReaderScreen(
                                 text = loadingMessage,
                                 color = prefs.theme.textColor(),
                                 style = MaterialTheme.typography.bodyMedium,
-                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                textAlign = TextAlign.Center
                             )
                         }
                     }
@@ -154,95 +263,254 @@ fun NovelReaderScreen(
                     )
                 }
             } else {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .pointerInput(Unit) {
-                            detectTapGestures(onTap = {
-                                onToggleMenu()
-                            })
-                        }
-                        .padding(horizontal = 16.dp),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
-                ) {
-                    // 1. Show extracted text first
-                    if (textPages.isNotEmpty()) {
-                        items(textPages) { pageText ->
-                            Text(
-                                text = pageText,
-                                style = TextStyle(
-                                    fontSize = prefs.fontSizeSp.sp,
-                                    lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
-                                    color = prefs.theme.textColor()
-                                ),
-                                modifier = Modifier.padding(bottom = 24.dp)
-                            )
-                        }
-                    }
+                // Main content based on reading direction
+                when (prefs.readingDirection) {
+                    ReadingDirection.VERTICAL -> {
+                        // Vertical scroll (LazyColumn)
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(onTap = {
+                                        onToggleMenu()
+                                    })
+                                }
+                                .padding(horizontal = 16.dp),
+                            contentPadding = PaddingValues(vertical = 12.dp)
+                        ) {
+                            // Unified Hybrid Rendering (Index by Index)
+                            val totalCount = maxOf(textPages.size, images.size).coerceAtLeast(1)
 
-                    // 2. Show remaining images (those that haven't been processed yet)
-                    // This creates the effect of replacing images with text as OCR progresses
-                    val processedCount = textPages.size
-                    if (images.size > processedCount) {
-                        val remainingImages = images.subList(processedCount, images.size)
-                        items(remainingImages) { imageUrl ->
-                            if (imageUrl.startsWith("pdf://")) {
-                                val pageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
-                                PdfPageItem(
-                                    pageIndex = pageIndex,
-                                    renderer = onRenderPage,
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
-                                )
-                            } else {
-                                AsyncImage(
-                                    model = imageUrl,
-                                    contentDescription = null,
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                    contentScale = ContentScale.FillWidth
-                                )
+                            items(totalCount) { index ->
+                                val pageContent = textPages.getOrNull(index) ?: ""
+                                val hasText = showTextMode && pageContent.isNotBlank()
+
+                                if (hasText) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 24.dp)
+                                    ) {
+                                        // Page number divider
+                                        Text(
+                                            text = "— ${index + 1} —",
+                                            color = prefs.theme.textColor().copy(alpha = 0.4f),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 8.dp),
+                                            textAlign = TextAlign.Center
+                                        )
+
+                                        // Text content
+                                        Text(
+                                            text = pageContent,
+                                            style = TextStyle(
+                                                fontSize = prefs.fontSizeSp.sp,
+                                                lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
+                                                color = prefs.theme.textColor()
+                                            ),
+                                            textAlign = TextAlign.Justify
+                                        )
+                                    }
+                                } else if (index < images.size) {
+                                    // Fallback to Image
+                                    val imageUrl = images[index]
+                                    if (imageUrl.startsWith("pdf://")) {
+                                        val pageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
+                                        PdfPageItem(
+                                            pageIndex = pageIndex,
+                                            renderer = onRenderPage,
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+                                        )
+                                    } else {
+                                        AsyncImage(
+                                            model = imageUrl,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                                            contentScale = ContentScale.FillWidth
+                                        )
+                                    }
+                                } else {
+                                    // Loading / Placeholder
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .height(200.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        CircularProgressIndicator(
+                                            color = prefs.theme.textColor(),
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            item {
+                                Spacer(modifier = Modifier.padding(120.dp))
+                            }
+
+                            // Progress bar at bottom content when OCR is running
+                            if (ocrProgress != null && textPages.isNotEmpty()) {
+                                item {
+                                    Surface(
+                                        modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                        color = prefs.theme.backgroundColor(),
+                                        shape = RoundedCornerShape(8.dp),
+                                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                                    ) {
+                                        Column(
+                                            modifier = Modifier.padding(16.dp),
+                                            horizontalAlignment = Alignment.CenterHorizontally
+                                        ) {
+                                            LinearProgressIndicator(
+                                                progress = { ocrProgress.first.toFloat() / ocrProgress.second.toFloat() },
+                                                modifier = Modifier.fillMaxWidth(),
+                                                color = MaterialTheme.colorScheme.primary,
+                                                trackColor = MaterialTheme.colorScheme.surfaceVariant
+                                            )
+                                            Text(
+                                                text = "Extrayendo texto: ${ocrProgress.first} de ${ocrProgress.second}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = prefs.theme.textColor().copy(alpha = 0.7f),
+                                                modifier = Modifier.padding(top = 8.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            // Extra spacer at bottom for main menu
+                            item {
+                                Spacer(modifier = Modifier.padding(bottom = 120.dp))
                             }
                         }
-                        item {
-                             Spacer(modifier = Modifier.padding(16.dp))
-                        }
                     }
 
-                    // Progress bar at bottom content when OCR is running
-                    if (ocrProgress != null && textPages.isNotEmpty()) {
-                        item {
-                            Surface(
-                                modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                                color = prefs.theme.backgroundColor(),
-                                shape = RoundedCornerShape(8.dp),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                    ReadingDirection.BOOK -> {
+                        // Book mode (HorizontalPager - swipe pages like a book)
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .pointerInput(Unit) {
+                                    detectTapGestures(onTap = { onToggleMenu() })
+                                },
+                            flingBehavior = PagerDefaults.flingBehavior(
+                                state = pagerState,
+                                snapAnimationSpec = tween(durationMillis = 300)
+                            ),
+                            pageSpacing = 0.dp
+                        ) { pageIndex ->
+                            // Page flip effect
+                            val pageOffset = (pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction
+
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .graphicsLayer {
+                                        // Book page flip effect
+                                        val scale = 1f - (pageOffset.absoluteValue * 0.05f).coerceIn(0f, 0.05f)
+                                        scaleX = scale
+                                        scaleY = scale
+
+                                        // 3D rotation for page flip feel
+                                        rotationY = pageOffset * -15f
+                                        cameraDistance = 12f * density
+
+                                        alpha = 1f - (pageOffset.absoluteValue * 0.2f).coerceIn(0f, 0.2f)
+                                    }
+                                    .background(prefs.theme.backgroundColor())
+                                    .padding(horizontal = 16.dp, vertical = 12.dp)
                             ) {
-                                Column(
-                                    modifier = Modifier.padding(16.dp),
-                                    horizontalAlignment = Alignment.CenterHorizontally
-                                ) {
-                                    androidx.compose.material3.LinearProgressIndicator(
-                                        progress = { ocrProgress.first.toFloat() / ocrProgress.second.toFloat() },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        color = MaterialTheme.colorScheme.primary,
-                                        trackColor = MaterialTheme.colorScheme.surfaceVariant
-                                    )
-                                    Text(
-                                        text = "Extrayendo texto: ${ocrProgress.first} de ${ocrProgress.second}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = prefs.theme.textColor().copy(alpha = 0.7f),
-                                        modifier = Modifier.padding(top = 8.dp)
-                                    )
+                                // Determine what to show at this index
+                                // Fix: Check if text is actually available for THIS page. If empty, show image fallback.
+                                val pageContent = if (pageIndex < textPages.size) textPages[pageIndex] else ""
+                                val isTextPage = showTextMode && pageContent.isNotBlank()
+
+                                // Image index corresponds 1:1 to page index usually
+                                val imageIndex = pageIndex
+
+                                if (isTextPage) {
+                                    // Show text page
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .verticalScroll(rememberScrollState())
+                                    ) {
+                                        // Page number at top
+                                        Text(
+                                            text = "${pageIndex + 1}",
+                                            color = prefs.theme.textColor().copy(alpha = 0.3f),
+                                            style = MaterialTheme.typography.labelSmall,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(bottom = 12.dp),
+                                            textAlign = TextAlign.Center
+                                        )
+
+                                        Text(
+                                            text = textPages[pageIndex],
+                                            style = TextStyle(
+                                                fontSize = prefs.fontSizeSp.sp,
+                                                lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
+                                                color = prefs.theme.textColor(),
+                                                textAlign = TextAlign.Justify
+                                            ),
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                } else if (imageIndex >= 0 && imageIndex < images.size) {
+                                    // Show image
+                                    val imageUrl = images[imageIndex]
+                                    if (imageUrl.startsWith("pdf://")) {
+                                        val pdfPageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
+                                        PdfPageItem(
+                                            pageIndex = pdfPageIndex,
+                                            renderer = onRenderPage,
+                                            modifier = Modifier.fillMaxSize()
+                                        )
+                                    } else {
+                                        AsyncImage(
+                                            model = imageUrl,
+                                            contentDescription = null,
+                                            modifier = Modifier.fillMaxSize(),
+                                            contentScale = ContentScale.Fit
+                                        )
+                                    }
+                                } else {
+                                    // Empty or loading
+                                    Box(
+                                        modifier = Modifier.fillMaxSize(),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (ocrProgress != null) {
+                                            Column(
+                                                horizontalAlignment = Alignment.CenterHorizontally
+                                            ) {
+                                                CircularProgressIndicator(
+                                                    color = prefs.theme.textColor(),
+                                                    modifier = Modifier.size(32.dp),
+                                                    strokeWidth = 2.dp
+                                                )
+                                                Spacer(modifier = Modifier.size(12.dp))
+                                                Text(
+                                                    text = "${ocrProgress.first}/${ocrProgress.second}",
+                                                    color = prefs.theme.textColor().copy(alpha = 0.7f),
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
-
-                    // Extra spacer at bottom for main menu
-                    item {
-                        Spacer(modifier = Modifier.padding(bottom = 120.dp))
-                    }
                 }
+
+                // Note: Page counter is shown in ReaderActivity menubar, no need to duplicate here
             }
 
             AnimatedVisibility(
@@ -286,7 +554,7 @@ fun NovelReaderControls(
 
     Surface(
         modifier = Modifier
-            .width(260.dp)
+            .width(280.dp)
             .padding(top = 70.dp, bottom = 90.dp),
         shape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
@@ -305,11 +573,72 @@ fun NovelReaderControls(
                 modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
             )
 
+            // Reading Direction Toggle
+            Text(
+                "Dirección de Lectura",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 6.dp, start = 4.dp)
+            )
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                // Vertical button
+                FilledTonalButton(
+                    onClick = { onPrefsChanged(prefs.copy(readingDirection = ReadingDirection.VERTICAL)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = if (prefs.readingDirection == ReadingDirection.VERTICAL) {
+                        androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        androidx.compose.material3.ButtonDefaults.filledTonalButtonColors()
+                    }
+                ) {
+                    Icon(
+                        Icons.Default.SwapVert,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Scroll", style = MaterialTheme.typography.labelSmall)
+                }
+
+                // Book button
+                FilledTonalButton(
+                    onClick = { onPrefsChanged(prefs.copy(readingDirection = ReadingDirection.BOOK)) },
+                    modifier = Modifier.weight(1f),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = if (prefs.readingDirection == ReadingDirection.BOOK) {
+                        androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        androidx.compose.material3.ButtonDefaults.filledTonalButtonColors()
+                    }
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Libro", style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            Spacer(modifier = Modifier.size(12.dp))
+
             // Toggle Text/Image mode - Show when we have original images
             // For PDFs: show toggle even without extracted text (can toggle between PDF pages and text view)
             // For OCR images: show toggle when we have both text and images
             if (hasOriginalImages && (hasExtractedText || isPdfMode)) {
-                androidx.compose.material3.FilledTonalButton(
+                FilledTonalButton(
                     onClick = {
                         onToggleTextMode()
                     },
@@ -333,7 +662,7 @@ fun NovelReaderControls(
 
             // OCR Button - Show when in text mode with images, or when only images are available
             if (hasImages && showTextMode) {
-                androidx.compose.material3.FilledTonalButton(
+                FilledTonalButton(
                     onClick = {
                         onToggleMenu()
                         onExtractOcr()
@@ -366,7 +695,7 @@ fun NovelReaderControls(
                     Text("A", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("A", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                androidx.compose.material3.Slider(
+                Slider(
                     value = prefs.fontSizeSp.toFloat(),
                     onValueChange = { onPrefsChanged(prefs.copy(fontSizeSp = it.toInt())) },
                     valueRange = 12f..36f,
@@ -460,9 +789,9 @@ private fun MiniThemeChip(
         shape = RoundedCornerShape(8.dp),
         color = bgColor,
         border = if (isSelected) {
-            androidx.compose.foundation.BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+            BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
         } else {
-            androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+            BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         },
         modifier = modifier
     ) {
@@ -514,6 +843,7 @@ data class NovelPrefs(
     val fontSizeSp: Int = 18,
     val lineHeightEm: Float = 1.4f,
     val theme: NovelTheme = NovelTheme.SYSTEM,
+    val readingDirection: ReadingDirection = ReadingDirection.VERTICAL,
 )
 
 enum class NovelTheme {

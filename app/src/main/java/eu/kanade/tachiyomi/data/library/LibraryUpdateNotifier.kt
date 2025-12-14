@@ -155,7 +155,7 @@ class LibraryUpdateNotifier(
         ) {
             setContentTitle(context.stringResource(MR.strings.notification_update_error, failed))
             setContentText(context.stringResource(MR.strings.action_show_errors))
-            setSmallIcon(R.drawable.ic_gexu_logo_white)
+            setSmallIcon(R.drawable.ic_notification)
 
             setContentIntent(NotificationReceiver.openErrorLogPendingActivity(context, uri))
         }
@@ -195,7 +195,7 @@ class LibraryUpdateNotifier(
                 }
             }
 
-            setSmallIcon(R.drawable.ic_gexu_logo_white)
+            setSmallIcon(R.drawable.ic_notification)
             setLargeIcon(notificationBitmap)
 
             setGroup(Notifications.GROUP_NEW_CHAPTERS)
@@ -231,7 +231,7 @@ class LibraryUpdateNotifier(
             setContentText(description)
             setStyle(NotificationCompat.BigTextStyle().bigText(description))
 
-            setSmallIcon(R.drawable.ic_gexu_logo_white)
+            setSmallIcon(R.drawable.ic_notification)
 
             if (icon != null) {
                 setLargeIcon(icon)

@@ -68,10 +68,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private val lastUserVisiblePage = MutableStateFlow(0)
     private val showTextMode = MutableStateFlow(true) // true = show text, false = show images/PDF
     private val targetPageIndex = MutableStateFlow<Int?>(null) // Target page for slider navigation
+    private val initialPageIndex = MutableStateFlow(0) // Initial page to start at (from saved position)
 
     // Page tracking for image-based chapters
     private var currentChapter: ReaderChapter? = null
+    private var nextChapter: ReaderChapter? = null
+    private var prevChapter: ReaderChapter? = null
     private var virtualPages: List<ReaderPage> = emptyList()
+    private var preloadRequested = false // Prevent duplicate preload requests
+    private var savedPagePosition = 0 // Saved position for text extraction ordering
 
     // PDF Document for lazy rendering
     private var pdfDocument: com.artifex.mupdf.fitz.Document? = null
@@ -80,6 +85,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     companion object {
         private const val PDF_CACHE_FILENAME = "novel_viewer_current.pdf"
     }
+
+    // Position restore is now handled by initialPageIndex - no need for the old approach
 
     override fun getView(): View = composeView
 
@@ -103,6 +110,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         val ocrProg by ocrProgress.collectAsState()
         val textMode by showTextMode.collectAsState()
         val targetPage by targetPageIndex.collectAsState()
+        val initialPage by initialPageIndex.collectAsState()
         var currentPrefs by remember { prefs }
 
         // Define renderer for PDF pages - Remember to avoid recomposition
@@ -124,6 +132,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             hasExtractedText = textList.isNotEmpty(),
             hasOriginalImages = originalImageList.isNotEmpty(),
             isPdfMode = originalImageList.firstOrNull()?.startsWith("pdf://") == true,
+            initialPage = initialPage,
             targetPageIndex = targetPage,
             onTargetPageConsumed = { targetPageIndex.value = null },
             onOffsetChanged = { /* Save progress */ },
@@ -138,22 +147,28 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 showTextMode.value = !showTextMode.value
             },
             onExtractOcr = {
-                scope.launch { extractTextFromImages() }
+                scope.launch {
+                    extractTextFromImages(startPagePriority = lastUserVisiblePage.value)
+                }
             },
             onRenderPage = pdfRenderer,
             onPageChanged = { listIndex ->
                  // Update user position for Lazy OCR
                  lastUserVisiblePage.value = listIndex
 
-                 // listIndex maps to the items in LazyColumn.
-                 // We have items(images) then items(textPages) then item(spacer).
-                 // So the total items = images.size + textPages.size + 1 (spacer).
-
-                 // However, virtualPages should align with these content items.
-                 // We should check bounds.
+                 // Notify activity and check preload
                  if (listIndex >= 0 && listIndex < virtualPages.size) {
                      val page = virtualPages[listIndex]
                      activity.onPageSelected(page)
+
+                     // Check if we should preload next chapter (within last 5 pages)
+                     val totalPages = virtualPages.size
+                     val pagesRemaining = totalPages - listIndex - 1
+                     if (pagesRemaining < 5 && !preloadRequested && nextChapter != null) {
+                         preloadRequested = true
+                         logcat { "NovelViewer: Requesting preload of next chapter (${pagesRemaining} pages remaining)" }
+                         activity.requestPreloadChapter(nextChapter!!)
+                     }
                  }
             }
         )
@@ -168,9 +183,16 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 currentCoroutineContext().ensureActive()
 
                  val safeDoc = pdfDocument ?: return@withLock null
+                 val isOriginalMode = !showTextMode.value
                  withContext(Dispatchers.IO) {
                      currentCoroutineContext().ensureActive()
-                     eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(safeDoc, index, width, prefs.value.fontSizeSp.toFloat())
+                     if (isOriginalMode) {
+                         // Original PDF page rendering (no reflow, preserves original layout)
+                         eu.kanade.tachiyomi.util.MuPdfUtil.renderPage(safeDoc, index, width)
+                     } else {
+                         // Reflow rendering (text-friendly with adjustable font size)
+                         eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(safeDoc, index, width, prefs.value.fontSizeSp.toFloat())
+                     }
                 }
             }
         } catch (e: Exception) {
@@ -179,9 +201,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         }
     }
 
-    private suspend fun extractTextFromImages() {
+    private suspend fun extractTextFromImages(startPagePriority: Int? = null) {
         val currentImages = images.value.toList()
-        logcat { "OCR: Starting extraction with ${currentImages.size} images" }
+        // Determine priority start page: passed arg -> saved position -> or 0
+        val priorityStart = startPagePriority ?: savedPagePosition.coerceIn(0, currentImages.lastIndex)
+
+        logcat { "OCR: Starting prioritized extraction with ${currentImages.size} images, priority: $priorityStart" }
 
         if (currentImages.isEmpty()) {
             logcat { "OCR: No images to process" }
@@ -189,19 +214,33 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         }
 
         // DON'T clear images - keep them visible while OCR runs in background
-        // User can view images while we extract text progressively
         withContext(Dispatchers.Main) {
-            // Keep images visible: images.value = ... (don't clear!)
-            content.value = emptyList()  // Clear only text content
-            ocrProgress.value = 0 to currentImages.size  // Show initial progress
+            content.value = emptyList()  // Clear text content initially
+            showTextMode.value = true    // Switch to text mode container
+            ocrProgress.value = 0 to currentImages.size
         }
 
-        // Store text for each page separately for proper page tracking
-        val pageTexts = mutableListOf<String>()
-        val imageLoader = activity.imageLoader
+        // Initialize user-facing list with empty placeholders
+        // We use a ConcurrentHashMap internally for safe updates, but push strict Lists to UI
         val total = currentImages.size
+        val pageResults = java.util.concurrent.ConcurrentHashMap<Int, String>()
+        for (i in 0 until total) pageResults[i] = ""
 
-        // Check if we are in PDF mode and have the file
+        val imageLoader = activity.imageLoader
+
+        // Priority Queue Creation
+        val priorityList = LinkedHashSet<Int>() // Use Set to avoid duplicates
+
+        // 1. Immediate Context (Start + 5)
+        for (i in priorityStart..minOf(priorityStart + 5, total - 1)) priorityList.add(i)
+        // 2. Previous Context (Start - 3)
+        for (i in (priorityStart - 1) downTo maxOf(0, priorityStart - 3)) priorityList.add(i)
+        // 3. Forward Rest
+        for (i in (priorityStart + 6) until total) priorityList.add(i)
+        // 4. Backward Rest
+        for (i in (priorityStart - 4) downTo 0) priorityList.add(i)
+
+        // Check PDF mode
         val localPdfFile = pdfMutex.withLock { this.pdfFile }
         val isPdfMode = localPdfFile != null && currentImages.firstOrNull()?.startsWith("pdf://") == true
 
@@ -210,7 +249,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
             withContext(Dispatchers.IO) {
-                // If PDF mode, open a PRIVATE document instance for OCR to avoid locking the UI
+                // If PDF mode, open a PRIVATE document instance for OCR
                 val ocrPdfDoc = if (isPdfMode) {
                     try {
                         eu.kanade.tachiyomi.util.MuPdfUtil.openDocument(localPdfFile!!.absolutePath)
@@ -221,35 +260,54 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 } else null
 
                 try {
-                    // LAZY OCR LOOP
-                    // Process pages only when user is near them
-                    var index = 0 // Start from first image
-                    val bufferSize = 4 // Keep 4 pages ahead converted
+                    var processedCount = 0
+                    var isFirstBatch = true
+                    val processedIndices = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
-                    while (index < currentImages.size && isActive) {
-                        val userPage = lastUserVisiblePage.value
-                        val targetPage = userPage + bufferSize
+                    // DYNAMIC OCR LOOP
+                    while (isActive && processedCount < total) {
+                        // 1. Determine next best page based on WHERE THE USER IS NOW
+                        val center = lastUserVisiblePage.value
 
-                        // If we are ahead of buffer, wait
-                        if (index > targetPage) {
-                            delay(500)
-                            continue
+                        // Priority Ranges:
+                        // A: Center -> Center + 5
+                        // B: Center - 1 -> Center - 3
+                        // C: Center + 6 -> End
+                        // D: Center - 4 -> Start
+
+                        var nextIndex = -1
+
+                        // Local helper to find unprocessed index in range
+                        fun findUnprocessed(range: IntProgression): Int? {
+                            for (i in range) {
+                                if (i in 0 until total && !processedIndices.contains(i)) return i
+                            }
+                            return null
                         }
 
+                        // Search in order of priority
+                        nextIndex = findUnprocessed(center..minOf(center + 5, total - 1))
+                            ?: findUnprocessed((center - 1) downTo maxOf(0, center - 3))
+                            ?: findUnprocessed((center + 6) until total)
+                            ?: findUnprocessed((center - 4) downTo 0)
+                            ?: -1
+
+                        if (nextIndex == -1) break // Should not happen loop condition check, but safe break
+
+                        // Mark as processed immediately so we don't pick it again
+                        processedIndices.add(nextIndex)
+                        val index = nextIndex
+
+                        // 2. Process the selected index
                         val imgUrl = currentImages[index]
 
-                        // Check cancellation
-                        if (!isActive) throw CancellationException()
-
-                        logcat { "OCR: Processing image ${index + 1}: $imgUrl" }
+                        // logcat { "OCR: Dynamic processing page ${index + 1} (Users at $center)" }
 
                         val bitmap: android.graphics.Bitmap? = if (isPdfMode && ocrPdfDoc != null) {
-                            // Use private doc - NO MUTEX needed vs UI
                             val pageIndex = imgUrl.removePrefix("pdf://").toInt()
                             eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(ocrPdfDoc, pageIndex, 1080, prefs.value.fontSizeSp.toFloat())
                         } else if (imgUrl.startsWith("pdf://")) {
-                            // Fallback to shared doc (slower, locks UI)
-                            renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
+                             renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
                         } else {
                              val request = ImageRequest.Builder(activity)
                                 .data(imgUrl)
@@ -257,15 +315,13 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 .build()
                             val result = imageLoader.execute(request)
                             var bmp = (result.image as? coil3.BitmapImage)?.bitmap
-
-                            // ML Kit requires software bitmap. Convert if HARDWARE.
                             if (bmp != null && bmp.config == android.graphics.Bitmap.Config.HARDWARE) {
                                 bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
                             }
                             bmp
                         }
 
-                        // Yield to allow other IO tasks
+                        // Yield for UI
                         yield()
 
                         if (bitmap != null) {
@@ -273,74 +329,69 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 val inputImage = InputImage.fromBitmap(bitmap, 0)
                                 val task = recognizer.process(inputImage)
                                 val ocrResult = Tasks.await(task)
-
-                                // Store page text (even if empty, to maintain index alignment)
                                 val extracted = if (ocrResult.text.isNotBlank()) ocrResult.text.trim() else ""
-                                pageTexts.add(extracted)
 
-                                // Update content in real-time
+                                pageResults[index] = extracted
+                                processedCount++
+
                                 withContext(Dispatchers.Main) {
-                                    val currentPages = pageTexts.toList()
-                                    content.value = currentPages
-                                    // Show progress: (index+1) / total
-                                    ocrProgress.value = (index + 1) to total
+                                    // Update content list efficiently
+                                    val currentList = (0 until total).map { pageResults[it] ?: "" }
+                                    content.value = currentList
+                                    ocrProgress.value = processedCount to total
 
-                                    // Update total pages without moving position
-                                    updateOcrPageCounter(index + 1, total, updatePosition = false)
+                                    // Initial Jump logic (only if we are still on the very first batch of actions)
+                                    // With dynamic loop, the first processed IS the priorityStart (since lastUserVisiblePage was set)
+                                    if (isFirstBatch && index == center && extracted.isNotEmpty()) {
+                                        isFirstBatch = false
+                                        // Force update to correct page
+                                        updateOcrPageCounter(1, total, updatePosition = false)
+
+                                        if (virtualPages.isNotEmpty()) {
+                                             val target = center.coerceIn(0, virtualPages.lastIndex)
+                                             moveToPage(virtualPages[target])
+                                        }
+                                    } else {
+                                         updateOcrPageCounter(1, total, updatePosition = false)
+                                    }
                                 }
                             } catch (e: Exception) {
-                                logcat(LogPriority.ERROR) { "OCR: Error processing page ${index + 1}: ${e.message}" }
-                                // Add empty placeholder to keep alignment?
-                                // Actually pageTexts logic requires 1:1 mapping if we want reliable indexes?
-                                // Current logic: content.value is list of texts.
-                                // If I skip one, then text for page 5 might appear at index 4?
-                                // Yes. So I MUST add a string even if error.
-                                pageTexts.add("[Error OCR]")
-                                withContext(Dispatchers.Main) {
-                                    content.value = pageTexts.toList()
-                                }
+                                logcat(LogPriority.ERROR) { "OCR: Error page $index: ${e.message}" }
+                                pageResults[index] = "[Error OCR]"
                             }
                         } else {
-                             // Failed to load bitmap
-                             pageTexts.add("") // Empty text placeholder
-                             withContext(Dispatchers.Main) {
-                                content.value = pageTexts.toList()
-                            }
+                             pageResults[index] = ""
                         }
-                        index++
                     }
                 } finally {
-                    // Close private doc
                     if (ocrPdfDoc != null) {
                          eu.kanade.tachiyomi.util.MuPdfUtil.closeDocument(ocrPdfDoc)
                     }
                 }
             }
 
-            // Final update
+            // Final clean up
             withContext(Dispatchers.Main) {
-                ocrProgress.value = null  // Clear progress indicator
-                if (pageTexts.isNotEmpty()) {
-                    content.value = pageTexts
-                    images.value = emptyList()  // Only now clear images - we have text to show
-                    // Finish: ensure we have total pages, stay on current or move to 1?
-                    // Let's just update total. If user was reading, they stay.
-                    updateOcrPageCounter(pageTexts.size, pageTexts.size, updatePosition = false)
+                ocrProgress.value = null
+                val finalList = (0 until total).map { pageResults[it] ?: "" }
+                if (finalList.any { it.isNotEmpty() }) {
+                    content.value = finalList
+                    images.value = emptyList() // Hide images only if we have text
                 } else {
-                    // Keep images visible if OCR failed
                     logcat { "OCR: No text extracted, keeping images visible" }
                 }
             }
 
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "OCR: Critical error: ${e.message}" }
-             withContext(Dispatchers.Main) {
-                ocrProgress.value = null  // Clear progress on error
-                if (pageTexts.isNotEmpty()) {
-                    content.value = pageTexts
+            withContext(Dispatchers.Main) {
+                ocrProgress.value = null
+                // Attempt to show whatever we got
+                val finalList = (0 until total).map { pageResults[it] ?: "" }
+                if (finalList.any { it.isNotEmpty() }) {
+                    content.value = finalList
                     images.value = emptyList()
                 }
-                // If no text was extracted, images remain visible as fallback
             }
         }
     }
@@ -403,6 +454,32 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     override fun setChapters(chapters: ViewerChapters) {
         val chapter = chapters.currChapter
         currentChapter = chapter
+        nextChapter = chapters.nextChapter
+        prevChapter = chapters.prevChapter
+        preloadRequested = false // Reset preload flag for new chapter
+
+        // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
+        // So we need to set requestedPage from last_page_read, same as ChapterLoader does
+        // Note: We always restore position for novels, even for "read" chapters
+        if (chapter.requestedPage == 0 && chapter.chapter.last_page_read > 0) {
+            chapter.requestedPage = chapter.chapter.last_page_read
+            logcat { "NovelViewer: Set requestedPage from last_page_read: ${chapter.requestedPage}" }
+        }
+
+        // Save the starting position - this is used for:
+        // 1. Initializing the UI at this position directly (no scroll needed)
+        // 2. Prioritizing text extraction around this position
+        savedPagePosition = chapter.requestedPage.coerceAtLeast(0)
+        initialPageIndex.value = savedPagePosition
+
+        logcat { "NovelViewer: setChapters - savedPagePosition=$savedPagePosition, requestedPage=${chapter.requestedPage}, last_page_read=${chapter.chapter.last_page_read}" }
+
+        // If chapter already has pages loaded (from ChapterLoader), use them
+        val existingPages = chapters.currChapter.pages
+        if (existingPages != null && existingPages.isNotEmpty()) {
+            virtualPages = existingPages
+            logcat { "NovelViewer: Using ${existingPages.size} pre-loaded pages" }
+        }
 
         scope.launch(Dispatchers.IO) {
             try {
@@ -745,11 +822,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         images.value = imageUrls
                         originalImages.value = imageUrls // Save original images for toggle
                         content.value = emptyList()
-
-                        // Notify activity of the first page to update counter
-                        virtualPages.firstOrNull()?.let { firstPage ->
-                            activity.onPageSelected(firstPage)
-                        }
+                        // Position is now handled by initialPageIndex - UI starts at saved page directly
                     }
                     return true
                 }
@@ -798,9 +871,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             val chapterFileName = parts[1]
 
             val mangaDir = localDir.findFile(mangaDirName)
-            val pdfFile = mangaDir?.findFile(chapterFileName)
+            val pdfFileDoc = mangaDir?.findFile(chapterFileName)
 
-            if (pdfFile == null) {
+            if (pdfFileDoc == null) {
                 withContext(Dispatchers.Main) {
                     isLoading.value = false
                     content.value = listOf("Archivo PDF no encontrado: $chapterFileName")
@@ -810,7 +883,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             }
 
             // Check if it's a PDF
-            if (!pdfFile.name.orEmpty().endsWith(".pdf", true)) {
+            if (!pdfFileDoc.name.orEmpty().endsWith(".pdf", true)) {
                 withContext(Dispatchers.Main) {
                     isLoading.value = false
                     content.value = listOf("El archivo no es un PDF.")
@@ -828,7 +901,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             }
 
             try {
-                pdfFile.openInputStream().use { input ->
+                pdfFileDoc.openInputStream().use { input ->
                     pdfCacheFile.outputStream().use { output ->
                         input.copyTo(output)
                     }
@@ -842,59 +915,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 return
             }
 
-            // ATTEMPT NATIVE TEXT EXTRACTION USING MUPDF (much faster, no log spam)
-            var extractedPages = emptyList<String>()
-            try {
-                withContext(Dispatchers.Main) {
-                    loadingMessage.value = "Extrayendo texto..."
-                }
-
-                // Open document with MuPDF for text extraction
-                val muPdfDoc = MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
-                if (muPdfDoc != null) {
-                    extractedPages = MuPdfUtil.extractTextFromDocument(muPdfDoc) { page: Int, total: Int, pages: List<String> ->
-                        withContext(Dispatchers.Main) {
-                            loadingMessage.value = "Extrayendo texto: pág $page de $total..."
-
-                            if (pages.isNotEmpty()) {
-                                content.value = pages
-                                updateOcrPageCounter(page, total, updatePosition = false)
-                            }
-                        }
-                    }
-                    MuPdfUtil.closeDocument(muPdfDoc)
-                }
-
-                if (extractedPages.isNotEmpty()) {
-                     logcat { "NovelViewer: Text extracted with MuPDF (${extractedPages.size} pages)" }
-                     withContext(Dispatchers.Main) {
-                         isLoading.value = false
-                         loadingMessage.value = null
-                         content.value = extractedPages
-                         images.value = emptyList()
-                         // Final update. Move to Page 1 so the user sees the start of the book.
-                         updateOcrPageCounter(1, extractedPages.size, updatePosition = true)
-                     }
-                     return
-                } else {
-                     logcat { "NovelViewer: PDF text too short or empty, falling back to images." }
-                     withContext(Dispatchers.Main) {
-                         content.value = emptyList()
-                         // Reset counter just in case
-                         updateOcrPageCounter(1, 1, updatePosition = false)
-                     }
-                }
-            } catch (e: Exception) {
-                logcat(LogPriority.WARN) { "NovelViewer: MuPDF text extraction failed: ${e.message}" }
-                // Continue to image fallback
-            }
-
-            // FALLBACK TO IMAGE MODE (MuPDF Reflow/Lazy)
-            withContext(Dispatchers.Main) {
-                loadingMessage.value = "Preparando modo visual..."
-            }
-
-            // Open with MuPDF
+            // FIRST: Open document for lazy rendering (keep it open for viewing original PDF)
             val document = eu.kanade.tachiyomi.util.MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
 
             if (document == null) {
@@ -906,14 +927,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 return
             }
 
-            // Save document for lazy rendering
-            pdfMutex.withLock {
-                pdfDocument = document
-                this.pdfFile = pdfCacheFile
-            }
-
             val pageCount = eu.kanade.tachiyomi.util.MuPdfUtil.getPageCount(document)
-            logcat { "NovelViewer: PDF has $pageCount pages (Lazy Mode)" }
+            logcat { "NovelViewer: PDF has $pageCount pages" }
 
             if (pageCount == 0) {
                 withContext(Dispatchers.Main) {
@@ -921,17 +936,20 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     content.value = listOf("El PDF está vacío o no se pudo leer.")
                     loadingMessage.value = null
                 }
-                // Close immediately if empty
                 eu.kanade.tachiyomi.util.MuPdfUtil.closeDocument(document)
-                pdfDocument = null
                 return
             }
 
-            // Create VIRTUAL URIs for pages
-            // This is INSTANT compared to rendering images
+            // Save document for lazy rendering
+            pdfMutex.withLock {
+                pdfDocument = document
+                this.pdfFile = pdfCacheFile
+            }
+
+            // Create VIRTUAL URIs for pages - always available for "View Original" toggle
             val virtualImages = (0 until pageCount).map { "pdf://$it" }
 
-             // Create virtual pages for tracking
+            // Create virtual pages for tracking
             val readerChapter = currentChapter
             if (readerChapter != null) {
                 virtualPages = (0 until pageCount).map { index ->
@@ -940,23 +958,87 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     }
                 }
                 readerChapter.state = ReaderChapter.State.Loaded(virtualPages)
+            }
 
-                withContext(Dispatchers.Main) {
-                    if (virtualPages.isNotEmpty()) {
-                        activity.onPageSelected(virtualPages.first())
+            // Start extraction with priority around the saved position
+            // This is the optimized logic: convert where the user IS first.
+            withContext(Dispatchers.Main) {
+                isLoading.value = true
+                loadingMessage.value = null // Just loader, cleaner look
+                // Set images for PDF toggle availability, but start in text mode once ready
+                images.value = virtualImages
+                originalImages.value = virtualImages
+            }
+
+            scope.launch(Dispatchers.IO) {
+                try {
+                    val muPdfDoc = MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
+                    if (muPdfDoc != null) {
+                        var isFirstPriorityBatch = true
+
+                        val extractedPages = MuPdfUtil.extractTextWithPriority(muPdfDoc, savedPagePosition) { page: Int, total: Int, pages: List<String> ->
+                            withContext(Dispatchers.Main) {
+                                // CRITICAL: As soon as we have the priority text (first batch), open the reader
+                                if (isFirstPriorityBatch && pages.isNotEmpty()) {
+                                    isLoading.value = false
+                                    loadingMessage.value = null
+
+                                    content.value = pages
+                                    showTextMode.value = true
+
+                                    // Move to correct position immediately once text layout is ready
+                                    // This works because the text list is now populated (with placeholders + content around cursor)
+                                    val targetPage = savedPagePosition.coerceIn(0, pages.withIndex().last().index)
+                                    moveToPage(virtualPages[targetPage])
+
+                                    isFirstPriorityBatch = false
+                                    logcat { "NovelViewer: Priority text loaded. Opened at page $targetPage" }
+                                } else if (!isFirstPriorityBatch) {
+                                    // Progressive update for remaining pages
+                                    content.value = pages
+                                }
+                            }
+                        }
+                        MuPdfUtil.closeDocument(muPdfDoc)
+
+                        // Final consistency check
+                        if (extractedPages.isNotEmpty()) {
+                            withContext(Dispatchers.Main) {
+                                if (content.value.isEmpty()) {
+                                    content.value = extractedPages
+                                    showTextMode.value = true
+                                }
+                                updateOcrPageCounter(1, extractedPages.size, updatePosition = false)
+                                logcat { "NovelViewer: Full extraction complete (${extractedPages.size} pages)" }
+                            }
+                        } else {
+                            // Fallback to PDF only if absolutely no text found
+                            withContext(Dispatchers.Main) {
+                                isLoading.value = false
+                                loadingMessage.value = "No se pudo extraer texto"
+                                showTextMode.value = false
+                                content.value = emptyList()
+
+                                // Jump in PDF mode
+                                if (virtualPages.isNotEmpty()) {
+                                    moveToPage(virtualPages[savedPagePosition.coerceIn(0, virtualPages.lastIndex)])
+                                }
+                            }
+                        }
+                    }
+                } catch (e: Exception) {
+                    logcat(LogPriority.WARN) { "NovelViewer: Text extraction failed: ${e.message}" }
+                    withContext(Dispatchers.Main) {
+                        isLoading.value = false
+                        loadingMessage.value = null
+                         // Fallback to PDF mode on error
+                        showTextMode.value = false
+                        if (virtualPages.isNotEmpty()) {
+                            moveToPage(virtualPages[savedPagePosition.coerceIn(0, virtualPages.lastIndex)])
+                        }
                     }
                 }
             }
-
-            withContext(Dispatchers.Main) {
-                isLoading.value = false
-                loadingMessage.value = null
-                content.value = emptyList() // No text content initially
-                images.value = virtualImages // Show virtual pages
-                originalImages.value = virtualImages // Save original images for toggle
-            }
-
-            logcat { "NovelViewer: Ready for lazy rendering of $pageCount pages" }
 
 
 
@@ -1016,8 +1098,70 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         }
     }
 
+    /**
+     * Moves to the next page in the list.
+     */
+    private fun moveToNext() {
+        val current = targetPageIndex.value ?: lastUserVisiblePage.value
+        val nextIndex = (current + 1).coerceAtMost(virtualPages.lastIndex)
+        if (nextIndex != current && virtualPages.isNotEmpty()) {
+            targetPageIndex.value = nextIndex
+            virtualPages.getOrNull(nextIndex)?.let { page ->
+                activity.onPageSelected(page)
+            }
+        }
+    }
+
+    /**
+     * Moves to the previous page in the list.
+     */
+    private fun moveToPrevious() {
+        val current = targetPageIndex.value ?: lastUserVisiblePage.value
+        val prevIndex = (current - 1).coerceAtLeast(0)
+        if (prevIndex != current && virtualPages.isNotEmpty()) {
+            targetPageIndex.value = prevIndex
+            virtualPages.getOrNull(prevIndex)?.let { page ->
+                activity.onPageSelected(page)
+            }
+        }
+    }
+
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        return false
+        val isUp = event.action == KeyEvent.ACTION_UP
+        val readerPreferences: ReaderPreferences = Injekt.get()
+        val volumeKeysEnabled = readerPreferences.readWithVolumeKeys().get()
+        val volumeKeysInverted = readerPreferences.readWithVolumeKeysInverted().get()
+
+        when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                if (!volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
+                    return false
+                } else if (isUp) {
+                    if (!volumeKeysInverted) moveToNext() else moveToPrevious()
+                }
+            }
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (!volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
+                    return false
+                } else if (isUp) {
+                    if (!volumeKeysInverted) moveToPrevious() else moveToNext()
+                }
+            }
+            KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()
+
+            KeyEvent.KEYCODE_DPAD_LEFT,
+            KeyEvent.KEYCODE_DPAD_UP,
+            KeyEvent.KEYCODE_PAGE_UP,
+            -> if (isUp) moveToPrevious()
+
+            KeyEvent.KEYCODE_DPAD_RIGHT,
+            KeyEvent.KEYCODE_DPAD_DOWN,
+            KeyEvent.KEYCODE_PAGE_DOWN,
+            -> if (isUp) moveToNext()
+
+            else -> return false
+        }
+        return true
     }
 
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean {

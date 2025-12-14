@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Gexu launcher background: pure black for calligraphy logo -->
+    <!-- Gexu launcher background: pure white for calligraphy logo -->
     <color name="ic_launcher_bg_gexu">#FFFFFF</color>
     <color name="splash">#000000</color>
+    <!-- Gexu notification accent color: white -->
+    <color name="notification_accent">#FFFFFF</color>
 </resources>
