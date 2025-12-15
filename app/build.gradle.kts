@@ -249,8 +249,14 @@ dependencies {
     // Data serialization (JSON, protobuf, xml)
     implementation(kotlinx.bundles.serialization)
 
+    // PDF & OCR (Reflow)
+    implementation("com.tom-roush:pdfbox-android:2.0.27.0")
+    implementation("com.google.mlkit:text-recognition:16.0.1")
+    implementation("com.artifex.mupdf:fitz:1.24.10") // MuPDF for fast PDF reflow
+
     // HTML parser
     implementation(libs.jsoup)
+    implementation("net.dankito.readability4j:readability4j:1.0.8")
 
     // Disk
     implementation(libs.disklrucache)

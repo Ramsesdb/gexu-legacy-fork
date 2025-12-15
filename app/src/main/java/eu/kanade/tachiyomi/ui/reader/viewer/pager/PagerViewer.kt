@@ -63,6 +63,12 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     private var awaitingIdleViewerChapters: ViewerChapters? = null
 
     /**
+     * Whether navigation is paused (e.g., when AI chat is open).
+     * When true, page change events won't be processed.
+     */
+    private var isPaused: Boolean = false
+
+    /**
      * Whether the view pager is currently in idle mode. It sets the awaiting chapters if setting
      * this field to true.
      */
@@ -151,6 +157,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
     }
 
     /**
+     * Set the paused state. When paused, page changes and key events won't be processed.
+     */
+    override fun setPaused(paused: Boolean) {
+        isPaused = paused
+    }
+
+    /**
      * Creates a new ViewPager.
      */
     abstract fun createPager(): Pager
@@ -174,6 +187,9 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * Called when a new page (either a [ReaderPage] or [ChapterTransition]) is marked as active
      */
     private fun onPageChange(position: Int) {
+        // Don't process page changes when paused (e.g., AI chat is open)
+        if (isPaused) return
+
         val page = adapter.items.getOrNull(position)
         if (page != null && currentPage != page) {
             val allowPreload = checkAllowPreload(page as? ReaderPage)
@@ -384,6 +400,9 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
      * if the event was handled, false otherwise.
      */
     override fun handleKeyEvent(event: KeyEvent): Boolean {
+        // Don't handle key events when paused (e.g., AI chat is open)
+        if (isPaused) return false
+
         val isUp = event.action == KeyEvent.ACTION_UP
         val ctrlPressed = event.metaState.and(KeyEvent.META_CTRL_ON) > 0
 

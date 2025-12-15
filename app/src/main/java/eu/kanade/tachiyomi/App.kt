@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
 import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import eu.kanade.tachiyomi.data.coil.TachiyomiImageDecoder
 import eu.kanade.tachiyomi.data.notification.Notifications
+import eu.kanade.tachiyomi.di.AiModule
 import eu.kanade.tachiyomi.di.AppModule
 import eu.kanade.tachiyomi.di.PreferenceModule
 import eu.kanade.tachiyomi.network.NetworkHelper
@@ -56,6 +57,7 @@ import mihon.core.migration.Migrator
 import mihon.core.migration.migrations.migrations
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -81,6 +83,13 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         super<Application>.onCreate()
         patchInjekt()
         TelemetryConfig.init(applicationContext)
+        // Initialize PdfBox asynchronously to prevent main thread freeze/black screen
+        Thread {
+            // Suppress verbose PdfBox debug logs BEFORE initialization
+            // These flood logcat and consume CPU without providing user value
+            suppressPdfBoxLogs()
+            PDFBoxResourceLoader.init(applicationContext)
+        }.start()
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
 
@@ -98,6 +107,7 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         Injekt.importModule(PreferenceModule(this))
         Injekt.importModule(AppModule(this))
         Injekt.importModule(DomainModule())
+        Injekt.importModule(AiModule())
 
         setupNotificationChannels()
 
@@ -268,3 +278,18 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
 }
 
 private const val ACTION_DISABLE_INCOGNITO_MODE = "tachi.action.DISABLE_INCOGNITO_MODE"
+
+/**
+ * Suppress verbose PdfBox-Android debug logs.
+ * PdfBox logs thousands of "Type 7 GSUB lookup table is not supported" messages
+ * that flood logcat and waste CPU cycles. This sets log level to WARNING.
+ */
+private fun suppressPdfBoxLogs() {
+    val level = java.util.logging.Level.WARNING
+    // Suppress all PdfBox-related loggers
+    java.util.logging.Logger.getLogger("com.tom_roush").level = level
+    java.util.logging.Logger.getLogger("com.tom_roush.pdfbox").level = level
+    java.util.logging.Logger.getLogger("com.tom_roush.fontbox").level = level
+    java.util.logging.Logger.getLogger("org.apache.pdfbox").level = level
+    java.util.logging.Logger.getLogger("org.apache.fontbox").level = level
+}

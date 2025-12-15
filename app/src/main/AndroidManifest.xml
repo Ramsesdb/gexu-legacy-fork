@@ -98,6 +98,8 @@
                 <data android:pathPattern=".*\\..*\\..*\\..*\\..*\\..*\\..*\\.tachibk" />
             </intent-filter>
 
+
+
             <!--suppress AndroidDomInspection -->
             <meta-data
                 android:name="android.app.shortcuts"
@@ -139,7 +141,8 @@
         <activity
             android:name=".ui.reader.ReaderActivity"
             android:exported="false"
-            android:launchMode="singleTask">
+            android:launchMode="singleTask"
+            android:windowSoftInputMode="adjustNothing">
             <intent-filter>
                 <action android:name="com.samsung.android.support.REMOTE_ACTION" />
             </intent-filter>
@@ -147,6 +150,33 @@
             <meta-data
                 android:name="com.samsung.android.support.REMOTE_ACTION"
                 android:resource="@xml/s_pen_actions" />
+        </activity>
+
+        <!-- PDF Reader Activity - Opens PDF files directly from file manager -->
+        <activity
+            android:name=".ui.reader.DirectPdfReaderActivity"
+            android:exported="true"
+            android:label="Gexu - Leer PDF"
+            android:theme="@style/Theme.Tachiyomi">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="file" />
+                <data android:scheme="content" />
+                <data android:host="*" />
+                <data android:pathPattern=".*\\.pdf" />
+                <data android:pathPattern=".*\\.PDF" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
 
         <activity

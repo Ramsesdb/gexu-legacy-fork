@@ -98,6 +98,7 @@ class ChapterLoader(
                     is Format.Directory -> DirectoryPageLoader(format.file)
                     is Format.Archive -> ArchivePageLoader(format.file.archiveReader(context))
                     is Format.Epub -> EpubPageLoader(format.file.epubReader(context))
+                    is Format.Pdf -> PdfPageLoader(context, format.file)
                 }
             }
             source is HttpSource -> HttpPageLoader(chapter, source)

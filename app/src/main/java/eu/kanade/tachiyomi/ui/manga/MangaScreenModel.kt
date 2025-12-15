@@ -7,6 +7,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastAny
+import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -87,6 +88,8 @@ import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
+import tachiyomi.source.local.io.LocalSourceFileSystem
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -120,6 +123,7 @@ class MangaScreenModel(
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
+    private val getPdfToc: tachiyomi.domain.pdftoc.interactor.GetPdfToc = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -152,6 +156,29 @@ class MangaScreenModel(
 
     private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
     private val selectedChapterIds: HashSet<Long> = HashSet()
+
+    // Phase 2: PDF TOC Expansion State
+    private val expandedChapterIds: HashSet<Long> = HashSet()
+    private val chapterTocEntries: MutableMap<Long, List<PdfTocEntry>> = mutableMapOf()
+
+    fun toggleChapterExpansion(chapterId: Long) {
+        if (expandedChapterIds.contains(chapterId)) {
+            expandedChapterIds.remove(chapterId)
+        } else {
+            expandedChapterIds.add(chapterId)
+            // Load TOC if not already loaded
+            if (!chapterTocEntries.containsKey(chapterId)) {
+                screenModelScope.launchIO {
+                    val toc = getPdfToc.await(chapterId)
+                    chapterTocEntries[chapterId] = toc
+                    // Trigger UI update
+                    updateSuccessState { it.copy(expandedChapterIds = expandedChapterIds.toSet(), chapterTocEntries = chapterTocEntries.toMap()) }
+                }
+            }
+        }
+        // Immediate UI update for expansion toggle
+        updateSuccessState { it.copy(expandedChapterIds = expandedChapterIds.toSet()) }
+    }
 
     /**
      * Helper function to update the UI state only if it's currently in success state
@@ -219,6 +246,17 @@ class MangaScreenModel(
             val needRefreshInfo = !manga.initialized
             val needRefreshChapter = chapters.isEmpty()
 
+            // Phase 2: Check for existing TOCs
+            val chaptersWithToc = if (manga.isLocal()) {
+                chapters.map { item ->
+                    async {
+                        if (getPdfToc.hasToc(item.chapter.id)) item.chapter.id else null
+                    }
+                }.awaitAll().filterNotNull().toSet()
+            } else {
+                emptySet()
+            }
+
             // Show what we have earlier
             mutableState.update {
                 State.Success(
@@ -231,6 +269,8 @@ class MangaScreenModel(
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
                     dialog = null,
                     hideMissingChapters = libraryPreferences.hideMissingChapters().get(),
+                    // Phase 2: Set TOC state
+                    chaptersWithToc = chaptersWithToc,
                 )
             }
 
@@ -832,14 +872,58 @@ class MangaScreenModel(
         screenModelScope.launchNonCancellable {
             try {
                 successState?.let { state ->
-                    downloadManager.deleteChapters(
-                        chapters,
-                        state.manga,
-                        state.source,
-                    )
+                    if (state.manga.isLocal()) {
+                        // For local source, delete the physical files and DB entries
+                        deleteLocalChapters(chapters, state.manga)
+                    } else {
+                        downloadManager.deleteChapters(
+                            chapters,
+                            state.manga,
+                            state.source,
+                        )
+                    }
                 }
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
+            }
+        }
+    }
+
+    /**
+     * Deletes local source chapters (physical files and database entries).
+     */
+    private suspend fun deleteLocalChapters(chapters: List<Chapter>, manga: Manga) {
+        withIOContext {
+            val fileSystem: LocalSourceFileSystem = Injekt.get()
+            val chapterRepository: ChapterRepository = Injekt.get()
+
+            val baseDir = fileSystem.getBaseDirectory() ?: return@withIOContext
+
+            for (chapter in chapters) {
+                try {
+                    // Parse the chapter URL to get manga dir and chapter file
+                    // URL format is "mangaName/chapterFileName"
+                    val parts = chapter.url.split("/", limit = 2)
+                    if (parts.size == 2) {
+                        val mangaDirName = parts[0]
+                        val chapterFileName = parts[1]
+
+                        val mangaDir = baseDir.findFile(mangaDirName)
+                        val chapterFile = mangaDir?.findFile(chapterFileName)
+
+                        // Delete the physical file
+                        chapterFile?.delete()
+                    }
+                } catch (e: Exception) {
+                    logcat(LogPriority.ERROR, e) { "Error deleting local chapter file: ${chapter.name}" }
+                }
+            }
+
+            // Remove chapters from database
+            try {
+                chapterRepository.removeChaptersWithIds(chapters.map { it.id })
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e) { "Error removing chapters from database" }
             }
         }
     }
@@ -1134,6 +1218,10 @@ class MangaScreenModel(
             val dialog: Dialog? = null,
             val hasPromptedToAddBefore: Boolean = false,
             val hideMissingChapters: Boolean = false,
+            // Phase 2: TOC Expansion
+            val expandedChapterIds: Set<Long> = emptySet(),
+            val chaptersWithToc: Set<Long> = emptySet(),
+            val chapterTocEntries: Map<Long, List<PdfTocEntry>> = emptyMap(),
         ) : State {
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()

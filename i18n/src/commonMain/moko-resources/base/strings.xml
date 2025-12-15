@@ -457,6 +457,7 @@
     <string name="webtoon_viewer">Long strip</string>
     <string name="vertical_plus_viewer">Long strip with gaps</string>
     <string name="pager_viewer">Paged</string>
+    <string name="novel_viewer">Novel (Lab)</string>
     <string name="pref_viewer_nav">Tap zones</string>
     <string name="pref_image_scale_type">Scale type</string>
     <string name="scale_type_fit_screen">Fit screen</string>
@@ -1046,4 +1047,70 @@
     <string name="migrationListScreen.migrateDialog.cancelLabel">Cancel</string>
     <string name="migrationListScreen.progressDialog.cancelLabel">Cancel</string>
     <string name="migrationListScreen.matchWithoutChapterToast">No chapters found, this entry cannot be used for migration</string>
+
+    <!-- Gexu AI Companion -->
+    <string name="label_ai_chat">Gexu AI</string>
+    <string name="ai_chat_placeholder">Ask me anything about manga…</string>
+    <string name="ai_chat_welcome_title">Welcome to Gexu AI</string>
+    <string name="ai_chat_welcome_message">Your AI reading companion. Ask about manga recommendations, plot questions, or anything else!</string>
+    <string name="ai_setup_title">Configure AI Provider</string>
+    <string name="ai_setup_description">Enter your API key to enable AI features. Your key is stored locally and never shared.</string>
+    <string name="ai_provider">Provider</string>
+    <string name="ai_api_key">API Key</string>
+    <string name="ai_api_key_invalid">Invalid API key format for this provider</string>
+    <string name="ai_help_openai">Get your key at platform.openai.com/api-keys</string>
+    <string name="ai_help_gemini">Get your key at ai.google.dev/gemini-api</string>
+    <string name="ai_help_anthropic">Get your key at console.anthropic.com</string>
+    <string name="ai_help_openrouter">Get your key at openrouter.ai/keys</string>
+    <string name="ai_help_custom">Enter any OpenAI-compatible API URL and key</string>
+    <string name="ai_ask_about_reading">Ask about this chapter</string>
+    <string name="ai_reader_hint">Ask me about this story without spoilers!</string>
+    <string name="ai_reader_placeholder">What\'s happening here?</string>
+
+    <!-- Gexu AI Settings Screen -->
+    <string name="pref_category_gexu_ai">Gexu AI</string>
+    <string name="pref_gexu_ai_summary">AI providers, personality, and behavior</string>
+
+    <!-- AI Providers Management -->
+    <string name="ai_providers_title">AI Providers</string>
+    <string name="ai_providers_summary">Manage and prioritize your AI providers</string>
+    <string name="ai_add_provider">Add Provider</string>
+    <string name="ai_remove_provider">Remove Provider</string>
+    <string name="ai_provider_priority">Provider Priority</string>
+    <string name="ai_provider_priority_summary">Drag to reorder. First provider is used by default.</string>
+    <string name="ai_provider_active">Active</string>
+    <string name="ai_provider_inactive">Inactive</string>
+    <string name="ai_provider_test_connection">Test Connection</string>
+    <string name="ai_provider_test_success">Connection successful!</string>
+    <string name="ai_provider_test_failed">Connection failed: %s</string>
+    <string name="ai_no_providers">No providers configured</string>
+    <string name="ai_select_model">Select Model</string>
+
+    <!-- AI Personality/Tone Settings -->
+    <string name="ai_personality_title">Personality</string>
+    <string name="ai_personality_summary">How Gexu AI should interact with you</string>
+    <string name="ai_tone">Tone</string>
+    <string name="ai_tone_friendly">Friendly</string>
+    <string name="ai_tone_formal">Formal</string>
+    <string name="ai_tone_casual">Casual</string>
+    <string name="ai_tone_enthusiastic">Enthusiastic</string>
+    <string name="ai_tone_concise">Concise</string>
+    <string name="ai_language">Response Language</string>
+    <string name="ai_language_auto">Same as app</string>
+    <string name="ai_custom_instructions">Custom Instructions</string>
+    <string name="ai_custom_instructions_hint">Add custom instructions for the AI (e.g., "Always explain in simple terms")</string>
+
+    <!-- AI Behavior Settings -->
+    <string name="ai_behavior_title">Behavior</string>
+    <string name="ai_anti_spoiler">Anti-Spoiler Mode</string>
+    <string name="ai_anti_spoiler_summary">AI won\'t reveal events beyond your current chapter</string>
+    <string name="ai_include_context">Include Reading Context</string>
+    <string name="ai_include_context_summary">Share current manga info with AI for better responses</string>
+    <string name="ai_include_history">Include Reading History</string>
+    <string name="ai_include_history_summary">AI considers your reading preferences</string>
+    <string name="ai_max_tokens">Response Length</string>
+    <string name="ai_temperature">Creativity</string>
+    <string name="ai_temperature_precise">Precise</string>
+    <string name="ai_temperature_balanced">Balanced</string>
+    <string name="ai_temperature_creative">Creative</string>
 </resources>

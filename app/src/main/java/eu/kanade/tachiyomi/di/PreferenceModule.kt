@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.util.system.isDebugBuildType
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
+import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.backup.service.BackupPreferences
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -70,5 +71,9 @@ class PreferenceModule(val app: Application) : InjektModule {
         addSingletonFactory {
             BasePreferences(app, get())
         }
+        addSingletonFactory {
+            AiPreferences(get())
+        }
     }
 }
+

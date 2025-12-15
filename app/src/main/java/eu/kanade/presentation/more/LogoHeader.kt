@@ -1,12 +1,11 @@
 package eu.kanade.presentation.more
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -20,13 +19,18 @@ fun LogoHeader() {
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(
-            painter = painterResource(R.drawable.ic_mihon),
+        val logo = if (isSystemInDarkTheme()) {
+            R.drawable.ic_gexu_logo_white
+        } else {
+            R.drawable.ic_gexu_logo_black
+        }
+
+        androidx.compose.foundation.Image(
+            painter = painterResource(logo),
             contentDescription = null,
-            tint = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .padding(vertical = 56.dp)
-                .size(64.dp),
+                .size(140.dp),
         )
 
         HorizontalDivider()

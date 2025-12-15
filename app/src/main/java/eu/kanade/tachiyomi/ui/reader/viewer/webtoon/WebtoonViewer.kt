@@ -72,6 +72,19 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      */
     private var currentPage: Any? = null
 
+    /**
+     * Whether scroll handling is paused (e.g., when AI chat is open).
+     * When true, scroll events won't trigger page selection changes.
+     */
+    private var isPaused: Boolean = false
+
+    /**
+     * Set the paused state. When paused, scroll events won't change the current page.
+     */
+    override fun setPaused(paused: Boolean) {
+        isPaused = paused
+    }
+
     private val threshold: Int =
         Injekt.get<ReaderPreferences>()
             .readerHideThreshold()
@@ -267,6 +280,9 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     }
 
     fun onScrolled(pos: Int? = null) {
+        // Don't process scroll events when paused (e.g., AI chat is open)
+        if (isPaused) return
+
         val position = pos ?: layoutManager.findLastEndVisibleItemPosition()
         val item = adapter.items.getOrNull(position)
         val allowPreload = checkAllowPreload(item as? ReaderPage)
@@ -306,6 +322,9 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
      * if the event was handled, false otherwise.
      */
     override fun handleKeyEvent(event: KeyEvent): Boolean {
+        // Don't handle key events when paused (e.g., AI chat is open)
+        if (isPaused) return false
+
         val isUp = event.action == KeyEvent.ACTION_UP
 
         when (event.keyCode) {

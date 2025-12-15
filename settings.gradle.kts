@@ -40,12 +40,13 @@ dependencyResolutionManagement {
         maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
         maven(url = "https://jitpack.io") // el proyecto usa artefactos de JitPack
+        maven(url = "https://maven.ghostscript.com")
     }
 }
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
-rootProject.name = "Mihon"
+rootProject.name = "Gexu"
 include(":app")
 include(":core-metadata")
 include(":core:archive")

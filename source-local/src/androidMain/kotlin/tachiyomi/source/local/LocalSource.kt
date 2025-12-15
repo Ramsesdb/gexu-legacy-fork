@@ -1,6 +1,8 @@
 package tachiyomi.source.local
 
+import android.app.Application
 import android.content.Context
+import uy.kohesive.injekt.Injekt
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
@@ -40,26 +42,29 @@ import tachiyomi.source.local.io.Archive
 import tachiyomi.source.local.io.Format
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import tachiyomi.source.local.metadata.fillMetadata
-import uy.kohesive.injekt.injectLazy
+import uy.kohesive.injekt.api.get
+import java.io.ByteArrayInputStream
+import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.InputStream
 import java.nio.charset.StandardCharsets
 import kotlin.time.Duration.Companion.days
 import tachiyomi.domain.source.model.Source as DomainSource
 
-actual class LocalSource(
-    private val context: Context,
-    private val fileSystem: LocalSourceFileSystem,
-    private val coverManager: LocalCoverManager,
-) : CatalogueSource, UnmeteredSource {
+actual class LocalSource : CatalogueSource, UnmeteredSource {
 
-    private val json: Json by injectLazy()
-    private val xml: XML by injectLazy()
-
-    @Suppress("PrivatePropertyName")
-    private val PopularFilters = FilterList(OrderBy.Popular(context))
+    // Use eager injection to avoid lazy blocking on main thread
+    private val context: Application = Injekt.get()
+    private val fileSystem: LocalSourceFileSystem = Injekt.get()
+    private val coverManager: LocalCoverManager = Injekt.get()
+    private val xml: XML = Injekt.get()
+    private val json: Json = Injekt.get()
 
     @Suppress("PrivatePropertyName")
-    private val LatestFilters = FilterList(OrderBy.Latest(context))
+    private val PopularFilters by lazy { FilterList(OrderBy.Popular(context)) }
+
+    @Suppress("PrivatePropertyName")
+    private val LatestFilters by lazy { FilterList(OrderBy.Latest(context)) }
 
     override val name: String = context.stringResource(MR.strings.local_source)
 
@@ -211,6 +216,9 @@ actual class LocalSource(
             return chapter.findFile(COMIC_INFO_FILE)?.let { file ->
                 file.openInputStream().use(block)
             }
+        } else if (chapter.extension.equals("pdf", true)) {
+            // PDFs don't have ComicInfo.xml
+            return null
         } else {
             return chapter.archiveReader(context).use { reader ->
                 reader.getInputStream(COMIC_INFO_FILE)?.use(block)
@@ -259,7 +267,7 @@ actual class LocalSource(
         val chapters = fileSystem.getFilesInMangaDirectory(manga.url)
             // Only keep supported formats
             .filterNot { it.name.orEmpty().startsWith('.') }
-            .filter { it.isDirectory || Archive.isSupported(it) || it.extension.equals("epub", true) }
+            .filter { it.isDirectory || Archive.isSupported(it) || it.extension.equals("epub", true) || it.extension.equals("pdf", true) }
             .map { chapterFile ->
                 SChapter.create().apply {
                     url = "${manga.url}/${chapterFile.name}"
@@ -354,10 +362,79 @@ actual class LocalSource(
                         entry?.let { coverManager.update(manga, epub.getInputStream(it)!!) }
                     }
                 }
+                is Format.Pdf -> {
+                    // Extract first page of PDF as cover
+                    extractPdfCover(format.file, manga)
+                }
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Error updating cover for ${manga.title}" }
-            null
+        null
+        }
+    }
+
+    private fun extractPdfCover(pdfFile: UniFile, manga: SManga): UniFile? {
+        var tempFile: File? = null
+        var parcelFileDescriptor: android.os.ParcelFileDescriptor? = null
+        try {
+            val fileDescriptor = if (pdfFile.uri.scheme == "file" && pdfFile.uri.path != null) {
+                // Use original file if possible to avoid copying
+                android.os.ParcelFileDescriptor.open(
+                    File(pdfFile.uri.path!!),
+                    android.os.ParcelFileDescriptor.MODE_READ_ONLY
+                )
+            } else {
+                // Copy PDF to temp file (PdfRenderer needs seekable file)
+                tempFile = File.createTempFile("pdf_cover_", ".pdf", context.cacheDir)
+                pdfFile.openInputStream().use { input ->
+                    tempFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+                android.os.ParcelFileDescriptor.open(
+                    tempFile,
+                    android.os.ParcelFileDescriptor.MODE_READ_ONLY
+                )
+            }
+            parcelFileDescriptor = fileDescriptor
+
+            val pdfRenderer = android.graphics.pdf.PdfRenderer(fileDescriptor)
+
+            if (pdfRenderer.pageCount > 0) {
+                val page = pdfRenderer.openPage(0)
+
+                // Render at reasonable size for cover (max 1080px width to save memory)
+                val scale = (1080f / page.width).coerceAtMost(2f)
+                val width = (page.width * scale).toInt()
+                val height = (page.height * scale).toInt()
+
+                val bitmap = android.graphics.Bitmap.createBitmap(
+                    width, height,
+                    android.graphics.Bitmap.Config.ARGB_8888
+                )
+                bitmap.eraseColor(android.graphics.Color.WHITE)
+
+                page.render(bitmap, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                page.close()
+                pdfRenderer.close()
+
+                // Convert bitmap to InputStream
+                val outputStream = ByteArrayOutputStream()
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, outputStream)
+                bitmap.recycle()
+
+                val inputStream = ByteArrayInputStream(outputStream.toByteArray())
+                return coverManager.update(manga, inputStream)
+            }
+
+            pdfRenderer.close()
+            return null
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Error extracting PDF cover" }
+            return null
+        } finally {
+            parcelFileDescriptor?.close()
+            tempFile?.delete()
         }
     }
 

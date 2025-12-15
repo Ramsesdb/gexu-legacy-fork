@@ -36,12 +36,12 @@ class NetworkHelper(
             .addNetworkInterceptor(IgnoreGzipInterceptor())
             .addNetworkInterceptor(BrotliInterceptor)
 
-        if (preferences.verboseLogging().get()) {
-            val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.HEADERS
-            }
-            builder.addNetworkInterceptor(httpLoggingInterceptor)
-        }
+//        if (preferences.verboseLogging().get()) {
+//            val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
+//                level = HttpLoggingInterceptor.Level.HEADERS
+//            }
+//            builder.addNetworkInterceptor(httpLoggingInterceptor)
+//        }
 
         when (preferences.dohProvider().get()) {
             PREF_DOH_CLOUDFLARE -> builder.dohCloudflare()
