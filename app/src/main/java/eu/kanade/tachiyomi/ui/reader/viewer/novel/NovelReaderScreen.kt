@@ -32,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SwapVert
 import androidx.compose.material.icons.filled.TextFields
@@ -65,6 +66,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import coil3.imageLoader
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.util.MuPdfUtil
 import logcat.logcat
 import kotlin.math.absoluteValue
@@ -79,6 +84,7 @@ enum class ReadingDirection {
 fun NovelReaderScreen(
     textPages: List<String>,
     images: List<String>,
+    pages: List<ReaderPage> = emptyList(), // ReaderPage objects for cached image loading
     url: String? = null,
     isLoading: Boolean = false,
     loadingMessage: String? = null,
@@ -101,10 +107,13 @@ fun NovelReaderScreen(
     onBack: () -> Unit,
     onToggleMenu: () -> Unit,
     onPageChanged: (Int) -> Unit,
+    onLoadPage: (ReaderPage) -> Unit = {}, // Trigger page loading for caching
     // TOC support
     tocItems: List<MuPdfUtil.TocItem> = emptyList(),
     onTocNavigate: (Int) -> Unit = {},
+    onAiClick: () -> Unit = {},
 ) {
+
     // TOC modal state
     var showTocModal by remember { mutableStateOf(false) }
     // Calculate total items
@@ -141,7 +150,7 @@ fun NovelReaderScreen(
 
     // Handle ALL navigation via targetPageIndex (initial position + slider)
     LaunchedEffect(targetPageIndex, totalItems) {
-        if (targetPageIndex != null && targetPageIndex >= 0 && totalItems > 1) {
+        if (targetPageIndex != null && targetPageIndex >= 0 && totalItems > 0) {
             val safeTarget = targetPageIndex.coerceIn(0, totalItems - 1)
 
             // Only force scroll if we haven't navigated yet OR if it's a new target
@@ -370,8 +379,10 @@ fun NovelReaderScreen(
                                         )
                                     }
                                 } else if (index < images.size) {
-                                    // Fallback to Image
+                                    // Fallback to Image - use OptimizedReaderImage for cached loading
                                     val imageUrl = images[index]
+                                    val page = pages.getOrNull(index)
+
                                     if (imageUrl.startsWith("pdf://")) {
                                         val pageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
                                         PdfPageItem(
@@ -380,13 +391,16 @@ fun NovelReaderScreen(
                                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
                                         )
                                     } else {
-                                        AsyncImage(
-                                            model = imageUrl,
-                                            contentDescription = null,
+                                        // Use OptimizedReaderImage - it handles page loading internally like WebtoonPageHolder
+                                        OptimizedReaderImage(
+                                            page = page,
+                                            imageUrl = imageUrl,
                                             modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
                                             contentScale = ContentScale.FillWidth
                                         )
                                     }
+
+
                                 } else {
                                     // Loading / Placeholder
                                     Box(
@@ -567,8 +581,10 @@ fun NovelReaderScreen(
                                         )
                                     }
                                 } else if (imageIndex >= 0 && imageIndex < images.size) {
-                                    // Show image
+                                    // Show image - use OptimizedReaderImage for cached loading
                                     val imageUrl = images[imageIndex]
+                                    val page = pages.getOrNull(imageIndex)
+
                                     if (imageUrl.startsWith("pdf://")) {
                                         val pdfPageIndex = imageUrl.removePrefix("pdf://").toIntOrNull() ?: 0
                                         PdfPageItem(
@@ -577,13 +593,15 @@ fun NovelReaderScreen(
                                             modifier = Modifier.fillMaxSize()
                                         )
                                     } else {
-                                        AsyncImage(
-                                            model = imageUrl,
-                                            contentDescription = null,
+                                        // Use OptimizedReaderImage - it handles page loading internally like WebtoonPageHolder
+                                        OptimizedReaderImage(
+                                            page = page,
+                                            imageUrl = imageUrl,
                                             modifier = Modifier.fillMaxSize(),
                                             contentScale = ContentScale.Fit
                                         )
                                     }
+
                                 } else {
                                     // Empty or loading
                                     Box(
@@ -635,7 +653,8 @@ fun NovelReaderScreen(
                     onToggleTextMode = onToggleTextMode,
                     onToggleMenu = onToggleMenu,
                     hasToc = tocItems.isNotEmpty(),
-                    onShowToc = { showTocModal = true }
+                    onShowToc = { showTocModal = true },
+                    onAiClick = onAiClick,
                 )
             }
 
@@ -673,6 +692,7 @@ fun NovelReaderControls(
     onToggleMenu: () -> Unit,
     hasToc: Boolean = false,
     onShowToc: () -> Unit = {},
+    onAiClick: () -> Unit = {},
 ) {
     var showFontSettings by remember { mutableStateOf(false) }
     var showThemeSettings by remember { mutableStateOf(false) }
@@ -830,6 +850,32 @@ fun NovelReaderControls(
                 }
                 Spacer(modifier = Modifier.size(12.dp))
             }
+
+            // AI Chat Button - COMMENTED OUT: Duplicate of navbar AI button
+            // Keeping code for potential future use as a quick-access option
+            /*
+            FilledTonalButton(
+                onClick = {
+                    onToggleMenu()
+                    onAiClick()
+                },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
+                )
+            ) {
+                Icon(
+                    Icons.Default.AutoAwesome,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Preguntar a Gexu AI", style = MaterialTheme.typography.labelMedium)
+            }
+            Spacer(modifier = Modifier.size(8.dp))
+            */
 
             // Font Size - Collapsible section
             SettingsSection(

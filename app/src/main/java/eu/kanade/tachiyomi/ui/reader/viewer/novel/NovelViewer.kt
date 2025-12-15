@@ -91,6 +91,18 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         private const val PDF_CACHE_FILENAME = "novel_viewer_current.pdf"
     }
 
+    /**
+     * Whether navigation is paused (e.g., when AI chat is open).
+     */
+    private var isPaused: Boolean = false
+
+    /**
+     * Set the paused state. When paused, key events won't be processed.
+     */
+    override fun setPaused(paused: Boolean) {
+        isPaused = paused
+    }
+
     // Position restore is now handled by initialPageIndex - no need for the old approach
 
     override fun getView(): View = composeView
@@ -118,6 +130,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         val initialPage by initialPageIndex.collectAsState()
         val toc by tocItems.collectAsState()
         var currentPrefs by remember { prefs }
+        var showAiChat by remember { mutableStateOf(false) }
 
         // Define renderer for PDF pages - Remember to avoid recomposition
         val pdfRenderer: suspend (Int, Int) -> android.graphics.Bitmap? = remember(currentPrefs.fontSizeSp) {
@@ -127,6 +140,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         NovelReaderScreen(
             textPages = if (textMode) textList else emptyList(),
             images = if (textMode) imageList else originalImageList,
+            pages = virtualPages, // Pass ReaderPage objects for cached image loading
             url = url,
             isLoading = loading,
             loadingMessage = loadMsg,
@@ -177,16 +191,34 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                      }
                  }
             },
+            onLoadPage = { page ->
+                // Trigger page loading via pageLoader for disk caching (like WebtoonViewer)
+                scope.launch(Dispatchers.IO) {
+                    page.chapter.pageLoader?.loadPage(page)
+                }
+            },
             // TOC support
             tocItems = toc,
             onTocNavigate = { pageNumber ->
                 // Navigate to the specified page
-                if (pageNumber >= 0 && pageNumber < virtualPages.size) {
+                // Use images.value.size for validation (reactive) instead of virtualPages.size (not reactive in Compose)
+                val totalPages = images.value.size.coerceAtLeast(virtualPages.size)
+                if (pageNumber >= 0 && pageNumber < totalPages) {
                     targetPageIndex.value = pageNumber
-                    logcat { "NovelViewer: TOC navigation to page $pageNumber" }
                 }
+            },
+            onAiClick = {
+                showAiChat = true
             }
         )
+
+        // Gexu AI Overlay
+        NovelAiChatOverlay(
+            visible = showAiChat,
+            mangaTitle = readerState.manga?.title,
+            onDismiss = { showAiChat = false }
+        )
+
     }
 
     private suspend fun renderPdfPage(index: Int, width: Int): android.graphics.Bitmap? {
@@ -335,8 +367,53 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(ocrPdfDoc, pageIndex, 1080, prefs.value.fontSizeSp.toFloat())
                         } else if (imgUrl.startsWith("pdf://")) {
                              renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
+                        } else if (imgUrl.startsWith("page://") || virtualPages.isNotEmpty()) {
+                             // FAST PATH: Use page.stream from virtualPages (ChapterLoader pages)
+                             val pageIndex = if (imgUrl.startsWith("page://")) {
+                                 imgUrl.removePrefix("page://").toIntOrNull() ?: index
+                             } else {
+                                 index
+                             }
+                             val page = virtualPages.getOrNull(pageIndex)
+                             val stream = page?.stream
+                             if (stream != null) {
+                                 try {
+                                     stream().use { inputStream ->
+                                         android.graphics.BitmapFactory.decodeStream(inputStream)
+                                     }
+                                 } catch (e: Exception) {
+                                     logcat(LogPriority.WARN) { "OCR: Failed to decode stream for page $pageIndex: ${e.message}" }
+                                     null
+                                 }
+                             } else {
+                                 // Stream not available yet - page might not be loaded
+                                 // Try to load it via pageLoader first
+                                 val loader = page?.chapter?.pageLoader
+                                 if (loader != null && page.status == eu.kanade.tachiyomi.source.model.Page.State.Queue) {
+                                     try {
+                                         // Trigger loading and wait for it
+                                         loader.loadPage(page)
+                                         // Wait for stream to become available (with timeout)
+                                         var attempts = 0
+                                         while (page.stream == null && attempts < 50 && isActive) {
+                                             delay(100)
+                                             attempts++
+                                         }
+                                         page.stream?.let { s ->
+                                             s().use { inputStream ->
+                                                 android.graphics.BitmapFactory.decodeStream(inputStream)
+                                             }
+                                         }
+                                     } catch (e: Exception) {
+                                         logcat(LogPriority.WARN) { "OCR: Failed to load page $pageIndex: ${e.message}" }
+                                         null
+                                     }
+                                 } else {
+                                     null
+                                 }
+                             }
                         } else {
-                             // Use standard image loader but check active state before heavy invalidation
+                             // Use standard image loader for real URLs
                              if (!isActive) break
                              try {
                                  val request = ImageRequest.Builder(activity)
@@ -566,18 +643,43 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     return@launch
                 }
 
+                // OPTIMIZATION: Fast path - if pages have pageLoader (from ChapterLoader), use them!
+                // The pageLoader will fetch imageUrl lazily via HttpPageLoader.loadPage()
+                // This is how WebtoonViewer works - it doesn't need imageUrl pre-filled
+                val hasPageLoader = existingPages?.any { it.chapter.pageLoader != null } == true
+
+                if (hasPageLoader && existingPages != null) {
+                    logcat { "NovelViewer: FAST PATH - Using ${existingPages.size} pages with pageLoader (like WebtoonViewer)" }
+
+                    // Create placeholder URLs - OptimizedReaderImage will use page.stream after loading
+                    // The actual imageUrl will be fetched by HttpPageLoader.loadPage()
+                    val placeholderUrls = existingPages.mapIndexed { index, page ->
+                        // Use existing imageUrl if available, otherwise placeholder
+                        page.imageUrl ?: "page://${index}"
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        images.value = placeholderUrls
+                        originalImages.value = placeholderUrls
+                        showTextMode.value = false // Show images immediately
+                        isLoading.value = false
+                    }
+                    // NO auto-OCR - user must request it via button
+                    return@launch
+                }
+
                 // FIRST: Try to use the extension's page list (like other viewers do)
                 // This is the correct way - uses the extension's built-in parsing
                 val foundImages = fetchImages(httpSource, chapter.chapter)
 
                 if (foundImages) {
-                    // Extension provided images - we're done!
-                    // DEFAULT TO WEBTOON MODE (Images) instead of forcing text
+                    // Extension provided images - show immediately (like WebtoonViewer)
                     logcat { "NovelViewer: Extension provided ${images.value.size} images" }
                     withContext(Dispatchers.Main) {
                         showTextMode.value = false
                         isLoading.value = false
                     }
+                    // NO auto-OCR - user must request it via button
                     return@launch
                 }
 
@@ -1236,6 +1338,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
+        // Don't handle key events when paused (e.g., AI chat is open)
+        if (isPaused) return false
+
         val isUp = event.action == KeyEvent.ACTION_UP
         val readerPreferences: ReaderPreferences = Injekt.get()
         val volumeKeysEnabled = readerPreferences.readWithVolumeKeys().get()
@@ -1275,5 +1380,94 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
     override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
         return false
+    }
+
+    @Composable
+    private fun NovelAiChatOverlay(
+        visible: Boolean,
+        mangaTitle: String?,
+        onDismiss: () -> Unit,
+    ) {
+        var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
+        var isLoading by remember { mutableStateOf(false) }
+        var error by remember { mutableStateOf<String?>(null) }
+
+        val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
+            Injekt.get()
+        }
+
+        eu.kanade.presentation.ai.components.AiChatOverlay(
+            visible = visible,
+            messages = messages,
+            isLoading = isLoading,
+            error = error,
+            mangaTitle = mangaTitle,
+            onSendMessage = { content ->
+                if (content.isBlank()) return@AiChatOverlay
+
+                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content)
+                messages = messages + userMessage
+                isLoading = true
+                error = null
+
+                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        val manga = activity.viewModel.manga
+                        val currentState = activity.viewModel.state.value
+                        val systemPrompt = buildString {
+                            appendLine("You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.")
+                            appendLine()
+                            manga?.let { m ->
+                                appendLine("=== CURRENT READING CONTEXT ===")
+                                appendLine("Title: ${m.title}")
+                                m.genre?.take(5)?.let { genres ->
+                                    appendLine("Genres: ${genres.joinToString(", ")}")
+                                }
+                                m.description?.take(300)?.let { desc ->
+                                    appendLine("Synopsis: $desc...")
+                                }
+                                appendLine()
+                                appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
+                                appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                appendLine("===============================")
+                                appendLine()
+                                appendLine("IMPORTANT: The user is actively reading this content. You have full context.")
+                                appendLine("- Answer questions about the current chapter and characters")
+                                appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
+                                appendLine("- Be helpful and friendly")
+                            }
+                        }
+
+                        val allMessages = listOf(
+                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt)
+                        ) + messages
+
+                        val result = aiRepository.sendMessage(allMessages)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            result.fold(
+                                onSuccess = { response ->
+                                    messages = messages + response
+                                    isLoading = false
+                                },
+                                onFailure = { e ->
+                                    isLoading = false
+                                    error = e.message ?: "Error desconocido"
+                                }
+                            )
+                        }
+                    } catch (e: Exception) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            isLoading = false
+                            error = e.message ?: "Error de conexión"
+                        }
+                    }
+                }
+            },
+            onClearConversation = {
+                messages = emptyList()
+                error = null
+            },
+            onDismiss = onDismiss,
+        )
     }
 }

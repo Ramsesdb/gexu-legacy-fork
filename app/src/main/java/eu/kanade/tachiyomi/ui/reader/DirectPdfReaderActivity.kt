@@ -78,7 +78,10 @@ import eu.kanade.tachiyomi.ui.reader.viewer.novel.NovelTheme
 import eu.kanade.tachiyomi.util.MuPdfUtil
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.logcat
 import java.io.File
@@ -162,10 +165,13 @@ fun DirectPdfReader(
     var error by remember { mutableStateOf<String?>(null) }
     var tempPdfFile by remember { mutableStateOf<File?>(null) }
 
-    // Single-threaded dispatcher for PDF rendering to avoid native concurrency issues
-    val pdfRenderDispatcher = remember {
-        java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher()
-    }
+    // Single-threaded executor for PDF rendering to avoid native concurrency issues
+    val pdfExecutor = remember { java.util.concurrent.Executors.newSingleThreadExecutor() }
+    val pdfRenderDispatcher = remember(pdfExecutor) { pdfExecutor.asCoroutineDispatcher() }
+    val isClosed = remember { java.util.concurrent.atomic.AtomicBoolean(false) }
+
+    // Mutex for text extraction document to prevent race with closing
+    val textMutex = remember { kotlinx.coroutines.sync.Mutex() }
 
     // UI state
     var menuVisible by remember { mutableStateOf(false) }
@@ -242,10 +248,27 @@ fun DirectPdfReader(
     // Cleanup on dispose
     DisposableEffect(Unit) {
         onDispose {
-            pdfDocument?.let { MuPdfUtil.closeDocument(it) }
-            textExtractionDocument?.let { MuPdfUtil.closeDocument(it) }
-            tempPdfFile?.delete()
-            pageCache.values.forEach { it.recycle() }
+            isClosed.set(true) // Flag as closed to prevent new renders
+
+            // Close documents
+            // 1. Rendering Doc (Serialized on executor)
+            pdfExecutor.execute {
+                pdfDocument?.let { MuPdfUtil.closeDocument(it) }
+                tempPdfFile?.delete()
+                pageCache.values.forEach { it.recycle() }
+            }
+
+            // 2. Text Extraction Doc (Protected by Mutex, closed in background IO)
+            val textDoc = textExtractionDocument
+            textExtractionDocument = null
+            // Launch in global/independent scope to ensure it runs even if composable scope is cancelled
+            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+                textMutex.withLock {
+                    textDoc?.let { MuPdfUtil.closeDocument(it) }
+                }
+            }
+
+            // Shutdown dispatchers
             pdfRenderDispatcher.close()
         }
     }
@@ -271,9 +294,18 @@ fun DirectPdfReader(
             repeat(totalPages) { extractedPages.add("") }
 
             try {
+                // Helper to safely extract a page
+                suspend fun safeExtract(page: Int): String {
+                    if (isClosed.get()) return ""
+                    return textMutex.withLock {
+                         if (isClosed.get() || textExtractionDocument == null) return@withLock ""
+                         MuPdfUtil.extractPageText(textExtractionDocument!!, page)
+                    }
+                }
+
                 // Extract current page FIRST for instant feedback
                 if (startPage in extractedPages.indices) {
-                    extractedPages[startPage] = MuPdfUtil.extractPageText(doc, startPage)
+                    extractedPages[startPage] = safeExtract(startPage)
                     withContext(Dispatchers.Main) { textPages = extractedPages.toList() }
                 }
 
@@ -282,15 +314,17 @@ fun DirectPdfReader(
                 val maxRadius = maxOf(startPage, totalPages - startPage - 1)
 
                 for (radius in 1..maxRadius) {
+                    if (!isActive || isClosed.get()) break
+
                     val before = startPage - radius
                     if (before >= 0) {
-                        extractedPages[before] = MuPdfUtil.extractPageText(doc, before)
+                        extractedPages[before] = safeExtract(before)
                         extracted++
                     }
 
                     val after = startPage + radius
                     if (after < totalPages) {
-                        extractedPages[after] = MuPdfUtil.extractPageText(doc, after)
+                        extractedPages[after] = safeExtract(after)
                         extracted++
                     }
 
@@ -333,7 +367,11 @@ fun DirectPdfReader(
         val doc = pdfDocument ?: return null
 
         return withContext(pdfRenderDispatcher) {
+            // Strict checks to avoid use-after-close race conditions
+            if (isClosed.get()) return@withContext null
             try {
+                // Double check cancellation
+                ensureActive()
                 MuPdfUtil.renderPage(doc, pageIndex, width)?.also { bitmap ->
                     pageCache[pageIndex] = bitmap
                 }
