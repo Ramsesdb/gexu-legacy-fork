@@ -64,6 +64,10 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.SourceNotInstalledException
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import eu.kanade.tachiyomi.network.HttpException
+import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.model.FilterList
+import tachiyomi.domain.manga.model.MangaUpdate
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.File
@@ -330,20 +334,65 @@ class LibraryUpdateJob(private val context: Context, workerParams: WorkerParamet
      */
     private suspend fun updateManga(manga: Manga, fetchWindow: Pair<Long, Long>): List<Chapter> {
         val source = sourceManager.getOrStub(manga.source)
+        var currentManga = manga
 
         // Update manga metadata if needed
         if (libraryPreferences.autoUpdateMetadata().get()) {
-            val networkManga = source.getMangaDetails(manga.toSManga())
-            updateManga.awaitUpdateFromSource(manga, networkManga, manualFetch = false, coverCache)
+            try {
+                val networkManga = source.getMangaDetails(currentManga.toSManga())
+                updateManga.awaitUpdateFromSource(currentManga, networkManga, manualFetch = false, coverCache)
+            } catch (e: Exception) {
+                if (e is HttpException && e.code == 404 && source is CatalogueSource) {
+                    val newUrl = smartFindUrl(source, currentManga)
+                    if (newUrl != null) {
+                        updateManga.await(MangaUpdate(id = currentManga.id, url = newUrl))
+                        currentManga = currentManga.copy(url = newUrl)
+                        val networkManga = source.getMangaDetails(currentManga.toSManga())
+                        updateManga.awaitUpdateFromSource(currentManga, networkManga, manualFetch = false, coverCache)
+                    } else {
+                        throw e
+                    }
+                } else {
+                    throw e
+                }
+            }
         }
 
-        val chapters = source.getChapterList(manga.toSManga())
+        val chapters = try {
+            source.getChapterList(currentManga.toSManga())
+        } catch (e: Exception) {
+            if (e is HttpException && e.code == 404 && source is CatalogueSource) {
+                val newUrl = smartFindUrl(source, currentManga)
+                if (newUrl != null) {
+                    updateManga.await(MangaUpdate(id = currentManga.id, url = newUrl))
+                    currentManga = currentManga.copy(url = newUrl)
+                    source.getChapterList(currentManga.toSManga())
+                } else {
+                    throw e
+                }
+            } else {
+                throw e
+            }
+        }
 
         // Get manga from database to account for if it was removed during the update and
         // to get latest data so it doesn't get overwritten later on
-        val dbManga = getManga.await(manga.id)?.takeIf { it.favorite } ?: return emptyList()
+        val dbManga = getManga.await(currentManga.id)?.takeIf { it.favorite } ?: return emptyList()
 
         return syncChaptersWithSource.await(chapters, dbManga, source, false, fetchWindow)
+    }
+
+    private suspend fun smartFindUrl(source: CatalogueSource, manga: Manga): String? {
+        return try {
+            val filters = FilterList()
+            val search = source.getSearchManga(1, manga.title, filters)
+            val match = search.mangas.find {
+                it.title.equals(manga.title, ignoreCase = true)
+            }
+            match?.url
+        } catch (e: Exception) {
+            null
+        }
     }
 
     private suspend fun withUpdateNotification(
