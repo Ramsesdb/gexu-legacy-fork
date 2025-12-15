@@ -7,6 +7,7 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastAny
+import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -122,6 +123,7 @@ class MangaScreenModel(
     private val setMangaCategories: SetMangaCategories = Injekt.get(),
     private val mangaRepository: MangaRepository = Injekt.get(),
     private val filterChaptersForDownload: FilterChaptersForDownload = Injekt.get(),
+    private val getPdfToc: tachiyomi.domain.pdftoc.interactor.GetPdfToc = Injekt.get(),
     val snackbarHostState: SnackbarHostState = SnackbarHostState(),
 ) : StateScreenModel<MangaScreenModel.State>(State.Loading) {
 
@@ -154,6 +156,29 @@ class MangaScreenModel(
 
     private val selectedPositions: Array<Int> = arrayOf(-1, -1) // first and last selected index in list
     private val selectedChapterIds: HashSet<Long> = HashSet()
+
+    // Phase 2: PDF TOC Expansion State
+    private val expandedChapterIds: HashSet<Long> = HashSet()
+    private val chapterTocEntries: MutableMap<Long, List<PdfTocEntry>> = mutableMapOf()
+
+    fun toggleChapterExpansion(chapterId: Long) {
+        if (expandedChapterIds.contains(chapterId)) {
+            expandedChapterIds.remove(chapterId)
+        } else {
+            expandedChapterIds.add(chapterId)
+            // Load TOC if not already loaded
+            if (!chapterTocEntries.containsKey(chapterId)) {
+                screenModelScope.launchIO {
+                    val toc = getPdfToc.await(chapterId)
+                    chapterTocEntries[chapterId] = toc
+                    // Trigger UI update
+                    updateSuccessState { it.copy(expandedChapterIds = expandedChapterIds.toSet(), chapterTocEntries = chapterTocEntries.toMap()) }
+                }
+            }
+        }
+        // Immediate UI update for expansion toggle
+        updateSuccessState { it.copy(expandedChapterIds = expandedChapterIds.toSet()) }
+    }
 
     /**
      * Helper function to update the UI state only if it's currently in success state
@@ -221,6 +246,17 @@ class MangaScreenModel(
             val needRefreshInfo = !manga.initialized
             val needRefreshChapter = chapters.isEmpty()
 
+            // Phase 2: Check for existing TOCs
+            val chaptersWithToc = if (manga.isLocal()) {
+                chapters.map { item ->
+                    async {
+                        if (getPdfToc.hasToc(item.chapter.id)) item.chapter.id else null
+                    }
+                }.awaitAll().filterNotNull().toSet()
+            } else {
+                emptySet()
+            }
+
             // Show what we have earlier
             mutableState.update {
                 State.Success(
@@ -233,6 +269,8 @@ class MangaScreenModel(
                     isRefreshingData = needRefreshInfo || needRefreshChapter,
                     dialog = null,
                     hideMissingChapters = libraryPreferences.hideMissingChapters().get(),
+                    // Phase 2: Set TOC state
+                    chaptersWithToc = chaptersWithToc,
                 )
             }
 
@@ -1180,6 +1218,10 @@ class MangaScreenModel(
             val dialog: Dialog? = null,
             val hasPromptedToAddBefore: Boolean = false,
             val hideMissingChapters: Boolean = false,
+            // Phase 2: TOC Expansion
+            val expandedChapterIds: Set<Long> = emptySet(),
+            val chaptersWithToc: Set<Long> = emptySet(),
+            val chapterTocEntries: Map<Long, List<PdfTocEntry>> = emptyMap(),
         ) : State {
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()

@@ -64,6 +64,10 @@ import tachiyomi.domain.chapter.interactor.SetMangaDefaultChapterFlags
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.data.pdftoc.PdfTocRepositoryImpl
+import tachiyomi.domain.pdftoc.interactor.GetPdfToc
+import tachiyomi.domain.pdftoc.interactor.SavePdfToc
+import tachiyomi.domain.pdftoc.repository.PdfTocRepository
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
@@ -164,6 +168,11 @@ class DomainModule : InjektModule {
         addFactory { SyncChaptersWithSource(get(), get(), get(), get(), get(), get(), get(), get(), get()) }
         addFactory { GetAvailableScanlators(get()) }
         addFactory { FilterChaptersForDownload(get(), get(), get()) }
+
+        // PDF Table of Contents
+        addSingletonFactory<PdfTocRepository> { PdfTocRepositoryImpl(get()) }
+        addFactory { GetPdfToc(get()) }
+        addFactory { SavePdfToc(get()) }
 
         addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
         addFactory { GetHistory(get()) }

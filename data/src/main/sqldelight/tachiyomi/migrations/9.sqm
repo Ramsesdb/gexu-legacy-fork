@@ -1,0 +1,12 @@
+-- Add PDF Table of Contents table
+CREATE TABLE IF NOT EXISTS pdf_toc_entries(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    level INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES chapters(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS pdf_toc_chapter_id_index ON pdf_toc_entries(chapter_id);

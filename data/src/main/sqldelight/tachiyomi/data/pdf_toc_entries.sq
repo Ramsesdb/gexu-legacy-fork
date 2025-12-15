@@ -1,0 +1,43 @@
+-- PDF Table of Contents entries
+-- Stores extracted TOC for quick access on subsequent opens
+
+CREATE TABLE pdf_toc_entries(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    page_number INTEGER NOT NULL,
+    level INTEGER NOT NULL DEFAULT 0,
+    sort_order INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES chapters(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX pdf_toc_chapter_id_index ON pdf_toc_entries(chapter_id);
+
+-- Get all TOC entries for a chapter
+getTocByChapterId:
+SELECT *
+FROM pdf_toc_entries
+WHERE chapter_id = :chapterId
+ORDER BY sort_order;
+
+-- Insert a TOC entry
+insertTocEntry:
+INSERT INTO pdf_toc_entries(chapter_id, title, page_number, level, sort_order)
+VALUES (:chapterId, :title, :pageNumber, :level, :sortOrder);
+
+-- Delete all TOC entries for a chapter
+deleteByChapterId:
+DELETE FROM pdf_toc_entries
+WHERE chapter_id = :chapterId;
+
+-- Check if chapter has TOC entries
+hasTocEntries:
+SELECT COUNT(*) > 0
+FROM pdf_toc_entries
+WHERE chapter_id = :chapterId;
+
+-- Get TOC count for a chapter
+getTocCount:
+SELECT COUNT(*)
+FROM pdf_toc_entries
+WHERE chapter_id = :chapterId;

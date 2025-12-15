@@ -63,6 +63,7 @@ import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.ui.manga.ChapterList
 import eu.kanade.tachiyomi.ui.manga.MangaScreenModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
+import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.service.missingChaptersCount
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -127,6 +128,9 @@ fun MangaScreen(
     onChapterSelected: (ChapterList.Item, Boolean, Boolean, Boolean) -> Unit,
     onAllChapterSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
+    // Phase 2: PDF TOC
+    onToggleChapterExpansion: (Long) -> Unit,
+    onChapterTocClicked: (Chapter, Int) -> Unit,
 ) {
     val context = LocalContext.current
     val onCopyTagToClipboard: (tag: String) -> Unit = {
@@ -170,6 +174,8 @@ fun MangaScreen(
             onChapterSelected = onChapterSelected,
             onAllChapterSelected = onAllChapterSelected,
             onInvertSelection = onInvertSelection,
+            onToggleChapterExpansion = onToggleChapterExpansion,
+            onChapterTocClicked = onChapterTocClicked,
         )
     } else {
         MangaScreenLargeImpl(
@@ -206,6 +212,8 @@ fun MangaScreen(
             onChapterSelected = onChapterSelected,
             onAllChapterSelected = onAllChapterSelected,
             onInvertSelection = onInvertSelection,
+            onToggleChapterExpansion = onToggleChapterExpansion,
+            onChapterTocClicked = onChapterTocClicked,
         )
     }
 }
@@ -258,6 +266,9 @@ private fun MangaScreenSmallImpl(
     onChapterSelected: (ChapterList.Item, Boolean, Boolean, Boolean) -> Unit,
     onAllChapterSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
+    // Phase 2: PDF TOC
+    onToggleChapterExpansion: (Long) -> Unit,
+    onChapterTocClicked: (Chapter, Int) -> Unit,
 ) {
     val chapterListState = rememberLazyListState()
 
@@ -447,6 +458,11 @@ private fun MangaScreenSmallImpl(
                         onDownloadChapter = onDownloadChapter,
                         onChapterSelected = onChapterSelected,
                         onChapterSwipe = onChapterSwipe,
+                        onToggleChapterExpansion = onToggleChapterExpansion,
+                        onChapterTocClicked = onChapterTocClicked,
+                        expandedChapterIds = state.expandedChapterIds,
+                        chaptersWithToc = state.chaptersWithToc,
+                        chapterTocEntries = state.chapterTocEntries,
                     )
                 }
             }
@@ -502,6 +518,9 @@ fun MangaScreenLargeImpl(
     onChapterSelected: (ChapterList.Item, Boolean, Boolean, Boolean) -> Unit,
     onAllChapterSelected: (Boolean) -> Unit,
     onInvertSelection: () -> Unit,
+    // Phase 2: PDF TOC
+    onToggleChapterExpansion: (Long) -> Unit,
+    onChapterTocClicked: (Chapter, Int) -> Unit,
 ) {
     val layoutDirection = LocalLayoutDirection.current
     val density = LocalDensity.current
@@ -686,6 +705,11 @@ fun MangaScreenLargeImpl(
                                 onDownloadChapter = onDownloadChapter,
                                 onChapterSelected = onChapterSelected,
                                 onChapterSwipe = onChapterSwipe,
+                                onToggleChapterExpansion = onToggleChapterExpansion,
+                                onChapterTocClicked = onChapterTocClicked,
+                                expandedChapterIds = state.expandedChapterIds,
+                                chaptersWithToc = state.chaptersWithToc,
+                                chapterTocEntries = state.chapterTocEntries,
                             )
                         }
                     }
@@ -747,6 +771,12 @@ private fun LazyListScope.sharedChapterItems(
     onDownloadChapter: ((List<ChapterList.Item>, ChapterDownloadAction) -> Unit)?,
     onChapterSelected: (ChapterList.Item, Boolean, Boolean, Boolean) -> Unit,
     onChapterSwipe: (ChapterList.Item, LibraryPreferences.ChapterSwipeAction) -> Unit,
+    // Phase 2
+    onToggleChapterExpansion: (Long) -> Unit,
+    onChapterTocClicked: (Chapter, Int) -> Unit,
+    expandedChapterIds: Set<Long>,
+    chaptersWithToc: Set<Long>,
+    chapterTocEntries: Map<Long, List<PdfTocEntry>>,
 ) {
     items(
         items = chapters,
@@ -792,6 +822,12 @@ private fun LazyListScope.sharedChapterItems(
                     downloadProgressProvider = { item.downloadProgress },
                     chapterSwipeStartAction = chapterSwipeStartAction,
                     chapterSwipeEndAction = chapterSwipeEndAction,
+                    // Phase 2: TOC Expansion
+                    tocEntries = chapterTocEntries[item.chapter.id] ?: emptyList(),
+                    expanded = expandedChapterIds.contains(item.chapter.id),
+                    hasSubItems = chaptersWithToc.contains(item.chapter.id),
+                    onExpand = { onToggleChapterExpansion(item.chapter.id) },
+                    onTocItemClick = { onChapterTocClicked(item.chapter, it.pageNumber) },
                     onLongClick = {
                         onChapterSelected(item, !item.selected, true, true)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
