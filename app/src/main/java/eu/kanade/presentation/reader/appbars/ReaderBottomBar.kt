@@ -3,9 +3,11 @@ package eu.kanade.presentation.reader.appbars
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,6 +28,7 @@ fun ReaderBottomBar(
     cropEnabled: Boolean,
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
+    onAiClick: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     Row(
@@ -59,6 +62,14 @@ fun ReaderBottomBar(
             Icon(
                 imageVector = Icons.Outlined.Settings,
                 contentDescription = stringResource(MR.strings.action_settings),
+            )
+        }
+
+        IconButton(onClick = onAiClick) {
+            Icon(
+                imageVector = Icons.Filled.AutoAwesome,
+                contentDescription = "Gexu AI",
+                tint = MaterialTheme.colorScheme.primary,
             )
         }
     }

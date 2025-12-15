@@ -476,6 +476,11 @@ class MainActivity : BaseActivity() {
                 }
                 null
             }
+            "eu.kanade.tachiyomi.AI_CHAT" -> {
+                val mangaId = intent.getLongExtra("manga_id", -1L).takeIf { it != -1L }
+                navigator.popUntilRoot()
+                HomeScreen.Tab.Ai(mangaId = mangaId)
+            }
             else -> null
         }
 

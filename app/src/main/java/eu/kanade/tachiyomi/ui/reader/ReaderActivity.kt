@@ -30,9 +30,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -142,6 +145,9 @@ class ReaderActivity : BaseActivity() {
 
     var isScrollingThroughPages = false
         private set
+
+    // Flag to prevent key events from navigating the reader when AI chat is open
+    var isAiChatOpen = false
 
     /**
      * Called when the activity is created. Initializes the presenter and configuration.
@@ -259,6 +265,7 @@ class ReaderActivity : BaseActivity() {
                 onChangeOrientation = viewModel::setMangaOrientationType,
             )
         }
+        var showAiChat by remember { mutableStateOf(false) }
 
         Box(modifier = Modifier.fillMaxSize()) {
             if (!state.menuVisible && showPageNumber) {
@@ -273,8 +280,21 @@ class ReaderActivity : BaseActivity() {
 
             ContentOverlay(state = state)
 
-            AppBars(state = state)
+            AppBars(state = state, onOpenAiChat = {
+                showAiChat = true
+                isAiChatOpen = true
+            })
         }
+
+        // Gexu AI Overlay - Separated from main content to avoid recomposition issues
+        AiChatOverlayContent(
+            visible = showAiChat,
+            mangaTitle = state.manga?.title,
+            onDismiss = {
+                showAiChat = false
+                isAiChatOpen = false
+            }
+        )
 
         val onDismissRequest = viewModel::closeDialog
         when (state.dialog) {
@@ -397,6 +417,10 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
+        // Don't handle chapter navigation keys when AI chat is open
+        if (isAiChatOpen) {
+            return super.onKeyUp(keyCode, event)
+        }
         if (keyCode == KeyEvent.KEYCODE_N) {
             loadNextChapter()
             return true
@@ -409,8 +433,13 @@ class ReaderActivity : BaseActivity() {
 
     /**
      * Dispatches a key event. If the viewer doesn't handle it, call the default implementation.
+     * Skip viewer handling when AI chat is open to prevent navigation while typing.
      */
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        // Don't let viewer handle key events when AI chat is open
+        if (isAiChatOpen) {
+            return super.dispatchKeyEvent(event)
+        }
         val handled = viewModel.state.value.viewer?.handleKeyEvent(event) ?: false
         return handled || super.dispatchKeyEvent(event)
     }
@@ -447,7 +476,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     @Composable
-    fun AppBars(state: ReaderViewModel.State) {
+    fun AppBars(state: ReaderViewModel.State, onOpenAiChat: () -> Unit = {}) {
         if (!ifSourcesLoaded()) {
             return
         }
@@ -499,6 +528,7 @@ class ReaderActivity : BaseActivity() {
                 menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
             },
             onClickSettings = viewModel::openSettingsDialog,
+            onAiClick = onOpenAiChat, // Show overlay instead of navigating
         )
     }
 
@@ -982,5 +1012,106 @@ class ReaderActivity : BaseActivity() {
             val paint = if (grayscale || invertedColors) getCombinedPaint(grayscale, invertedColors) else null
             binding.viewerContainer.setLayerType(LAYER_TYPE_HARDWARE, paint)
         }
+    }
+
+    @Composable
+    private fun AiChatOverlayContent(
+        visible: Boolean,
+        mangaTitle: String?,
+        onDismiss: () -> Unit,
+    ) {
+        // Use remember to create a simple state holder for the chat
+        var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
+        var isLoading by remember { mutableStateOf(false) }
+        var error by remember { mutableStateOf<String?>(null) }
+
+        // Get AI repository
+        val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
+            uy.kohesive.injekt.Injekt.get()
+        }
+        val getReadingContext: tachiyomi.domain.ai.GetReadingContext = remember {
+            uy.kohesive.injekt.Injekt.get()
+        }
+
+        // Pause viewer scroll handling when chat is visible to prevent page changes
+        LaunchedEffect(visible) {
+            viewModel.state.value.viewer?.setPaused(visible)
+        }
+
+        eu.kanade.presentation.ai.components.AiChatOverlay(
+            visible = visible,
+            messages = messages,
+            isLoading = isLoading,
+            error = error,
+            mangaTitle = mangaTitle,
+            onSendMessage = { content ->
+                if (content.isBlank()) return@AiChatOverlay
+
+                // Add user message
+                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content)
+                messages = messages + userMessage
+                isLoading = true
+                error = null
+
+                // Send to AI in background
+                lifecycleScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                    try {
+                        // Build system prompt with manga context
+                        val currentState = viewModel.state.value
+                        val systemPrompt = buildString {
+                            appendLine("You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.")
+                            appendLine()
+                            viewModel.manga?.let { manga ->
+                                appendLine("=== CURRENT READING CONTEXT ===")
+                                appendLine("Title: ${manga.title}")
+                                manga.genre?.take(5)?.let { genres ->
+                                    appendLine("Genres: ${genres.joinToString(", ")}")
+                                }
+                                manga.description?.take(300)?.let { desc ->
+                                    appendLine("Synopsis: $desc...")
+                                }
+                                appendLine()
+                                appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
+                                appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                appendLine("===============================")
+                                appendLine()
+                                appendLine("IMPORTANT: The user is actively reading this manga. You have full context of what they're reading.")
+                                appendLine("- Answer questions about the current chapter and characters")
+                                appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
+                                appendLine("- Be helpful and friendly")
+                            }
+                        }
+
+                        val allMessages = listOf(
+                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt)
+                        ) + messages
+
+                        val result = aiRepository.sendMessage(allMessages)
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            result.fold(
+                                onSuccess = { response ->
+                                    messages = messages + response
+                                    isLoading = false
+                                },
+                                onFailure = { e ->
+                                    isLoading = false
+                                    error = e.message ?: "Error desconocido"
+                                }
+                            )
+                        }
+                    } catch (e: Exception) {
+                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                            isLoading = false
+                            error = e.message ?: "Error de conexión"
+                        }
+                    }
+                }
+            },
+            onClearConversation = {
+                messages = emptyList()
+                error = null
+            },
+            onDismiss = onDismiss,
+        )
     }
 }

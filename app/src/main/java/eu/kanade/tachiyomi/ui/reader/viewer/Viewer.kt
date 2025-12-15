@@ -42,4 +42,10 @@ interface Viewer {
      * return true if the event was handled, false otherwise.
      */
     fun handleGenericMotionEvent(event: MotionEvent): Boolean
+
+    /**
+     * Set the paused state. When paused, the viewer should not respond to navigation events.
+     * Used when overlays like AI chat are open to prevent accidental page changes.
+     */
+    fun setPaused(paused: Boolean) {}
 }

@@ -99,14 +99,16 @@ fun MangaChapterListItem(
         onSwipe = { onChapterSwipe(chapterSwipeEndAction) },
     )
 
-    SwipeableActionsBox(
-        modifier = Modifier.clipToBounds(),
-        startActions = listOfNotNull(start),
-        endActions = listOfNotNull(end),
-        swipeThreshold = swipeActionThreshold,
-        backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
-    ) {
-        Column(modifier = modifier.selectedBackground(selected)) {
+    // Main component wrapped in a Column to allow TOC to be outside SwipeableActionsBox
+    Column(modifier = modifier.selectedBackground(selected)) {
+        // Chapter row with swipe actions (only the main row, not the TOC)
+        SwipeableActionsBox(
+            modifier = Modifier.clipToBounds(),
+            startActions = listOfNotNull(start),
+            endActions = listOfNotNull(end),
+            swipeThreshold = swipeActionThreshold,
+            backgroundUntilSwipeThreshold = MaterialTheme.colorScheme.surfaceContainerLowest,
+        ) {
             Row(
                 modifier = Modifier
                     .combinedClickable(
@@ -224,76 +226,82 @@ fun MangaChapterListItem(
                     onClick = { onDownloadClick?.invoke(it) },
                 )
             }
+        }
 
-            // Phase 2: Expanded Content (Premium Tree Design)
-            if (expanded && tocEntries.isNotEmpty()) {
-                androidx.compose.material3.Surface(
+        // Phase 2: Expanded Content (Premium Tree Design) - OUTSIDE SwipeableActionsBox to receive clicks
+        // Use LazyColumn for large TOC lists (200+ items) to ensure proper click handling and performance
+        if (expanded && tocEntries.isNotEmpty()) {
+            androidx.compose.material3.Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
+                color = MaterialTheme.colorScheme.surfaceContainer, // Premium feel
+                tonalElevation = 2.dp
+            ) {
+                // Use LazyColumn with max height for large lists - fixes click issues
+                val maxHeight = if (tocEntries.size > 20) 400.dp else (tocEntries.size * 44).dp.coerceAtMost(400.dp)
+                androidx.compose.foundation.lazy.LazyColumn(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
-                    shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainer, // Premium feel
-                    tonalElevation = 2.dp
+                        .height(maxHeight)
+                        .padding(vertical = 8.dp)
                 ) {
-                    Column(
-                        modifier = Modifier.padding(vertical = 8.dp)
-                    ) {
-                        tocEntries.forEachIndexed { index, item ->
-                            val isLast = index == tocEntries.lastIndex
-
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable { onTocItemClick(item) }
-                                    .padding(vertical = 8.dp, horizontal = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                // Tree Indentation & Line
-                                if (item.level > 1) {
-                                   Spacer(modifier = Modifier.width(((item.level - 1) * 12).dp))
-                                }
-
-                                // Tree Connector
-                                androidx.compose.foundation.layout.Box(
-                                    modifier = Modifier
-                                        .size(8.dp)
-                                        .background(
-                                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                            shape = androidx.compose.foundation.shape.CircleShape
-                                        )
-                                )
-
-                                Spacer(modifier = Modifier.width(12.dp))
-
-                                Text(
-                                    text = item.title,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
-                                    ),
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.weight(1f)
-                                )
-
-                                // Page Number Badge
-                                androidx.compose.material3.Surface(
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                                    modifier = Modifier.padding(start = 8.dp)
-                                ) {
-                                    Text(
-                                        text = "Pg. ${item.pageNumber}",
-                                        style = MaterialTheme.typography.labelSmall.copy(
-                                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
-                                        ),
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                        color = MaterialTheme.colorScheme.onSecondaryContainer
-                                    )
-                                }
+                    items(
+                        count = tocEntries.size,
+                        key = { index -> "${tocEntries[index].pageNumber}_${tocEntries[index].title}" }
+                    ) { index ->
+                        val item = tocEntries[index]
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onTocItemClick(item) }
+                                .padding(vertical = 8.dp, horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            // Tree Indentation & Line
+                            if (item.level > 1) {
+                               Spacer(modifier = Modifier.width(((item.level - 1) * 12).dp))
                             }
 
-                            // Optional: Divider between items if desired, but clean look is often better
+                            // Tree Connector
+                            androidx.compose.foundation.layout.Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
+                                        shape = androidx.compose.foundation.shape.CircleShape
+                                    )
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Text(
+                                text = item.title,
+                                style = MaterialTheme.typography.bodyMedium.copy(
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            // Page Number Badge
+                            androidx.compose.material3.Surface(
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
+                                modifier = Modifier.padding(start = 8.dp)
+                            ) {
+                                Text(
+                                    text = "Pg. ${item.pageNumber}",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                    ),
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                            }
                         }
                     }
                 }
