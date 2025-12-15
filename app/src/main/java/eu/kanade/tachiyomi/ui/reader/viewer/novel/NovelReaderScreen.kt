@@ -30,6 +30,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.SwapVert
@@ -64,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
+import eu.kanade.tachiyomi.util.MuPdfUtil
 import logcat.logcat
 import kotlin.math.absoluteValue
 
@@ -99,7 +101,12 @@ fun NovelReaderScreen(
     onBack: () -> Unit,
     onToggleMenu: () -> Unit,
     onPageChanged: (Int) -> Unit,
+    // TOC support
+    tocItems: List<MuPdfUtil.TocItem> = emptyList(),
+    onTocNavigate: (Int) -> Unit = {},
 ) {
+    // TOC modal state
+    var showTocModal by remember { mutableStateOf(false) }
     // Calculate total items
     val totalItems = if (showTextMode) {
         textPages.size + (images.size - textPages.size).coerceAtLeast(0)
@@ -304,14 +311,62 @@ fun NovelReaderScreen(
                                         )
 
                                         // Text content
+                                        // Styled Text content
+                                        val textColor = prefs.theme.textColor()
+                                        // Optimize TOC lookup
+                                        val tocTitleSet = remember(tocItems) {
+                                            tocItems.map { it.title.trim().lowercase() }.toHashSet()
+                                        }
+
+                                        val annotatedText = remember(pageContent, prefs.fontSizeSp, tocTitleSet, textColor) {
+                                            androidx.compose.ui.text.buildAnnotatedString {
+                                                val lines = pageContent.split("\n")
+                                                lines.forEachIndexed { index, line ->
+                                                    val cleanLine = line.trim()
+                                                    val cleanLineLower = cleanLine.lowercase()
+
+                                                    val isTitle = cleanLine.isNotEmpty() && cleanLine.length < 100 && (
+                                                        cleanLine.startsWith("Capítulo", true) ||
+                                                        cleanLine.startsWith("Chapter", true) ||
+                                                        cleanLine.startsWith("Epílogo", true) ||
+                                                        cleanLine.startsWith("Epilogue", true) ||
+                                                        cleanLine.startsWith("Prólogo", true) ||
+                                                        cleanLine.startsWith("Prologue", true) ||
+                                                        tocTitleSet.contains(cleanLineLower)
+                                                    )
+
+                                                    if (isTitle) {
+                                                        pushStyle(
+                                                            androidx.compose.ui.text.SpanStyle(
+                                                                fontSize = (prefs.fontSizeSp * 1.4f).sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = textColor
+                                                            )
+                                                        )
+                                                        append(line)
+                                                        pop()
+                                                    } else {
+                                                        pushStyle(
+                                                            androidx.compose.ui.text.SpanStyle(
+                                                                fontSize = prefs.fontSizeSp.sp,
+                                                                color = textColor
+                                                            )
+                                                        )
+                                                        append(line)
+                                                        pop()
+                                                    }
+                                                    if (index < lines.lastIndex) append("\n")
+                                                }
+                                            }
+                                        }
+
                                         Text(
-                                            text = pageContent,
+                                            text = annotatedText,
                                             style = TextStyle(
-                                                fontSize = prefs.fontSizeSp.sp,
                                                 lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
-                                                color = prefs.theme.textColor()
+                                                textAlign = TextAlign.Justify
                                             ),
-                                            textAlign = TextAlign.Justify
+                                            modifier = Modifier.fillMaxWidth()
                                         )
                                     }
                                 } else if (index < images.size) {
@@ -451,13 +506,62 @@ fun NovelReaderScreen(
                                             textAlign = TextAlign.Center
                                         )
 
+                                        // Styled Text content (Book Mode)
+                                        val textColor = prefs.theme.textColor()
+                                        // Optimize TOC lookup
+                                        val tocTitleSet = remember(tocItems) {
+                                            tocItems.map { it.title.trim().lowercase() }.toHashSet()
+                                        }
+
+                                        val annotatedText = remember(textPages[pageIndex], prefs.fontSizeSp, tocTitleSet, textColor) {
+                                            androidx.compose.ui.text.buildAnnotatedString {
+                                                val content = textPages[pageIndex]
+                                                val lines = content.split("\n")
+                                                lines.forEachIndexed { index, line ->
+                                                    val cleanLine = line.trim()
+                                                    val cleanLineLower = cleanLine.lowercase()
+
+                                                    val isTitle = cleanLine.isNotEmpty() && cleanLine.length < 100 && (
+                                                        cleanLine.startsWith("Capítulo", true) ||
+                                                        cleanLine.startsWith("Chapter", true) ||
+                                                        cleanLine.startsWith("Epílogo", true) ||
+                                                        cleanLine.startsWith("Epilogue", true) ||
+                                                        cleanLine.startsWith("Prólogo", true) ||
+                                                        cleanLine.startsWith("Prologue", true) ||
+                                                        tocTitleSet.contains(cleanLineLower)
+                                                    )
+
+                                                    if (isTitle) {
+                                                        pushStyle(
+                                                            androidx.compose.ui.text.SpanStyle(
+                                                                fontSize = (prefs.fontSizeSp * 1.4f).sp,
+                                                                fontWeight = FontWeight.Bold,
+                                                                color = textColor
+                                                            )
+                                                        )
+                                                        append(line)
+                                                        pop()
+                                                    } else {
+                                                        pushStyle(
+                                                            androidx.compose.ui.text.SpanStyle(
+                                                                fontSize = prefs.fontSizeSp.sp,
+                                                                color = textColor
+                                                            )
+                                                        )
+                                                        append(line)
+                                                        pop()
+                                                    }
+                                                    if (index < lines.lastIndex) append("\n")
+                                                }
+                                            }
+                                        }
+
                                         Text(
-                                            text = textPages[pageIndex],
+                                            text = annotatedText,
                                             style = TextStyle(
-                                                fontSize = prefs.fontSizeSp.sp,
                                                 lineHeight = (prefs.fontSizeSp * prefs.lineHeightEm).sp,
-                                                color = prefs.theme.textColor(),
-                                                textAlign = TextAlign.Justify
+                                                textAlign = TextAlign.Justify,
+                                                color = textColor
                                             ),
                                             modifier = Modifier.fillMaxWidth()
                                         )
@@ -529,7 +633,26 @@ fun NovelReaderScreen(
                     onPrefsChanged = onPrefsChanged,
                     onExtractOcr = onExtractOcr,
                     onToggleTextMode = onToggleTextMode,
-                    onToggleMenu = onToggleMenu
+                    onToggleMenu = onToggleMenu,
+                    hasToc = tocItems.isNotEmpty(),
+                    onShowToc = { showTocModal = true }
+                )
+            }
+
+            // TOC Modal
+            if (showTocModal && tocItems.isNotEmpty()) {
+                val currentPage = when (prefs.readingDirection) {
+                    ReadingDirection.VERTICAL -> listState.firstVisibleItemIndex
+                    ReadingDirection.BOOK -> pagerState.currentPage
+                }
+                PdfTocModal(
+                    tocItems = tocItems,
+                    currentPage = currentPage,
+                    onNavigate = { page ->
+                        showTocModal = false
+                        onTocNavigate(page)
+                    },
+                    onDismiss = { showTocModal = false }
                 )
             }
         }
@@ -548,6 +671,8 @@ fun NovelReaderControls(
     onExtractOcr: () -> Unit,
     onToggleTextMode: () -> Unit = {},
     onToggleMenu: () -> Unit,
+    hasToc: Boolean = false,
+    onShowToc: () -> Unit = {},
 ) {
     var showFontSettings by remember { mutableStateOf(false) }
     var showThemeSettings by remember { mutableStateOf(false) }
@@ -660,8 +785,9 @@ fun NovelReaderControls(
                 Spacer(modifier = Modifier.size(8.dp))
             }
 
-            // OCR Button - Show when images are available (user can trigger OCR manually)
-            if (hasImages) {
+            // OCR Button - Show when images are available but NOT for PDFs
+            // (PDFs use MuPDF for direct text extraction, not OCR)
+            if (hasImages && !isPdfMode) {
                 FilledTonalButton(
                     onClick = {
                         onToggleMenu()
@@ -677,6 +803,30 @@ fun NovelReaderControls(
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Extraer Texto (OCR)", style = MaterialTheme.typography.labelMedium)
+                }
+                Spacer(modifier = Modifier.size(8.dp))
+            }
+
+            // TOC Button - Show when PDF has table of contents
+            if (hasToc) {
+                FilledTonalButton(
+                    onClick = {
+                        onShowToc()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                        contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                    )
+                ) {
+                    Icon(
+                        Icons.AutoMirrored.Filled.List,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Tabla de Contenido", style = MaterialTheme.typography.labelMedium)
                 }
                 Spacer(modifier = Modifier.size(12.dp))
             }

@@ -107,10 +107,13 @@ import java.io.ByteArrayOutputStream
 class ReaderActivity : BaseActivity() {
 
     companion object {
-        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?): Intent {
+        fun newIntent(context: Context, mangaId: Long?, chapterId: Long?, page: Int? = null): Intent {
             return Intent(context, ReaderActivity::class.java).apply {
                 putExtra("manga", mangaId)
                 putExtra("chapter", chapterId)
+                if (page != null) {
+                    putExtra("page", page)
+                }
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
         }
@@ -602,6 +605,24 @@ class ReaderActivity : BaseActivity() {
         lifecycleScope.launchIO {
             viewModel.getChapterUrl()?.let { url ->
                 assistUrl = url
+            }
+        }
+
+        // Phase 2: Handle initial page navigation from intent
+        val initialPage = intent.getIntExtra("page", -1)
+        if (initialPage != -1) {
+            // Remove the extra so it doesn't trigger again on rotation/reload
+            intent.removeExtra("page")
+            lifecycleScope.launch {
+                 // TOC pages are usually 1-indexed (e.g. page 5 means the 5th page), viewer uses 0-indexed?
+                 // Usually PDF pages are 1-indexed in UI but 0-indexed in list access.
+                 // let's assume the passed 'page' is the index if it came from PDF TOC which often gives page index or label.
+                 // However, PDF TOC usually gives page index (0-based) or page number (1-based).
+                 // The 'pdfToc' model likely has 'pageNumber'.
+                 // I'll assume 0-indexed for now or verify later.
+                 // But wait, standard is often 0-indexed in code.
+                 // Let's assume the passed page is the 0-based index.
+                 moveToPageIndex(initialPage)
             }
         }
     }

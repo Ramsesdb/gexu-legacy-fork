@@ -173,6 +173,9 @@ class MangaScreen(
             onChapterSelected = screenModel::toggleSelection,
             onAllChapterSelected = screenModel::toggleAllSelection,
             onInvertSelection = screenModel::invertSelection,
+            // Phase 2: TOC Expansion
+            onToggleChapterExpansion = screenModel::toggleChapterExpansion,
+            onChapterTocClicked = { chapter, page -> openChapter(context, chapter, page) },
         )
 
         var showScanlatorsDialog by remember { mutableStateOf(false) }
@@ -294,8 +297,8 @@ class MangaScreen(
         if (unreadChapter != null) openChapter(context, unreadChapter)
     }
 
-    private fun openChapter(context: Context, chapter: Chapter) {
-        context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id))
+    private fun openChapter(context: Context, chapter: Chapter, page: Int? = null) {
+        context.startActivity(ReaderActivity.newIntent(context, chapter.mangaId, chapter.id, page))
     }
 
     private fun getMangaUrl(manga_: Manga?, source_: Source?): String? {

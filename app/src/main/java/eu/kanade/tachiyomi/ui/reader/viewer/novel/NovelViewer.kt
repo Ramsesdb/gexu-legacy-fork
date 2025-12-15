@@ -53,6 +53,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
     private val sourceManager: SourceManager by injectLazy()
     private val getManga: GetManga by injectLazy()
+    private val getPdfToc: tachiyomi.domain.pdftoc.interactor.GetPdfToc by injectLazy()
+    private val savePdfToc: tachiyomi.domain.pdftoc.interactor.SavePdfToc by injectLazy()
     private val scope = MainScope()
     private val pdfMutex = kotlinx.coroutines.sync.Mutex()
 
@@ -81,6 +83,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     // PDF Document for lazy rendering
     private var pdfDocument: com.artifex.mupdf.fitz.Document? = null
     private var pdfFile: File? = null
+
+    // PDF Table of Contents (in-memory, extracted when PDF opens)
+    private val tocItems = MutableStateFlow<List<MuPdfUtil.TocItem>>(emptyList())
 
     companion object {
         private const val PDF_CACHE_FILENAME = "novel_viewer_current.pdf"
@@ -111,6 +116,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         val textMode by showTextMode.collectAsState()
         val targetPage by targetPageIndex.collectAsState()
         val initialPage by initialPageIndex.collectAsState()
+        val toc by tocItems.collectAsState()
         var currentPrefs by remember { prefs }
 
         // Define renderer for PDF pages - Remember to avoid recomposition
@@ -170,6 +176,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                          activity.requestPreloadChapter(nextChapter!!)
                      }
                  }
+            },
+            // TOC support
+            tocItems = toc,
+            onTocNavigate = { pageNumber ->
+                // Navigate to the specified page
+                if (pageNumber >= 0 && pageNumber < virtualPages.size) {
+                    targetPageIndex.value = pageNumber
+                    logcat { "NovelViewer: TOC navigation to page $pageNumber" }
+                }
             }
         )
     }
@@ -482,7 +497,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         prevChapter = chapters.prevChapter
         preloadRequested = false // Reset preload flag for new chapter
 
-        // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
+    // Check if Activity has a requested page in Intent (overrides history)
+    // This fixes TOC navigation where we want to jump to a specific page, not resume history
+    val intentPage = activity.intent.getIntExtra("page", -1)
+    if (intentPage != -1) {
+        logcat { "NovelViewer: Found page extra in intent: $intentPage" }
+        chapter.requestedPage = intentPage
+    }
+
+    // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
         // So we need to set requestedPage from last_page_read, same as ChapterLoader does
         // Note: We always restore position for novels, even for "read" chapters
         if (chapter.requestedPage == 0 && chapter.chapter.last_page_read > 0) {
@@ -972,6 +995,64 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             pdfMutex.withLock {
                 pdfDocument = document
                 this.pdfFile = pdfCacheFile
+            }
+
+            // Extract Table of Contents with DATABASE PERSISTENCE
+            // 1. First try to load from DB (instant)
+            // 2. If not in DB, extract from PDF and save to DB for next time
+            // IMPORTANT: Must use pdfMutex because MuPDF is NOT thread-safe
+            val chapterId = currentChapter?.chapter?.id ?: 0L
+            scope.launch(Dispatchers.Default) {
+                try {
+                    // First: Try to load from database (INSTANT)
+                    val cachedToc = getPdfToc.await(chapterId)
+                    if (cachedToc.isNotEmpty()) {
+                        logcat { "NovelViewer: Loaded ${cachedToc.size} TOC entries from DB (instant)" }
+                        val tocFromDb = cachedToc.map { entry ->
+                            MuPdfUtil.TocItem(entry.title, entry.pageNumber, entry.level)
+                        }
+                        withContext(Dispatchers.Main) {
+                            tocItems.value = tocFromDb
+                        }
+                        return@launch // Done! No need to extract
+                    }
+
+                    // Not in DB: Extract from PDF (slower, but cached for next time)
+                    logcat { "NovelViewer: No cached TOC, extracting from PDF..." }
+
+                    // Wait until initial text extraction is done before scanning TOC
+                    // This prevents race conditions with MuPDF document access
+                    delay(2000) // Give time for priority extraction to finish
+
+                    val toc = pdfMutex.withLock {
+                        val doc = pdfDocument ?: return@launch
+                        MuPdfUtil.extractTableOfContents(doc)
+                    }
+
+                    if (toc.isNotEmpty()) {
+                        logcat { "NovelViewer: PDF has ${toc.size} TOC entries, saving to DB" }
+
+                        // Save to database for next time
+                        val entriesToSave = toc.mapIndexed { index, item ->
+                            tachiyomi.domain.pdftoc.model.PdfTocEntry(
+                                chapterId = chapterId,
+                                title = item.title,
+                                pageNumber = item.pageNumber,
+                                level = item.level,
+                                sortOrder = index,
+                            )
+                        }
+                        savePdfToc.await(chapterId, entriesToSave)
+
+                        withContext(Dispatchers.Main) {
+                            tocItems.value = toc
+                        }
+                    } else {
+                        logcat { "NovelViewer: PDF has no TOC" }
+                    }
+                } catch (e: Exception) {
+                    logcat { "NovelViewer: TOC extraction failed: ${e.message}" }
+                }
             }
 
             // Create VIRTUAL URIs for pages - always available for "View Original" toggle
