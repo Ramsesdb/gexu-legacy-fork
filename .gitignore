@@ -19,3 +19,7 @@ local.properties
 logs/
 *.log
 *.txt
+
+# Backup files (large user data, should not be versioned)
+*.tachibk
+EditedBackup*.json
