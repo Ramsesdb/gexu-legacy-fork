@@ -1,5 +1,8 @@
 package eu.kanade.tachiyomi.ui.ai
 
+import androidx.compose.animation.graphics.res.animatedVectorResource
+import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
+import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -14,17 +17,16 @@ import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.ai.AiChatScreen
 import eu.kanade.presentation.ai.components.ApiKeySetupDialog
 import eu.kanade.presentation.util.Tab
+import eu.kanade.tachiyomi.R
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AutoAwesome
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
 /**
  * Gexu AI Tab for bottom navigation.
  * Provides access to the AI reading companion.
+ * Only visible when device has internet connectivity.
  */
 data object AiTab : Tab {
 
@@ -39,10 +41,11 @@ data object AiTab : Tab {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
+            val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_ai_enter)
             return TabOptions(
                 index = 5u, // After "More" tab
                 title = stringResource(MR.strings.label_ai_chat),
-                icon = rememberVectorPainter(Icons.Outlined.AutoAwesome),
+                icon = rememberAnimatedVectorPainter(image, isSelected),
             )
         }
 
