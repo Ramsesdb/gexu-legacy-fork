@@ -33,6 +33,9 @@ class AiPreferences(
     /** Whether to include reading history in context */
     fun includeHistory() = preferenceStore.getBoolean("ai_include_history", true)
 
+    /** Master toggle: Whether to include ANY reading context in prompts (saves tokens when disabled) */
+    fun includeContext() = preferenceStore.getBoolean("ai_include_context", true)
+
     /** Anti-spoiler mode: limit AI knowledge to user's max read chapter */
     fun antiSpoilerMode() = preferenceStore.getBoolean("ai_anti_spoiler", true)
 
@@ -44,6 +47,9 @@ class AiPreferences(
 
     /** Response language preference (empty = same as app) */
     fun responseLanguage() = preferenceStore.getString("ai_response_language", "")
+
+    /** Whether to persist conversations to local database */
+    fun persistConversations() = preferenceStore.getBoolean("ai_persist_conversations", true)
 
     companion object {
         /** Validate that API key looks reasonable (basic check) */
