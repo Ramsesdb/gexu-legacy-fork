@@ -27,6 +27,8 @@ import nl.adaptivity.xmlutil.XmlDeclMode
 import nl.adaptivity.xmlutil.core.XmlVersion
 import nl.adaptivity.xmlutil.serialization.XML
 import tachiyomi.core.common.storage.AndroidStorageFolderProvider
+import tachiyomi.data.Ai_conversations
+import tachiyomi.data.Ai_messages
 import tachiyomi.data.AndroidDatabaseHandler
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseHandler
@@ -79,6 +81,13 @@ class AppModule(val app: Application) : InjektModule {
         addSingletonFactory {
             Database(
                 driver = get(),
+                ai_conversationsAdapter = Ai_conversations.Adapter(
+                    created_atAdapter = DateColumnAdapter,
+                    updated_atAdapter = DateColumnAdapter,
+                ),
+                ai_messagesAdapter = Ai_messages.Adapter(
+                    created_atAdapter = DateColumnAdapter,
+                ),
                 historyAdapter = History.Adapter(
                     last_readAdapter = DateColumnAdapter,
                 ),

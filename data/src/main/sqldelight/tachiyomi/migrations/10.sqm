@@ -1,0 +1,23 @@
+-- Add AI Conversations tables for persistent chat history
+CREATE TABLE IF NOT EXISTS ai_conversations(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER,
+    title TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ai_conversations_manga_id_index ON ai_conversations(manga_id);
+CREATE INDEX IF NOT EXISTS ai_conversations_updated_at_index ON ai_conversations(updated_at);
+
+CREATE TABLE IF NOT EXISTS ai_messages(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    conversation_id INTEGER NOT NULL,
+    role TEXT NOT NULL,
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(conversation_id) REFERENCES ai_conversations(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS ai_messages_conversation_id_index ON ai_messages(conversation_id);

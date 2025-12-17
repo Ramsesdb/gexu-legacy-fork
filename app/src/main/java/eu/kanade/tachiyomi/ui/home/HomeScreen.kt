@@ -23,8 +23,10 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -59,6 +61,7 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import eu.kanade.tachiyomi.util.system.activeNetworkState
 
 object HomeScreen : Screen() {
 
@@ -72,6 +75,45 @@ object HomeScreen : Screen() {
     @Suppress("ConstPropertyName")
     private const val TabNavigatorKey = "HomeTabs"
 
+    // Base tabs without Updates and AI - they are conditionally added
+    private val BASE_TABS = listOf(
+        LibraryTab,
+        HistoryTab,
+        BrowseTab,
+        MoreTab,
+    )
+
+    /**
+     * Get the list of tabs based on network connectivity.
+     * - When online: Show AiTab, hide UpdatesTab (AI requires internet)
+     * - When offline: Show UpdatesTab, hide AiTab (Updates work offline)
+     * This keeps the bottom nav to 5 tabs max for better UX.
+     */
+    @Composable
+    private fun getTabsForCurrentState(): List<eu.kanade.presentation.util.Tab> {
+        val context = LocalContext.current
+        val networkState = remember { context.activeNetworkState() }
+        val isOnline = networkState.isOnline
+
+        return remember(isOnline) {
+            buildList {
+                add(LibraryTab)
+                if (!isOnline) {
+                    // Offline: Show Updates tab
+                    add(UpdatesTab)
+                }
+                add(HistoryTab)
+                add(BrowseTab)
+                if (isOnline) {
+                    // Online: Show AI tab
+                    add(AiTab)
+                }
+                add(MoreTab)
+            }
+        }
+    }
+
+    // Legacy TABS for backward compatibility with openTab events
     private val TABS = listOf(
         LibraryTab,
         UpdatesTab,
@@ -92,9 +134,11 @@ object HomeScreen : Screen() {
             CompositionLocalProvider(LocalNavigator provides navigator) {
                 Scaffold(
                     startBar = {
+                        // Get dynamic tabs based on network state
+                        val currentTabs = getTabsForCurrentState()
                         if (isTabletUi()) {
                             NavigationRail {
-                                TABS.fastForEach {
+                                currentTabs.fastForEach {
                                     NavigationRailItem(it)
                                 }
                             }
@@ -111,7 +155,7 @@ object HomeScreen : Screen() {
                                 exit = shrinkVertically(),
                             ) {
                                 NavigationBar {
-                                    TABS.fastForEach {
+                                    getTabsForCurrentState().fastForEach {
                                         NavigationBarItem(it)
                                     }
                                 }
