@@ -72,4 +72,8 @@ class HistoryRepositoryImpl(
             logcat(LogPriority.ERROR, throwable = e)
         }
     }
+
+    override suspend fun getMaxChapterReadForManga(mangaId: Long): Double {
+        return handler.awaitOne { historyQueries.getMaxChapterReadForManga(mangaId) }
+    }
 }

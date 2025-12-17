@@ -2,8 +2,10 @@ package eu.kanade.tachiyomi.di
 
 import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.serialization.json.Json
+import tachiyomi.data.ai.AiConversationRepositoryImpl
 import tachiyomi.data.ai.AiRepositoryImpl
 import tachiyomi.domain.ai.AiPreferences
+import tachiyomi.domain.ai.repository.AiConversationRepository
 import tachiyomi.domain.ai.repository.AiRepository
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
@@ -21,6 +23,12 @@ class AiModule : InjektModule {
                     ignoreUnknownKeys = true
                     isLenient = true
                 },
+            )
+        }
+
+        addSingletonFactory<AiConversationRepository> {
+            AiConversationRepositoryImpl(
+                handler = get(),
             )
         }
 

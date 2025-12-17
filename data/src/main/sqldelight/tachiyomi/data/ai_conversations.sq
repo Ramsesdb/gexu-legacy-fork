@@ -1,0 +1,97 @@
+import java.util.Date;
+
+CREATE TABLE ai_conversations(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER,  -- NULL for general conversations (not tied to a manga)
+    title TEXT NOT NULL,  -- Auto-generated or user-provided title
+    created_at INTEGER AS Date NOT NULL,
+    updated_at INTEGER AS Date NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+
+CREATE INDEX ai_conversations_manga_id_index ON ai_conversations(manga_id);
+CREATE INDEX ai_conversations_updated_at_index ON ai_conversations(updated_at);
+
+CREATE TABLE ai_messages(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    conversation_id INTEGER NOT NULL,
+    role TEXT NOT NULL,  -- 'user', 'assistant', 'system'
+    content TEXT NOT NULL,
+    created_at INTEGER AS Date NOT NULL,
+    FOREIGN KEY(conversation_id) REFERENCES ai_conversations (_id) ON DELETE CASCADE
+);
+
+CREATE INDEX ai_messages_conversation_id_index ON ai_messages(conversation_id);
+
+-- Get all conversations ordered by most recent
+getAllConversations:
+SELECT * FROM ai_conversations
+ORDER BY updated_at DESC;
+
+-- Get conversations for a specific manga
+getConversationsForManga:
+SELECT * FROM ai_conversations
+WHERE manga_id = :mangaId
+ORDER BY updated_at DESC;
+
+-- Get general conversations (not tied to any manga)
+getGeneralConversations:
+SELECT * FROM ai_conversations
+WHERE manga_id IS NULL
+ORDER BY updated_at DESC;
+
+-- Get a single conversation by ID
+getConversationById:
+SELECT * FROM ai_conversations
+WHERE _id = :id;
+
+-- Get messages for a conversation
+getMessagesForConversation:
+SELECT * FROM ai_messages
+WHERE conversation_id = :conversationId
+ORDER BY created_at ASC;
+
+-- Insert a new conversation
+insertConversation:
+INSERT INTO ai_conversations(manga_id, title, created_at, updated_at)
+VALUES (:mangaId, :title, :createdAt, :updatedAt);
+
+-- Get the last inserted conversation ID
+lastInsertRowId:
+SELECT last_insert_rowid();
+
+-- Insert a message
+insertMessage:
+INSERT INTO ai_messages(conversation_id, role, content, created_at)
+VALUES (:conversationId, :role, :content, :createdAt);
+
+-- Update conversation timestamp (when new message added)
+updateConversationTimestamp:
+UPDATE ai_conversations
+SET updated_at = :updatedAt
+WHERE _id = :id;
+
+-- Update conversation title
+updateConversationTitle:
+UPDATE ai_conversations
+SET title = :title
+WHERE _id = :id;
+
+-- Delete a conversation (messages cascade)
+deleteConversation:
+DELETE FROM ai_conversations
+WHERE _id = :id;
+
+-- Delete all conversations for a manga
+deleteConversationsForManga:
+DELETE FROM ai_conversations
+WHERE manga_id = :mangaId;
+
+-- Delete all general conversations
+deleteGeneralConversations:
+DELETE FROM ai_conversations
+WHERE manga_id IS NULL;
+
+-- Count conversations
+countConversations:
+SELECT COUNT(*) FROM ai_conversations;

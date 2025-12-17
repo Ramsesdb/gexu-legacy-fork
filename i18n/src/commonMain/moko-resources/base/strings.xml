@@ -1108,9 +1108,13 @@
     <string name="ai_include_context_summary">Share current manga info with AI for better responses</string>
     <string name="ai_include_history">Include Reading History</string>
     <string name="ai_include_history_summary">AI considers your reading preferences</string>
+    <string name="ai_synopsis">Include Synopsis</string>
+    <string name="ai_synopsis_summary">Share manga description with AI for context</string>
     <string name="ai_max_tokens">Response Length</string>
     <string name="ai_temperature">Creativity</string>
     <string name="ai_temperature_precise">Precise</string>
     <string name="ai_temperature_balanced">Balanced</string>
     <string name="ai_temperature_creative">Creative</string>
+    <string name="ai_persist_conversations">Save Conversations</string>
+    <string name="ai_persist_conversations_summary">Keep chat history for later</string>
 </resources>

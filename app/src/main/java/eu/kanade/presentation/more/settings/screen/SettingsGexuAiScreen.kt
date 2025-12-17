@@ -122,19 +122,29 @@ object SettingsGexuAiScreen : SearchableSettings {
             title = stringResource(MR.strings.ai_behavior_title),
             preferenceItems = persistentListOf(
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.includeContext(),
+                    title = stringResource(MR.strings.ai_include_context),
+                    subtitle = stringResource(MR.strings.ai_include_context_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = aiPreferences.antiSpoilerMode(),
                     title = stringResource(MR.strings.ai_anti_spoiler),
                     subtitle = stringResource(MR.strings.ai_anti_spoiler_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = aiPreferences.includeDescription(),
-                    title = stringResource(MR.strings.ai_include_context),
-                    subtitle = stringResource(MR.strings.ai_include_context_summary),
+                    title = stringResource(MR.strings.ai_synopsis),
+                    subtitle = stringResource(MR.strings.ai_synopsis_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = aiPreferences.includeHistory(),
                     title = stringResource(MR.strings.ai_include_history),
                     subtitle = stringResource(MR.strings.ai_include_history_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.persistConversations(),
+                    title = stringResource(MR.strings.ai_persist_conversations),
+                    subtitle = stringResource(MR.strings.ai_persist_conversations_summary),
                 ),
             ),
         )

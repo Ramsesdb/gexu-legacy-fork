@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -23,6 +24,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
+import eu.kanade.presentation.ai.components.ConversationHistoryDrawer
 import eu.kanade.tachiyomi.ui.ai.AiChatScreenModel
 import tachiyomi.domain.ai.model.ChatMessage
 import tachiyomi.i18n.MR
@@ -35,10 +37,34 @@ fun AiChatScreen(
     onSendMessage: (String) -> Unit,
     onClearConversation: () -> Unit,
     onOpenSettings: () -> Unit,
+    onToggleHistory: () -> Unit = {},
+    onCloseHistory: () -> Unit = {},
+    onSelectConversation: (Long) -> Unit = {},
+    onDeleteConversation: (Long) -> Unit = {},
+    onNewConversation: () -> Unit = {},
 ) {
     val listState = rememberLazyListState()
     var inputText by remember { mutableStateOf("") }
     val keyboardController = LocalSoftwareKeyboardController.current
+    val drawerState = rememberDrawerState(
+        initialValue = if (state.showHistoryDrawer) DrawerValue.Open else DrawerValue.Closed,
+    )
+
+    // Sync drawer state with our state
+    LaunchedEffect(state.showHistoryDrawer) {
+        if (state.showHistoryDrawer) {
+            drawerState.open()
+        } else {
+            drawerState.close()
+        }
+    }
+
+    // Update state when drawer is closed by gesture
+    LaunchedEffect(drawerState.isClosed) {
+        if (drawerState.isClosed && state.showHistoryDrawer) {
+            onCloseHistory()
+        }
+    }
 
     // Auto-scroll to bottom when new messages arrive
     LaunchedEffect(state.messages.size) {
@@ -47,128 +73,158 @@ fun AiChatScreen(
         }
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ConversationHistoryDrawer(
+                conversations = state.savedConversations,
+                currentConversationId = state.currentConversationId,
+                onSelectConversation = onSelectConversation,
+                onDeleteConversation = onDeleteConversation,
+                onNewConversation = onNewConversation,
+                onClose = onCloseHistory,
+            )
+        },
+        gesturesEnabled = state.showHistoryDrawer,
+    ) {
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
+                            Text(stringResource(MR.strings.label_ai_chat))
+                        }
+                    },
+                    actions = {
+                        // History button
+                        IconButton(onClick = onToggleHistory) {
+                            BadgedBox(
+                                badge = {
+                                    if (state.savedConversations.isNotEmpty()) {
+                                        Badge { Text(state.savedConversations.size.toString()) }
+                                    }
+                                },
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.History,
+                                    contentDescription = "History",
+                                )
+                            }
+                        }
+                        if (state.messages.isNotEmpty()) {
+                            IconButton(onClick = onClearConversation) {
+                                Icon(
+                                    imageVector = Icons.Default.DeleteOutline,
+                                    contentDescription = "Clear conversation",
+                                )
+                            }
+                        }
+                        IconButton(onClick = onOpenSettings) {
+                            Icon(
+                                imageVector = Icons.Default.Settings,
+                                contentDescription = "Settings",
+                            )
+                        }
+                    },
+                )
+            },
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues),
+            ) {
+                // Chat messages
+                LazyColumn(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxWidth(),
+                    state = listState,
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (state.messages.isEmpty() && !state.isLoading) {
+                        item {
+                            EmptyConversationHint()
+                        }
+                    }
+
+                    items(
+                        items = state.messages.filter { it.role != ChatMessage.Role.SYSTEM },
+                        key = { it.timestamp },
+                    ) { message ->
+                        ChatBubble(message = message)
+                    }
+
+                    // Loading indicator
+                    if (state.isLoading) {
+                        item {
+                            LoadingBubble()
+                        }
+                    }
+
+                    // Error message
+                    if (state.error != null) {
+                        item {
+                            ErrorMessage(error = state.error)
+                        }
+                    }
+                }
+
+                // Input area
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    tonalElevation = 3.dp,
+                ) {
                     Row(
+                        modifier = Modifier
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                            .navigationBarsPadding(),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.AutoAwesome,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                        OutlinedTextField(
+                            value = inputText,
+                            onValueChange = { inputText = it },
+                            modifier = Modifier.weight(1f),
+                            placeholder = { Text(stringResource(MR.strings.ai_chat_placeholder)) },
+                            shape = RoundedCornerShape(24.dp),
+                            maxLines = 4,
+                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                            keyboardActions = KeyboardActions(
+                                onSend = {
+                                    if (inputText.isNotBlank() && !state.isLoading) {
+                                        onSendMessage(inputText)
+                                        inputText = ""
+                                        keyboardController?.hide()
+                                    }
+                                },
+                            ),
                         )
-                        Text(stringResource(MR.strings.label_ai_chat))
-                    }
-                },
-                actions = {
-                    if (state.messages.isNotEmpty()) {
-                        IconButton(onClick = onClearConversation) {
-                            Icon(
-                                imageVector = Icons.Default.DeleteOutline,
-                                contentDescription = "Clear conversation",
-                            )
-                        }
-                    }
-                    IconButton(onClick = onOpenSettings) {
-                        Icon(
-                            imageVector = Icons.Default.Settings,
-                            contentDescription = "Settings",
-                        )
-                    }
-                },
-            )
-        },
-    ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues),
-        ) {
-            // Chat messages
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                state = listState,
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                if (state.messages.isEmpty() && !state.isLoading) {
-                    item {
-                        EmptyConversationHint()
-                    }
-                }
 
-                items(
-                    items = state.messages.filter { it.role != ChatMessage.Role.SYSTEM },
-                    key = { it.timestamp },
-                ) { message ->
-                    ChatBubble(message = message)
-                }
-
-                // Loading indicator
-                if (state.isLoading) {
-                    item {
-                        LoadingBubble()
-                    }
-                }
-
-                // Error message
-                if (state.error != null) {
-                    item {
-                        ErrorMessage(error = state.error)
-                    }
-                }
-            }
-
-            // Input area
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                tonalElevation = 3.dp,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
-                        .navigationBarsPadding(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    OutlinedTextField(
-                        value = inputText,
-                        onValueChange = { inputText = it },
-                        modifier = Modifier.weight(1f),
-                        placeholder = { Text(stringResource(MR.strings.ai_chat_placeholder)) },
-                        shape = RoundedCornerShape(24.dp),
-                        maxLines = 4,
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                        keyboardActions = KeyboardActions(
-                            onSend = {
+                        FilledIconButton(
+                            onClick = {
                                 if (inputText.isNotBlank() && !state.isLoading) {
                                     onSendMessage(inputText)
                                     inputText = ""
                                     keyboardController?.hide()
                                 }
                             },
-                        ),
-                    )
-
-                    FilledIconButton(
-                        onClick = {
-                            if (inputText.isNotBlank() && !state.isLoading) {
-                                onSendMessage(inputText)
-                                inputText = ""
-                                keyboardController?.hide()
-                            }
-                        },
-                        enabled = inputText.isNotBlank() && !state.isLoading,
-                    ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                        )
+                            enabled = inputText.isNotBlank() && !state.isLoading,
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                            )
+                        }
                     }
                 }
             }

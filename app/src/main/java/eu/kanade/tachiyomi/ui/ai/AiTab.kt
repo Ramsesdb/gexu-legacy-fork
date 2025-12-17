@@ -84,6 +84,11 @@ data object AiTab : Tab {
             onSendMessage = screenModel::sendMessage,
             onClearConversation = screenModel::clearConversation,
             onOpenSettings = screenModel::showApiKeySetup,
+            onToggleHistory = screenModel::toggleHistoryDrawer,
+            onCloseHistory = screenModel::closeHistoryDrawer,
+            onSelectConversation = screenModel::loadConversation,
+            onDeleteConversation = screenModel::deleteConversationFromHistory,
+            onNewConversation = screenModel::startNewConversation,
         )
     }
 }

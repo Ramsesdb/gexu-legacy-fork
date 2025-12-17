@@ -19,15 +19,19 @@ A Mihon-based reader that's more elegant, SFW by default, and enhanced with an A
 - **Tablet-optimized:** First-class experience on large screens
 
 #### Enhanced Reader
-- **Dual-page spreads:** Proper pairing in landscape mode on tablets
-- **Multiple modes:** Webtoon / horizontal / vertical, all polished
-- **Performance:** Smooth 60fps scrolling with lazy loading
+- [x] **Dual-page spreads:** Proper pairing in landscape mode on tablets
+- [x] **Multiple modes:** Webtoon / horizontal / vertical, all polished
+- [x] **Performance:** Smooth 60fps scrolling with lazy loading
+- [x] **PDF Support:** Native PDF reading with progressive loading
+- [x] **Visual OCR:** Extract text from manga/PDF for translation or TTS
 
-#### Novel Mode
-- **Text viewer:** Customizable typography, size, line spacing, margins
-- **Reading themes:** Dark mode, sepia, custom themes
-- **Progress tracking:** By character/word offset
-- **TTS integration:** Built-in text-to-speech with play/pause controls
+#### Novel Reader (Advanced)
+- [x] **Hybrid Content Engine:** Supports extraction from HTML (Readability4J), Images (OCR), and PDF (MuPDF).
+- [x] **PDF Reflow:** Dynamically reflows PDF text with custom fonts and sizing (MuPDF integration).
+- [x] **Lazy OCR Strategy:** Prioritized text extraction centered on user's current page with background processing (Google ML Kit).
+- [x] **Text Mode Toggle:** Instantly switch between original page images and extracted/reflowed text.
+- [x] **Customization:** Full typography control (Fonts, margins, spacing, themes).
+- [ ] **TTS integration:** Built-in text-to-speech with play/pause controls
 
 ### 2. Content Control & Curation
 
@@ -54,63 +58,50 @@ A Mihon-based reader that's more elegant, SFW by default, and enhanced with an A
 - **Efficient caching:** TTL-based cache with manual refresh (pull-to-refresh)
 - **Background updates:** WorkManager for periodic updates
 
-#### Multi-Source Series Merge
-- **Data model:** `MergedSeries { primaryMangaId, secondaryMangaIds[] }`
-- **UI for merging:** User-friendly interface to link sources for same series
-- **Combined chapters:** Unified chapter list with duplicate marking
-- **Global progress:** Track progress as max chapter read across all sources
 
-### 4. AI-Powered Reading Assistant
+### 4. AI-Powered Reading Assistant (Gexu AI)
 
-A lightweight backend (AstroIA/Gexu backend) built with .NET 8 + PostgreSQL + pgvector (or Qdrant).
+A privacy-focused, client-side AI architecture where users bring their own API keys (BYOK). No central backend required.
 
-#### Endpoints
+#### Core Features (Implemented)
 
-**`/recs` — Recommendations**
-- Based on reading history and preferences
-- Avoids duplicates
-- Respects SFW settings
-- Considers reading progress
+**Deep Reader Integration**
+- **In-Reader Chat:** Available directly inside `ReaderActivity` and `NovelViewer` via overlay.
+- **Input Isolation:** Custom `dispatchKeyEvent` logic to prevent keyboard typing from triggering reader navigation (Next/Prev chapter).
+- **Context Injection:** AI receives Series Title, Author, and current Chapter context.
 
-**`/search` — Semantic Search**
-- Search by title, synopsis, notes, or tags
-- Vector-based similarity matching
-- Natural language queries
+**Private & Flexible**
+- **Client-Side Architecture:** No backend required. Direct connection to Gemini/OpenAI/Claude.
+- **Stateless Operation:** Conversation history lives in memory; Keys stored in encrypted preferences.
 
-**`/chat` — Reading Companion**
-- Q&A about series you're reading
-- **Anti-spoiler protection:** Limited by your max chapter read
-- Contextual answers based on your library
+#### Supported Providers
+- **Google Gemini:** Optimized implementation (Native)
+- **OpenAI:** Standard chat completion support
+- **Anthropic:** Claude support
+- **OpenRouter:** Access to uncensored/open-source models
+- **Local/Custom:** Connect to Ollama or compatible endpoints
 
-**`/recap` — Chapter Summaries**
-- "Previously on..." summaries before starting a new chapter/arc
-- Helps with long reading gaps
-- Customizable summary length
+#### Roadmap Features
 
-**`/aliases/resolve` — Alias Resolution**
-- Embedding-based + fuzzy matching
-- Cross-reference IDs (MAL, AniList, etc.)
-- Automatic duplicate detection
+**Semantic Search (Local RAG)**
+- Index your library locally using vector embeddings (SQLite-vss or pure Kotlin).
+- Search by plot points ("finding a lost sword", "protagonist is a necromancer").
+- Natural language queries without sending data to a server.
 
-**`/cleanup/suggestions` — Library Cleanup**
-- Detect duplicates and dead series
-- Smart suggestions for library organization
-- Batch operations support
+**Visual Understanding (Multimodal)**
+- **Feature:** Send current page/panel to Vision Models (Gemini Flash).
+- **Use Case:** "Translate this bubble", "Explain this joke", "Who is this character?".
 
 #### AI Policies
 
-**SFW First**
-- No hentai recommendations in core features
-- NSFW content requires explicit opt-in
+**Privacy First**
+- Keys stored in encrypted preferences (`AiPreferences`)
+- History kept temporary in memory (Stateless)
+- User explicitly chooses provider and model
 
 **Anti-Spoilers**
-- All AI features limited by user's `maxChapter`
-- No future plot reveals or character deaths
-
-**Privacy**
-- Ask permission before sending data to AI
-- Cache AI results to minimize token usage
-- Optional offline mode (no AI sync)
+- Hard system prompt instruction: `Do NOT spoil anything beyond chapter X`
+- Dynamic variable injection based on local reading history
 
 ---
 
@@ -182,16 +173,19 @@ A lightweight backend (AstroIA/Gexu backend) built with .NET 8 + PostgreSQL + pg
 - [x] Build verification
 
 ### 🚧 Phase 2: UI Modernization (IN PROGRESS)
-- [ ] Bottom navigation implementation
+- [x] Bottom navigation implementation (Home/Library/Updates/History/AI/More)
 - [ ] Recents/Updates unified view
 - [ ] Library UI improvements
 - [ ] Tablet layout optimizations
 
-### 📋 Phase 3: Enhanced Reader
-- [ ] Dual-page spread support
-- [ ] Reader mode improvements (webtoon/vertical/horizontal)
-- [ ] Novel mode implementation
-- [ ] TTS integration
+### 🚧 Phase 3: Enhanced Reader (HIGH MATURITY)
+- [x] Dual-page spread support
+- [x] Reader mode improvements (webtoon/vertical/horizontal)
+- [x] **Advanced Novel Reader:** HTML (Readability4J) & PDF (MuPDF) Support
+- [x] **PDF Reflow:** Custom text rendering for PDFs
+- [x] **Lazy OCR:** Background ML Kit extraction with priority queue
+- [x] **Visual OCR:** Toggle between Image and Text modes
+- [ ] TTS integration (Text-to-Speech)
 
 ### 📋 Phase 4: Content Control
 - [ ] SFW toggle implementation
@@ -200,18 +194,18 @@ A lightweight backend (AstroIA/Gexu backend) built with .NET 8 + PostgreSQL + pg
 - [ ] Library cleanup tools
 
 ### 📋 Phase 5: Multi-Source Intelligence
-- [ ] Multi-source feed
-- [ ] Source merging UI
-- [ ] Combined chapter lists
-- [ ] Global progress tracking
+- [ ] Multi-source feed (Smart updates)
 
-### 📋 Phase 6: AI Integration
-- [ ] Backend infrastructure (AstroIA)
-- [ ] Recommendations endpoint
-- [ ] Semantic search
-- [ ] Reading companion chat
-- [ ] Chapter recaps
-- [ ] Alias resolution
+### 🚧 Phase 6: AI Integration (Client-Side)
+- [x] **In-Reader Overlay:** Seamless chat without leaving the book
+- [x] **Input Handling:** Keyboard isolation logic in ReaderActivity
+- [x] Context/Anti-Spoiler Engine
+- [x] Multi-Provider Support (Gemini, OpenAI, etc.)
+- [x] Settings & Key Management
+- [x] AI Tab Implementation
+- [ ] Local RAG (Vector Search)
+- [ ] Visual Context (Multimodal input)
+- [ ] Automatic Chapter Summaries
 
 ---
 

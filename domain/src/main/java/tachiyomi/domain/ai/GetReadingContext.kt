@@ -19,16 +19,10 @@ class GetReadingContext(
 
     suspend fun getContextForManga(mangaId: Long, currentChapterId: Long? = null): String {
         val manga = mangaRepository.getMangaById(mangaId)
-        val history = historyRepository.getHistoryByMangaId(mangaId)
 
-        // Anti-Spoiler Logic: Find the max chapter number the user has actually read
-        val maxChapterRead = history
-            .mapNotNull { historyItem ->
-                // We need to fetch the chapter to get its number
-                // This is a simplified lookup, ideally optimized with a join
-                chapterRepository.getChapterById(historyItem.chapterId)?.chapterNumber
-            }
-            .maxOrNull() ?: 0.0
+        // Anti-Spoiler Logic: Get max chapter number in a single optimized query
+        // This replaces the previous N+1 query pattern (1 per chapter in history)
+        val maxChapterRead = historyRepository.getMaxChapterReadForManga(mangaId)
 
         val currentChapter = if (currentChapterId != null) {
             chapterRepository.getChapterById(currentChapterId)

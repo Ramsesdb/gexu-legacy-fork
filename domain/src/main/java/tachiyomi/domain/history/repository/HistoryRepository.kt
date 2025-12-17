@@ -22,4 +22,10 @@ interface HistoryRepository {
     suspend fun deleteAllHistory(): Boolean
 
     suspend fun upsertHistory(historyUpdate: HistoryUpdate)
+
+    /**
+     * Get the maximum chapter number read for a manga in a single optimized query.
+     * Used for AI anti-spoiler logic to avoid N individual chapter lookups.
+     */
+    suspend fun getMaxChapterReadForManga(mangaId: Long): Double
 }
