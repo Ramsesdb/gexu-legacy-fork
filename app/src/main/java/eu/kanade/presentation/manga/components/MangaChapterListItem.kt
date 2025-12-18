@@ -198,7 +198,11 @@ fun MangaChapterListItem(
                         label = "containerColor"
                     )
                     val contentColor by androidx.compose.animation.animateColorAsState(
-                        targetValue = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                        targetValue = if (expanded) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
                         label = "contentColor"
                     )
 

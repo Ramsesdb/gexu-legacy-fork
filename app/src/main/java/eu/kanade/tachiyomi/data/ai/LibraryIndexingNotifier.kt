@@ -66,7 +66,7 @@ class LibraryIndexingNotifier(private val context: Context) {
     fun showProgressNotification(mangaTitle: String, current: Int, total: Int) {
         progressNotificationBuilder
             .setContentTitle(
-                "Indexando: ${percentFormatter.format(current.toFloat() / total)}"
+                "Indexando: ${percentFormatter.format(current.toFloat() / total)}",
             )
             .setContentText(mangaTitle.take(40))
             .setStyle(NotificationCompat.BigTextStyle().bigText(mangaTitle))

@@ -7,7 +7,6 @@ import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.util.fastAny
-import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
 import cafe.adriel.voyager.core.model.StateScreenModel
@@ -74,6 +73,7 @@ import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.model.NoChaptersException
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.chapter.service.calculateChapterGap
 import tachiyomi.domain.chapter.service.getChapterSort
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -84,12 +84,12 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.applyFilter
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
-import tachiyomi.source.local.isLocal
 import tachiyomi.source.local.io.LocalSourceFileSystem
-import tachiyomi.domain.chapter.repository.ChapterRepository
+import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import kotlin.math.floor
@@ -172,7 +172,12 @@ class MangaScreenModel(
                     val toc = getPdfToc.await(chapterId)
                     chapterTocEntries[chapterId] = toc
                     // Trigger UI update
-                    updateSuccessState { it.copy(expandedChapterIds = expandedChapterIds.toSet(), chapterTocEntries = chapterTocEntries.toMap()) }
+                    updateSuccessState {
+                        it.copy(
+                            expandedChapterIds = expandedChapterIds.toSet(),
+                            chapterTocEntries = chapterTocEntries.toMap(),
+                        )
+                    }
                 }
             }
         }

@@ -92,4 +92,3 @@ class LibraryIndexingJob(context: Context, workerParams: WorkerParameters) :
         }
     }
 }
-

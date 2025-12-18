@@ -2,7 +2,6 @@ package tachiyomi.source.local
 
 import android.app.Application
 import android.content.Context
-import uy.kohesive.injekt.Injekt
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.Source
@@ -42,6 +41,7 @@ import tachiyomi.source.local.io.Archive
 import tachiyomi.source.local.io.Format
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import tachiyomi.source.local.metadata.fillMetadata
+import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -267,7 +267,10 @@ actual class LocalSource : CatalogueSource, UnmeteredSource {
         val chapters = fileSystem.getFilesInMangaDirectory(manga.url)
             // Only keep supported formats
             .filterNot { it.name.orEmpty().startsWith('.') }
-            .filter { it.isDirectory || Archive.isSupported(it) || it.extension.equals("epub", true) || it.extension.equals("pdf", true) }
+            .filter {
+                it.isDirectory || Archive.isSupported(it) || it.extension.equals("epub", true) ||
+                    it.extension.equals("pdf", true)
+            }
             .map { chapterFile ->
                 SChapter.create().apply {
                     url = "${manga.url}/${chapterFile.name}"
@@ -369,7 +372,7 @@ actual class LocalSource : CatalogueSource, UnmeteredSource {
             }
         } catch (e: Throwable) {
             logcat(LogPriority.ERROR, e) { "Error updating cover for ${manga.title}" }
-        null
+            null
         }
     }
 
@@ -381,7 +384,7 @@ actual class LocalSource : CatalogueSource, UnmeteredSource {
                 // Use original file if possible to avoid copying
                 android.os.ParcelFileDescriptor.open(
                     File(pdfFile.uri.path!!),
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY
+                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
                 )
             } else {
                 // Copy PDF to temp file (PdfRenderer needs seekable file)
@@ -393,7 +396,7 @@ actual class LocalSource : CatalogueSource, UnmeteredSource {
                 }
                 android.os.ParcelFileDescriptor.open(
                     tempFile,
-                    android.os.ParcelFileDescriptor.MODE_READ_ONLY
+                    android.os.ParcelFileDescriptor.MODE_READ_ONLY,
                 )
             }
             parcelFileDescriptor = fileDescriptor
@@ -409,8 +412,9 @@ actual class LocalSource : CatalogueSource, UnmeteredSource {
                 val height = (page.height * scale).toInt()
 
                 val bitmap = android.graphics.Bitmap.createBitmap(
-                    width, height,
-                    android.graphics.Bitmap.Config.ARGB_8888
+                    width,
+                    height,
+                    android.graphics.Bitmap.Config.ARGB_8888,
                 )
                 bitmap.eraseColor(android.graphics.Color.WHITE)
 

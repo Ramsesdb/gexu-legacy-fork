@@ -33,7 +33,8 @@ enum class AiProvider(
         displayName = "Custom (OpenAI-compatible)",
         baseUrl = "", // User provides their own URL
         models = emptyList(),
-    );
+    ),
+    ;
 
     companion object {
         fun fromName(name: String): AiProvider = entries.find { it.name == name } ?: OPENAI

@@ -82,7 +82,8 @@ object SettingsGexuAiScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = "Indexar Biblioteca",
-                    subtitle = "Analiza y guarda el contenido de tus mangas para que la IA los entienda (Puede tardar).",
+                    subtitle = "Analiza y guarda el contenido de tus mangas para que la IA los " +
+                        "entienda (Puede tardar).",
                     onClick = {
                         // Start background job
                         eu.kanade.tachiyomi.data.ai.LibraryIndexingJob.startNow(context)

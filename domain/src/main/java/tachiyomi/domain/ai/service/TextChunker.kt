@@ -21,13 +21,15 @@ class TextChunker(
      */
     fun chunk(text: String): List<TextChunk> {
         if (text.length <= maxChunkSize) {
-            return listOf(TextChunk(
-                content = text,
-                index = 0,
-                totalChunks = 1,
-                startOffset = 0,
-                endOffset = text.length
-            ))
+            return listOf(
+                TextChunk(
+                    content = text,
+                    index = 0,
+                    totalChunks = 1,
+                    startOffset = 0,
+                    endOffset = text.length,
+                ),
+            )
         }
 
         val chunks = mutableListOf<TextChunk>()
@@ -46,20 +48,22 @@ class TextChunker(
             val chunkContent = text.substring(startIndex, endIndex).trim()
 
             if (chunkContent.length >= minChunkSize) {
-                chunks.add(TextChunk(
-                    content = chunkContent,
-                    index = chunkIndex,
-                    totalChunks = -1, // Will be updated after
-                    startOffset = startIndex,
-                    endOffset = endIndex
-                ))
+                chunks.add(
+                    TextChunk(
+                        content = chunkContent,
+                        index = chunkIndex,
+                        totalChunks = -1, // Will be updated after
+                        startOffset = startIndex,
+                        endOffset = endIndex,
+                    ),
+                )
                 chunkIndex++
             }
 
             // Move start with overlap
             startIndex = endIndex - overlapSize
             if (startIndex <= chunks.lastOrNull()?.startOffset ?: -1) {
-                startIndex = endIndex  // Prevent infinite loop
+                startIndex = endIndex // Prevent infinite loop
             }
         }
 
@@ -81,7 +85,7 @@ class TextChunker(
         title: String,
         author: String?,
         genres: List<String>?,
-        description: String?
+        description: String?,
     ): List<String> {
         // Base metadata (always included in each chunk)
         val baseMetadata = buildString {
@@ -92,12 +96,14 @@ class TextChunker(
 
         // If no description or short description, return single text
         if (description.isNullOrBlank() || description.length < maxChunkSize - baseMetadata.length) {
-            return listOf(buildString {
-                append(baseMetadata)
-                if (!description.isNullOrBlank()) {
-                    append("\nDescription: $description")
-                }
-            })
+            return listOf(
+                buildString {
+                    append(baseMetadata)
+                    if (!description.isNullOrBlank()) {
+                        append("\nDescription: $description")
+                    }
+                },
+            )
         }
 
         // Chunk the description
@@ -171,7 +177,7 @@ class TextChunker(
         title: String,
         author: String?,
         genres: List<String>?,
-        description: String?
+        description: String?,
     ): String {
         return buildString {
             append("Title: $title")

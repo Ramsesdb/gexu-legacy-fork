@@ -79,7 +79,7 @@ fun List<Chapter>.missingChaptersCount(manga: tachiyomi.domain.manga.model.Manga
 
         if (i > 0) { // Skip first chapter check against non-existent previous
             if (previousEnd > -1.0 && currentStart > previousEnd + 1) {
-                 missingChaptersCount += (currentStart - previousEnd - 1).toInt()
+                missingChaptersCount += (currentStart - previousEnd - 1).toInt()
             }
         }
 
@@ -167,4 +167,3 @@ fun calculateChapterGap(higherChapterNumber: Double, lowerChapterNumber: Double)
     if (higherChapterNumber < 0.0 || lowerChapterNumber < 0.0) return 0
     return floor(higherChapterNumber).toInt() - floor(lowerChapterNumber).toInt() - 1
 }
-

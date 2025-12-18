@@ -2,26 +2,26 @@ package eu.kanade.tachiyomi.util
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.pdf.PdfRenderer
+import android.os.ParcelFileDescriptor
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.text.PDFTextStripper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import java.io.InputStream
-import android.os.ParcelFileDescriptor
-import android.graphics.pdf.PdfRenderer
 import java.io.File
+import java.io.InputStream
 import java.security.MessageDigest
 
 object PdfUtil {
 
     // Chunk size for processing - process this many pages before yielding
     private const val CHUNK_SIZE = 10
-    private const val CHUNK_DELAY_MS = 50L  // Small delay between chunks for GC
+    private const val CHUNK_DELAY_MS = 50L // Small delay between chunks for GC
 
     suspend fun extractPdfText(
-        inputStream: InputStream
+        inputStream: InputStream,
     ): String = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(inputStream).use { document ->
@@ -34,7 +34,7 @@ object PdfUtil {
     }
 
     suspend fun extractPdfText(
-        bytes: ByteArray
+        bytes: ByteArray,
     ): String = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(bytes).use { document ->
@@ -47,7 +47,7 @@ object PdfUtil {
     }
 
     suspend fun extractPdfText(
-        file: File
+        file: File,
     ): String = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(file).use { document ->
@@ -86,7 +86,7 @@ object PdfUtil {
      */
     suspend fun extractPdfTextProgressive(
         bytes: ByteArray,
-        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit,
     ): String = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(bytes).use { document ->
@@ -100,7 +100,7 @@ object PdfUtil {
 
     suspend fun extractPdfTextProgressive(
         file: File,
-        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit,
     ): String = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(file).use { document ->
@@ -114,7 +114,7 @@ object PdfUtil {
 
     suspend fun extractPdfPagesProgressive(
         file: File,
-        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit,
     ): List<String> = withContext(Dispatchers.Default) {
         try {
             PDDocument.load(file).use { document ->
@@ -133,7 +133,7 @@ object PdfUtil {
     suspend fun extractPdfPagesWithCache(
         file: File,
         cacheDir: File,
-        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit,
     ): List<String> = withContext(Dispatchers.Default) {
         val cacheKey = getCacheKey(file)
         val cacheFile = File(cacheDir, "pdf_text_cache_$cacheKey.txt")
@@ -206,7 +206,7 @@ object PdfUtil {
 
     private suspend fun processPdfDocument(
         document: PDDocument,
-        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, textSoFar: String?) -> Unit,
     ): String {
         val pageCount = document.numberOfPages
         val stripper = PDFTextStripper().apply {
@@ -226,8 +226,8 @@ object PdfUtil {
                 stripper.endPage = 2
                 val secondPageText = cleanPdfPageText(stripper.getText(document))
                 if (secondPageText.isBlank()) {
-                     // Assume scanned PDF if first 2 pages are empty
-                     return ""
+                    // Assume scanned PDF if first 2 pages are empty
+                    return ""
                 }
             }
         }
@@ -262,7 +262,7 @@ object PdfUtil {
 
     private suspend fun processPdfDocumentPages(
         document: PDDocument,
-        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+        onProgress: (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit,
     ): List<String> {
         val pageCount = document.numberOfPages
         val stripper = PDFTextStripper().apply {
@@ -281,7 +281,7 @@ object PdfUtil {
                 stripper.endPage = 2
                 val secondPageText = cleanPdfPageText(stripper.getText(document))
                 if (secondPageText.isBlank()) {
-                     return emptyList()
+                    return emptyList()
                 }
             }
         }
@@ -301,8 +301,8 @@ object PdfUtil {
             // Yield between chunks to allow GC and UI updates
             if (pagesInCurrentChunk >= CHUNK_SIZE) {
                 pagesInCurrentChunk = 0
-                yield()  // Allow other coroutines to run
-                delay(CHUNK_DELAY_MS)  // Give GC time to clean up
+                yield() // Allow other coroutines to run
+                delay(CHUNK_DELAY_MS) // Give GC time to clean up
             }
 
             // Report progress: first 10 pages individually, then every 10 pages

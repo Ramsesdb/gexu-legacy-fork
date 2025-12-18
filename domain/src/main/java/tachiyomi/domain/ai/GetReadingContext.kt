@@ -3,11 +3,11 @@ package tachiyomi.domain.ai
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.repository.MangaRepository
-import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.track.repository.TrackRepository
 import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
@@ -75,17 +75,27 @@ class GetReadingContext(
 
         val currentChapter = if (currentChapterId != null) {
             chapterRepository.getChapterById(currentChapterId)
-        } else null
+        } else {
+            null
+        }
 
         // Get tracker info for this specific manga
-        val tracks = try { trackRepository.getTracksByMangaId(mangaId) } catch (e: Exception) { emptyList() }
+        val tracks = try {
+            trackRepository.getTracksByMangaId(mangaId)
+        } catch (e: Exception) {
+            emptyList()
+        }
         val trackerInfo = if (tracks.isNotEmpty()) {
             val scoredTracks = tracks.filter { it.score > 0 }
             if (scoredTracks.isNotEmpty()) {
                 val avgScore = scoredTracks.map { it.score }.average()
                 "User's score: ${String.format("%.1f", avgScore)}/10"
-            } else null
-        } else null
+            } else {
+                null
+            }
+        } else {
+            null
+        }
 
         return buildString {
             appendLine("--- CONTEXT START: CURRENT READING ---")
@@ -154,7 +164,9 @@ class GetReadingContext(
         // Read duration from history
         val totalReadDurationMs = try {
             historyRepository.getTotalReadDuration()
-        } catch (e: Exception) { 0L }
+        } catch (e: Exception) {
+            0L
+        }
         val readDurationFormatted = formatDuration(totalReadDurationMs)
 
         // 3. Analyze Genres (User Tastes)
@@ -184,7 +196,9 @@ class GetReadingContext(
         // 5. Get Recently Read
         val recentHistory: List<HistoryWithRelations> = try {
             historyRepository.getHistory("").firstOrNull() ?: emptyList()
-        } catch (e: Exception) { emptyList() }
+        } catch (e: Exception) {
+            emptyList()
+        }
 
         // 6. Completed Series
         val completedSeries = libraryItems
@@ -202,7 +216,11 @@ class GetReadingContext(
         // 8. Tracker Statistics
         val trackerStats = try {
             val allTracks = libraryItems.flatMap { item ->
-                try { trackRepository.getTracksByMangaId(item.manga.id) } catch (e: Exception) { emptyList() }
+                try {
+                    trackRepository.getTracksByMangaId(item.manga.id)
+                } catch (e: Exception) {
+                    emptyList()
+                }
             }
             val trackedCount = allTracks.distinctBy { it.mangaId }.size
             val scoredTracks = allTracks.filter { it.score > 0 }
@@ -214,7 +232,9 @@ class GetReadingContext(
                     append(" | Mean score: ${String.format("%.1f", meanScore)}/10")
                 }
             }
-        } catch (e: Exception) { null }
+        } catch (e: Exception) {
+            null
+        }
 
         return buildString {
             appendLine("--- USER PROFILE CONTEXT ---")
@@ -263,7 +283,9 @@ class GetReadingContext(
 
             appendLine("INSTRUCTIONS:")
             appendLine("1. You have FULL ACCESS to the user's library. Use specific manga titles when answering.")
-            appendLine("2. For recommendations, suggest titles similar to their genres but NOT already in their library.")
+            appendLine(
+                "2. For recommendations, suggest titles similar to their genres but NOT already in their library.",
+            )
             appendLine("3. You can reference their reading stats and habits naturally.")
             appendLine("--- END PROFILE ---")
         }
@@ -306,4 +328,3 @@ class GetReadingContext(
         }.trim()
     }
 }
-

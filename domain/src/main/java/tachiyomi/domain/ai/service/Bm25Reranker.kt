@@ -11,8 +11,8 @@ import kotlin.math.ln
  * BM25 is particularly good at matching exact terms that vector search might miss.
  */
 class Bm25Reranker(
-    private val k1: Double = 1.2,  // Term frequency saturation
-    private val b: Double = 0.75,  // Length normalization
+    private val k1: Double = 1.2, // Term frequency saturation
+    private val b: Double = 0.75, // Length normalization
 ) {
 
     /**
@@ -26,7 +26,7 @@ class Bm25Reranker(
     fun rerank(
         query: String,
         documents: Map<Long, String>,
-        limit: Int = 5
+        limit: Int = 5,
     ): List<Long> {
         if (documents.isEmpty()) return emptyList()
 
@@ -86,7 +86,7 @@ class Bm25Reranker(
         documents: Map<Long, String>,
         vectorRanking: List<Long>,
         vectorWeight: Double = 0.7,
-        limit: Int = 5
+        limit: Int = 5,
     ): List<Long> {
         if (documents.isEmpty()) return emptyList()
 
@@ -154,7 +154,7 @@ class Bm25Reranker(
      */
     private fun tokenize(text: String): List<String> {
         return text.lowercase()
-            .split(Regex("[\\s\\p{Punct}]+"))  // Unicode-aware: split on whitespace and punctuation
+            .split(Regex("[\\s\\p{Punct}]+")) // Unicode-aware: split on whitespace and punctuation
             .filter { it.length > 1 }
     }
 

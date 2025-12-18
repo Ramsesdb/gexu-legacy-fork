@@ -36,7 +36,7 @@ interface EmbeddingService {
         return EmbeddingResult(
             embedding = embedding,
             dimension = embedding.size,
-            source = "unknown"
+            source = "unknown",
         )
     }
 
@@ -50,7 +50,7 @@ interface EmbeddingService {
      */
     suspend fun embedBatchWithMeta(
         texts: List<String>,
-        delayMs: Long = 500L
+        delayMs: Long = 500L,
     ): Map<Int, EmbeddingResult> {
         val results = mutableMapOf<Int, EmbeddingResult>()
         texts.forEachIndexed { index, text ->

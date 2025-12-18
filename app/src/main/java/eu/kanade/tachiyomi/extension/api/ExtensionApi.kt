@@ -110,10 +110,10 @@ internal class ExtensionApi {
 
     private fun List<ExtensionJsonObject>.toExtensions(repoUrl: String): List<Extension.Available> {
         return this
-            //.filter {
+            // .filter {
             //    val libVersion = it.extractLibVersion()
             //    libVersion >= ExtensionLoader.LIB_VERSION_MIN && libVersion <= ExtensionLoader.LIB_VERSION_MAX
-            //}
+            // }
             .map {
                 Extension.Available(
                     name = it.name.substringAfter("Tachiyomi: "),

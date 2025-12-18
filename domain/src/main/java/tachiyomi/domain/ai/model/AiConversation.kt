@@ -8,7 +8,7 @@ import java.util.Date
  */
 data class AiConversation(
     val id: Long,
-    val mangaId: Long?,  // null for general conversations
+    val mangaId: Long?, // null for general conversations
     val title: String,
     val createdAt: Date,
     val updatedAt: Date,
@@ -28,7 +28,8 @@ data class AiMessage(
 enum class MessageRole {
     USER,
     ASSISTANT,
-    SYSTEM;
+    SYSTEM,
+    ;
 
     companion object {
         fun fromString(role: String): MessageRole = when (role.lowercase()) {

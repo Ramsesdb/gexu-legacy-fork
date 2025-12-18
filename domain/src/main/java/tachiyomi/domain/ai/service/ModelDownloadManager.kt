@@ -32,7 +32,7 @@ interface ModelDownloadManager {
      */
     suspend fun downloadModel(
         onProgress: (Float) -> Unit = {},
-        onComplete: (success: Boolean, error: String?) -> Unit = { _, _ -> }
+        onComplete: (success: Boolean, error: String?) -> Unit = { _, _ -> },
     )
 
     /**

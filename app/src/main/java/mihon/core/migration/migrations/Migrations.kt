@@ -10,4 +10,3 @@ val migrations: List<Migration>
         CategoryPreferencesCleanupMigration(),
         DefaultExtensionReposMigration(),
     )
-

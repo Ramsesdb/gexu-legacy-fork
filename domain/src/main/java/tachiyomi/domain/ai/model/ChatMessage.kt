@@ -9,8 +9,8 @@ data class ChatMessage(
     val timestamp: Long = System.currentTimeMillis(),
 ) {
     enum class Role {
-        SYSTEM,  // Context injected by the app (reading context, anti-spoiler rules)
-        USER,    // Message from the user
+        SYSTEM, // Context injected by the app (reading context, anti-spoiler rules)
+        USER, // Message from the user
         ASSISTANT, // Response from the AI
     }
 
