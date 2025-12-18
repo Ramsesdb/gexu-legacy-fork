@@ -215,7 +215,7 @@ data class BrowseSourceScreen(
                         onImportComplete = {
                             // Refresh the list after import
                             screenModel.search()
-                        }
+                        },
                     )
                 }
             },

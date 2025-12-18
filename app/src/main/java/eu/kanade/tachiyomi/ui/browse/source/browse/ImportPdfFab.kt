@@ -86,7 +86,7 @@ fun ImportPdfFab(
 
     // Multiple file picker
     val pdfPicker = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
     ) { uris ->
         if (uris.isNotEmpty()) {
             selectedPdfUris = uris
@@ -157,10 +157,10 @@ fun ImportPdfFab(
                                 continue
                             }
                         } else {
-                            DuplicateAction.CREATE_COPY
+                            DuplicateAction.CreateCopy
                         }
 
-                        if (action != DuplicateAction.SKIP) {
+                        if (action != DuplicateAction.Skip) {
                             importPdf(context, uri, novelName, action)
                             importedCount++
                         } else {
@@ -186,7 +186,7 @@ fun ImportPdfFab(
 
                     onImportComplete()
                 }
-            }
+            },
         )
     }
 
@@ -197,33 +197,33 @@ fun ImportPdfFab(
             icon = {
                 CircularProgressIndicator(
                     modifier = Modifier.size(48.dp),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
             },
             title = { Text("Importando archivos...") },
             text = {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text(
                         text = importingFileName,
                         style = MaterialTheme.typography.bodyMedium,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                     LinearProgressIndicator(
                         progress = { importProgress },
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                     Text(
                         text = "${(importProgress * 100).toInt()}%",
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             },
-            confirmButton = {}
+            confirmButton = {},
         )
     }
 
@@ -243,7 +243,7 @@ fun ImportPdfFab(
                         novelName = pendingNovelName,
                         uris = pendingUris,
                         startIndex = currentDuplicateIndex + 1,
-                        action = DuplicateAction.SKIP,
+                        action = DuplicateAction.Skip,
                         applyToAll = false,
                         onProgress = { progress, fileName ->
                             importProgress = progress
@@ -255,10 +255,10 @@ fun ImportPdfFab(
                             Toast.makeText(
                                 context,
                                 "$imported importados, $skipped omitidos",
-                                Toast.LENGTH_SHORT
+                                Toast.LENGTH_SHORT,
                             ).show()
                             onImportComplete()
-                        }
+                        },
                     )
                 }
             },
@@ -272,7 +272,7 @@ fun ImportPdfFab(
 
                 scope.launch {
                     // First, handle the current file
-                    if (action != DuplicateAction.SKIP) {
+                    if (action != DuplicateAction.Skip) {
                         val currentUri = pendingUris[currentDuplicateIndex]
                         importPdf(context, currentUri, pendingNovelName, action)
                     }
@@ -299,10 +299,10 @@ fun ImportPdfFab(
                             }
                             Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
                             onImportComplete()
-                        }
+                        },
                     )
                 }
-            }
+            },
         )
     }
 }
@@ -322,9 +322,11 @@ private fun ImportMultiplePdfDialog(
             fileNames.first().removeSuffix(".pdf").removeSuffix(".PDF")
         } else {
             // Try to find common prefix
-            val commonPrefix = findCommonPrefix(fileNames.map {
-                it.removeSuffix(".pdf").removeSuffix(".PDF")
-            })
+            val commonPrefix = findCommonPrefix(
+                fileNames.map {
+                    it.removeSuffix(".pdf").removeSuffix(".PDF")
+                },
+            )
             if (commonPrefix.length > 3) commonPrefix.trimEnd('_', '-', ' ') else "Nueva Novela"
         }
     }
@@ -339,19 +341,22 @@ private fun ImportMultiplePdfDialog(
                 imageVector = if (fileCount > 1) Icons.Default.Folder else Icons.Default.Description,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.primary
+                tint = MaterialTheme.colorScheme.primary,
             )
         },
         title = {
             Text(
-                if (fileCount == 1) "Importar PDF"
-                else "Importar $fileCount PDFs"
+                if (fileCount == 1) {
+                    "Importar PDF"
+                } else {
+                    "Importar $fileCount PDFs"
+                },
             )
         },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // File summary
                 if (fileCount == 1) {
@@ -360,18 +365,18 @@ private fun ImportMultiplePdfDialog(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
+                        overflow = TextOverflow.Ellipsis,
                     )
                 } else {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
                             text = "$fileCount archivos seleccionados",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                         TextButton(onClick = { showFileList = !showFileList }) {
                             Text(if (showFileList) "Ocultar" else "Ver lista")
@@ -384,7 +389,7 @@ private fun ImportMultiplePdfDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(120.dp)
-                                .padding(start = 8.dp)
+                                .padding(start = 8.dp),
                         ) {
                             items(fileNames) { name ->
                                 Text(
@@ -393,7 +398,7 @@ private fun ImportMultiplePdfDialog(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(vertical = 2.dp)
+                                    modifier = Modifier.padding(vertical = 2.dp),
                                 )
                             }
                         }
@@ -405,11 +410,11 @@ private fun ImportMultiplePdfDialog(
                 // Option: New novel
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 ) {
                     RadioButton(
                         selected = selectedOption == ImportOption.NewNovel,
-                        onClick = { selectedOption = ImportOption.NewNovel }
+                        onClick = { selectedOption = ImportOption.NewNovel },
                     )
                     Text("Crear nueva novela")
                 }
@@ -422,7 +427,7 @@ private fun ImportMultiplePdfDialog(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(start = 40.dp),
-                        singleLine = true
+                        singleLine = true,
                     )
                 }
 
@@ -432,11 +437,11 @@ private fun ImportMultiplePdfDialog(
 
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         RadioButton(
                             selected = selectedOption == ImportOption.ExistingNovel,
-                            onClick = { selectedOption = ImportOption.ExistingNovel }
+                            onClick = { selectedOption = ImportOption.ExistingNovel },
                         )
                         Text("Agregar a novela existente")
                     }
@@ -446,22 +451,23 @@ private fun ImportMultiplePdfDialog(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(150.dp)
-                                .padding(start = 40.dp)
+                                .padding(start = 40.dp),
                         ) {
                             items(existingNovels) { novel ->
                                 Surface(
                                     onClick = { selectedExistingNovel = novel },
-                                    color = if (selectedExistingNovel == novel)
+                                    color = if (selectedExistingNovel == novel) {
                                         MaterialTheme.colorScheme.primaryContainer
-                                    else
-                                        MaterialTheme.colorScheme.surface,
+                                    } else {
+                                        MaterialTheme.colorScheme.surface
+                                    },
                                     shape = MaterialTheme.shapes.small,
-                                    modifier = Modifier.fillMaxWidth()
+                                    modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Text(
                                         text = novel,
                                         modifier = Modifier.padding(12.dp),
-                                        style = MaterialTheme.typography.bodyMedium
+                                        style = MaterialTheme.typography.bodyMedium,
                                     )
                                 }
                             }
@@ -480,7 +486,7 @@ private fun ImportMultiplePdfDialog(
                     if (novelName.isNotBlank()) {
                         onConfirm(novelName)
                     }
-                }
+                },
             ) {
                 Text(if (fileCount == 1) "Importar" else "Importar todo")
             }
@@ -489,7 +495,7 @@ private fun ImportMultiplePdfDialog(
             TextButton(onClick = onDismiss) {
                 Text("Cancelar")
             }
-        }
+        },
     )
 }
 
@@ -499,9 +505,9 @@ private sealed class ImportOption {
 }
 
 private sealed class DuplicateAction {
-    data object SKIP : DuplicateAction()
-    data object REPLACE : DuplicateAction()
-    data object CREATE_COPY : DuplicateAction()
+    data object Skip : DuplicateAction()
+    data object Replace : DuplicateAction()
+    data object CreateCopy : DuplicateAction()
 }
 
 private data class DuplicateInfo(
@@ -526,22 +532,22 @@ private fun BatchDuplicateFileDialog(
                 imageVector = Icons.Default.Description,
                 contentDescription = null,
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.error
+                tint = MaterialTheme.colorScheme.error,
             )
         },
         title = { Text("Archivo duplicado") },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
                     text = "El archivo \"$fileName\" ya existe en \"$novelName\".",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
                     text = "¿Qué deseas hacer?",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = MaterialTheme.typography.bodyMedium,
                 )
 
                 // Apply to all checkbox (only show if there are more files)
@@ -549,36 +555,36 @@ private fun BatchDuplicateFileDialog(
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     ) {
                         Checkbox(
                             checked = applyToAll,
-                            onCheckedChange = { applyToAll = it }
+                            onCheckedChange = { applyToAll = it },
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Aplicar a todos los duplicados restantes",
-                            style = MaterialTheme.typography.bodySmall
+                            style = MaterialTheme.typography.bodySmall,
                         )
                     }
                 }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onAction(DuplicateAction.REPLACE, applyToAll) }) {
+            TextButton(onClick = { onAction(DuplicateAction.Replace, applyToAll) }) {
                 Text("Reemplazar", fontWeight = FontWeight.Bold)
             }
         },
         dismissButton = {
             Row {
-                TextButton(onClick = { onAction(DuplicateAction.SKIP, applyToAll) }) {
+                TextButton(onClick = { onAction(DuplicateAction.Skip, applyToAll) }) {
                     Text("Saltar")
                 }
-                TextButton(onClick = { onAction(DuplicateAction.CREATE_COPY, applyToAll) }) {
+                TextButton(onClick = { onAction(DuplicateAction.CreateCopy, applyToAll) }) {
                     Text("Crear copia")
                 }
             }
-        }
+        },
     )
 }
 
@@ -629,12 +635,12 @@ private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String, 
         val fileName = getFileName(context, pdfUri)
 
         val finalFileName = when (action) {
-            DuplicateAction.REPLACE -> {
+            DuplicateAction.Replace -> {
                 // Delete existing file first
                 novelDir.findFile(fileName)?.delete()
                 fileName
             }
-            DuplicateAction.CREATE_COPY -> {
+            DuplicateAction.CreateCopy -> {
                 // Generate unique name
                 var newName = fileName
                 var counter = 1
@@ -645,8 +651,8 @@ private suspend fun importPdf(context: Context, pdfUri: Uri, novelName: String, 
                 }
                 newName
             }
-            DuplicateAction.SKIP -> return@withContext
-        }
+            DuplicateAction.Skip -> null
+        } ?: return@withContext
 
         // Create and copy file
         val pdfFile = novelDir.createFile(finalFileName) ?: return@withContext
@@ -688,12 +694,12 @@ private suspend fun continueImportAfterDuplicate(
                 action
             } else if (duplicate != null) {
                 // If not apply to all but there's a duplicate, create copy by default
-                DuplicateAction.CREATE_COPY
+                DuplicateAction.CreateCopy
             } else {
-                DuplicateAction.CREATE_COPY
+                DuplicateAction.CreateCopy
             }
 
-            if (fileAction != DuplicateAction.SKIP) {
+            if (fileAction != DuplicateAction.Skip) {
                 importPdf(context, uri, novelName, fileAction)
                 imported++
             } else {

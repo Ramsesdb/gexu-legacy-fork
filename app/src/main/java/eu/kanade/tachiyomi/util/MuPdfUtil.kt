@@ -168,7 +168,7 @@ object MuPdfUtil {
      */
     suspend fun extractTextFromDocument(
         document: Document,
-        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit,
     ): List<String> = extractTextWithPriority(document, 0, onProgress)
 
     /**
@@ -177,7 +177,7 @@ object MuPdfUtil {
     suspend fun extractTextWithPriority(
         document: Document,
         startPage: Int,
-        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit
+        onProgress: suspend (currentPage: Int, totalPages: Int, pagesSoFar: List<String>) -> Unit,
     ): List<String> = withContext(Dispatchers.Default) {
         val pageCount = document.countPages()
         // Initialize list with empty strings
@@ -218,11 +218,11 @@ object MuPdfUtil {
 
         // 3. Extract the rest (after priority range)
         for (i in rangeEnd until pageCount) {
-             pages[i] = extractPageText(document, i)
-             if (i % 10 == 0) {
-                 onProgress(i, pageCount, pages.toList())
-                 kotlinx.coroutines.yield()
-             }
+            pages[i] = extractPageText(document, i)
+            if (i % 10 == 0) {
+                onProgress(i, pageCount, pages.toList())
+                kotlinx.coroutines.yield()
+            }
         }
 
         // Final report
@@ -261,7 +261,7 @@ object MuPdfUtil {
                 bitmap.getPixels(pixels, 0, width, 0, y, width, 1)
 
                 for (pixel in pixels) {
-                     if (pixel != -1 && pixel != 0) { // -1 is white, 0 is transparent
+                    if (pixel != -1 && pixel != 0) { // -1 is white, 0 is transparent
                         lastContentRow = y
                         break@outer
                     }
@@ -291,7 +291,7 @@ object MuPdfUtil {
     data class TocItem(
         val title: String,
         val pageNumber: Int,
-        val level: Int
+        val level: Int,
     )
 
     /**
@@ -329,7 +329,7 @@ object MuPdfUtil {
     private fun parseOutlineArray(
         outlines: Array<com.artifex.mupdf.fitz.Outline>,
         level: Int,
-        result: MutableList<TocItem>
+        result: MutableList<TocItem>,
     ) {
         for (outline in outlines) {
             // Get title
@@ -373,9 +373,6 @@ object MuPdfUtil {
      * - Chinese: "第X章"
      *
      * Only scans the first ~500 characters of each page for performance.
-     */
-    /**
-     * Detect chapters by scanning page text for patterns in multiple languages.
      * Returns a list of TocItems found in the document.
      *
      * NOTE: This iterates the entire document. For large documents, consider using
@@ -418,7 +415,7 @@ object MuPdfUtil {
                 // Chinese: 第1章
                 Regex("""^[\s\n]*第\s*(\d+)\s*章\s*(.*)""", RegexOption.MULTILINE),
                 // Generic number pattern: "1. Title" or "1 - Title" at start of page
-                Regex("""^[\s\n]*(\d+)\s*[\.\-–—:]\s+(.{3,50})""", RegexOption.MULTILINE)
+                Regex("""^[\s\n]*(\d+)\s*[\.\-–—:]\s+(.{3,50})""", RegexOption.MULTILINE),
             )
 
             val chapterCountPattern = Regex("""(?i)(cap[íi]tulo|chapter|chapitre|kapitel|capitolo)\s+\d+""")

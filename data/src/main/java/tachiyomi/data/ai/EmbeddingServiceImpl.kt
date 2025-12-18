@@ -4,17 +4,17 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.service.EmbeddingService
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
 
 class EmbeddingServiceImpl(
@@ -72,7 +72,9 @@ class EmbeddingServiceImpl(
 
             // If we have retries left, wait and retry
             if (retryCount < maxRetries) {
-                logcat(LogPriority.INFO) { "Rate limited. Waiting ${remainingSeconds}s before retry ${retryCount + 1}/$maxRetries" }
+                logcat(LogPriority.INFO) {
+                    "Rate limited. Waiting ${remainingSeconds}s before retry ${retryCount + 1}/$maxRetries"
+                }
                 kotlinx.coroutines.delay(remainingMs + 1000) // Add 1s buffer
                 return embedWithRetry(text, retryCount + 1)
             }
@@ -88,7 +90,9 @@ class EmbeddingServiceImpl(
         // If we got rate limited during this call and have retries left, retry
         if (result == null && quotaExceededUntil > System.currentTimeMillis() && retryCount < maxRetries) {
             val remainingMs = quotaExceededUntil - System.currentTimeMillis()
-            logcat(LogPriority.INFO) { "Rate limited during request. Waiting ${remainingMs/1000}s before retry ${retryCount + 1}/$maxRetries" }
+            logcat(LogPriority.INFO) {
+                "Rate limited during request. Waiting ${remainingMs / 1000}s before retry ${retryCount + 1}/$maxRetries"
+            }
             kotlinx.coroutines.delay(remainingMs + 1000)
             return embedWithRetry(text, retryCount + 1)
         }
@@ -182,7 +186,7 @@ class EmbeddingServiceImpl(
         return tachiyomi.domain.ai.service.EmbeddingResult(
             embedding = embedding,
             dimension = EMBEDDING_DIM,
-            source = SOURCE_ID
+            source = SOURCE_ID,
         )
     }
 
@@ -194,26 +198,26 @@ class EmbeddingServiceImpl(
     @Serializable
     private data class GeminiEmbeddingRequest(
         val content: GeminiContent,
-        val model: String = "models/gemini-embedding-001"
+        val model: String = "models/gemini-embedding-001",
     )
 
     @Serializable
     private data class GeminiContent(
-        val parts: List<GeminiPart>
+        val parts: List<GeminiPart>,
     )
 
     @Serializable
     private data class GeminiPart(
-        val text: String
+        val text: String,
     )
 
     @Serializable
     private data class GeminiEmbeddingResponse(
-        val embedding: GeminiEmbeddingValues
+        val embedding: GeminiEmbeddingValues,
     )
 
     @Serializable
     private data class GeminiEmbeddingValues(
-        val values: List<Float>
+        val values: List<Float>,
     )
 }

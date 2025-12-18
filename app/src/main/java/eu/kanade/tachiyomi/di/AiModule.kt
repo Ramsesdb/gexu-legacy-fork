@@ -108,8 +108,7 @@ class AiModule : InjektModule {
         val getReadingContext = get<tachiyomi.domain.ai.GetReadingContext>()
         tachiyomi.domain.ai.AiCacheInvalidator.initialize(
             scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO),
-            invalidateContext = { getReadingContext.invalidateCache() }
+            invalidateContext = { getReadingContext.invalidateCache() },
         )
     }
 }
-

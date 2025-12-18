@@ -117,7 +117,7 @@ class AiChatScreenModel(
                         conversationId = conversationId,
                         role = MessageRole.USER,
                         content = content,
-                    )
+                    ),
                 )
             }
 
@@ -143,7 +143,7 @@ class AiChatScreenModel(
                                 conversationId = conversationId,
                                 role = MessageRole.ASSISTANT,
                                 content = response.content,
-                            )
+                            ),
                         )
                     }
                 },
@@ -184,7 +184,7 @@ class AiChatScreenModel(
             AiConversationCreate(
                 mangaId = currentState.currentMangaId,
                 title = title,
-            )
+            ),
         )
 
         mutableState.update { it.copy(currentConversationId = newId) }
@@ -244,10 +244,12 @@ class AiChatScreenModel(
             val defaultModel = currentState.selectedProvider.models.firstOrNull() ?: ""
             aiPreferences.model().set(defaultModel)
 
-            mutableState.update { it.copy(
-                showApiKeySetup = false,
-                selectedModel = defaultModel,
-            ) }
+            mutableState.update {
+                it.copy(
+                    showApiKeySetup = false,
+                    selectedModel = defaultModel,
+                )
+            }
         }
     }
 
@@ -273,7 +275,9 @@ class AiChatScreenModel(
                 appendLine()
                 append(getReadingContext.getBriefProfile())
                 appendLine()
-                appendLine("PRIORITY: User is reading a specific manga. Focus answers on THIS content unless they ask for general recommendations.")
+                appendLine(
+                    "PRIORITY: User is reading a specific manga. Focus answers on THIS content unless they ask for general recommendations.",
+                )
             } else {
                 // GENERAL CHAT MODE: Use RAG to enrich context with relevant library items
                 append(getReadingContext.getContextWithRag(userQuery))

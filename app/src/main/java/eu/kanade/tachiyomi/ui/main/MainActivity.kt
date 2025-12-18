@@ -81,8 +81,8 @@ import eu.kanade.tachiyomi.ui.more.OnboardingScreen
 import eu.kanade.tachiyomi.util.system.dpToPx
 import eu.kanade.tachiyomi.util.system.isNavigationBarNeedsScrim
 import eu.kanade.tachiyomi.util.system.openInBrowser
-import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.system.toast
+import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.callbackFlow
@@ -100,6 +100,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
+import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.release.interactor.GetApplicationRelease
 import tachiyomi.domain.storage.service.StorageManager
@@ -111,8 +112,6 @@ import tachiyomi.source.local.LocalSource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
-import tachiyomi.domain.manga.interactor.NetworkToLocalManga
-
 
 class MainActivity : BaseActivity() {
 
@@ -399,7 +398,9 @@ class MainActivity : BaseActivity() {
     }
 
     private fun handleIntentAction(intent: Intent, navigator: Navigator): Boolean {
-        logcat(LogPriority.INFO) { "Intent Listener: Action=${intent.action}, Data=${intent.data}, Type=${intent.type}" }
+        logcat(LogPriority.INFO) {
+            "Intent Listener: Action=${intent.action}, Data=${intent.data}, Type=${intent.type}"
+        }
         val notificationId = intent.getIntExtra("notificationId", -1)
         if (notificationId > -1) {
             NotificationReceiver.dismissNotification(
@@ -492,8 +493,6 @@ class MainActivity : BaseActivity() {
         return true
     }
 
-
-
     private suspend fun handlePdfImport(pdfUri: android.net.Uri, navigator: Navigator) {
         val storageManager: StorageManager = Injekt.get()
         val localDir = storageManager.getLocalSourceDirectory()
@@ -545,7 +544,7 @@ class MainActivity : BaseActivity() {
         val newManga = Manga.create().copy(
             url = mangaName,
             title = mangaName,
-            source = 0L // LocalSource.ID
+            source = 0L, // LocalSource.ID
         )
         val manga = toLocalManga(newManga)
 

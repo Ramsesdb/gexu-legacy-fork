@@ -18,10 +18,10 @@ import eu.kanade.presentation.ai.AiChatScreen
 import eu.kanade.presentation.ai.components.ApiKeySetupDialog
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
-import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.i18n.stringResource
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * Gexu AI Tab for bottom navigation.

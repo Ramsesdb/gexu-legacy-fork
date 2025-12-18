@@ -1,11 +1,11 @@
 package tachiyomi.domain.ai.interactor
 
 import kotlinx.coroutines.ensureActive
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.ai.repository.VectorStore
 import tachiyomi.domain.ai.service.EmbeddingService
-import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.library.model.LibraryManga
-import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.domain.manga.repository.MangaRepository
 import kotlin.coroutines.coroutineContext
 
 class IndexLibrary(
@@ -21,9 +21,9 @@ class IndexLibrary(
 
     // Text chunker for intelligent splitting of long descriptions
     private val textChunker = tachiyomi.domain.ai.service.TextChunker(
-        maxChunkSize = 1800,  // Leave room for metadata
+        maxChunkSize = 1800, // Leave room for metadata
         overlapSize = 150,
-        minChunkSize = 100
+        minChunkSize = 100,
     )
 
     /**
@@ -35,7 +35,7 @@ class IndexLibrary(
      */
     suspend fun await(
         force: Boolean = false,
-        onProgress: ((current: Int, total: Int, title: String) -> Unit)? = null
+        onProgress: ((current: Int, total: Int, title: String) -> Unit)? = null,
     ): IndexingResult = withIOContext {
         if (!embeddingService.isConfigured()) {
             return@withIOContext IndexingResult(0, 0, 0, notConfigured = true)
@@ -83,7 +83,7 @@ class IndexLibrary(
                 // Use batch embedding
                 val embeddings = embeddingService.embedBatchWithMeta(
                     texts = textsToEmbed.map { it.second },
-                    delayMs = 500L
+                    delayMs = 500L,
                 )
 
                 // Store successful embeddings
@@ -100,7 +100,6 @@ class IndexLibrary(
                 // Count failures
                 val successCount = embeddings.size
                 failed += textsToEmbed.size - successCount
-
             } catch (e: Exception) {
                 e.printStackTrace()
                 failed += textsToEmbed.size
@@ -134,7 +133,7 @@ class IndexLibrary(
             title = manga.title,
             author = manga.author,
             genres = manga.genre,
-            description = manga.description
+            description = manga.description,
         )
     }
 
@@ -143,6 +142,6 @@ class IndexLibrary(
         val skipped: Int,
         val failed: Int,
         val notConfigured: Boolean = false,
-        val source: String = "unknown"
+        val source: String = "unknown",
     )
 }

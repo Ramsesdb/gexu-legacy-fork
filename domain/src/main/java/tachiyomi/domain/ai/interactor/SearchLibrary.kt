@@ -3,12 +3,12 @@ package tachiyomi.domain.ai.interactor
 import android.util.LruCache
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.ai.repository.VectorStore
 import tachiyomi.domain.ai.service.Bm25Reranker
 import tachiyomi.domain.ai.service.EmbeddingService
-import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.domain.manga.repository.MangaRepository
 
 /**
  * Semantic search through the user's manga library.
@@ -44,7 +44,7 @@ class SearchLibrary(
     suspend fun await(
         query: String,
         limit: Int = 5,
-        useReranking: Boolean = true
+        useReranking: Boolean = true,
     ): List<Manga> = withIOContext {
         val availableDimensions = vectorStore.getAvailableDimensions()
 
@@ -61,17 +61,21 @@ class SearchLibrary(
             // Launch Cloud search if available
             val cloudDim = cloudService.getEmbeddingDimension()
             if (cloudDim in availableDimensions) {
-                deferredSearches.add(async {
-                    searchWithService(cloudService, query, limit * 2)
-                })
+                deferredSearches.add(
+                    async {
+                        searchWithService(cloudService, query, limit * 2)
+                    },
+                )
             }
 
             // Launch Local search if available (and different dimension)
             val localDim = localService.getEmbeddingDimension()
             if (localDim in availableDimensions && localDim != cloudDim) {
-                deferredSearches.add(async {
-                    searchWithService(localService, query, limit * 2)
-                })
+                deferredSearches.add(
+                    async {
+                        searchWithService(localService, query, limit * 2)
+                    },
+                )
             }
 
             // Await all searches in parallel and merge results
@@ -121,7 +125,7 @@ class SearchLibrary(
             documents = documents,
             vectorRanking = topMangaIds,
             vectorWeight = 0.7,
-            limit = limit
+            limit = limit,
         )
 
         // Return mangas in re-ranked order
@@ -137,7 +141,7 @@ class SearchLibrary(
     private suspend fun searchWithService(
         service: EmbeddingService,
         query: String,
-        limit: Int
+        limit: Int,
     ): List<Pair<Long, Float>> {
         if (!service.isConfigured()) return emptyList()
 
@@ -160,7 +164,7 @@ class SearchLibrary(
      */
     private fun normalizeAndMerge(
         results: List<Pair<Long, Float>>,
-        mergedResults: MutableMap<Long, Float>
+        mergedResults: MutableMap<Long, Float>,
     ) {
         if (results.isEmpty()) return
 
@@ -184,7 +188,7 @@ class SearchLibrary(
     private suspend fun searchFallback(
         query: String,
         limit: Int,
-        useReranking: Boolean
+        useReranking: Boolean,
     ): List<Manga> {
         val indexedSource = vectorStore.getPredominantSource()
 
@@ -230,7 +234,7 @@ class SearchLibrary(
             documents = documents,
             vectorRanking = mangaIds,
             vectorWeight = 0.7,
-            limit = limit
+            limit = limit,
         )
 
         return rerankedIds.mapNotNull { id ->
