@@ -27,6 +27,12 @@ class SecurityPreferences(
         0,
     )
 
+    /**
+     * When true, hides manga with NSFW genres from the library.
+     * Protected by biometric authentication.
+     */
+    fun hideNsfwInLibrary() = preferenceStore.getBoolean("hide_nsfw_in_library", false)
+
     enum class SecureScreenMode(val titleRes: StringResource) {
         ALWAYS(MR.strings.lock_always),
         INCOGNITO(MR.strings.pref_incognito_mode),

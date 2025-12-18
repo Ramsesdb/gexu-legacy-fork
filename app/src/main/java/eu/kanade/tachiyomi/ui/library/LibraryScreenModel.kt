@@ -15,6 +15,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -83,6 +84,7 @@ class LibraryScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val downloadCache: DownloadCache = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
+    private val securityPreferences: SecurityPreferences = Injekt.get(),
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
     init {
@@ -388,33 +390,62 @@ class LibraryScreenModel(
             getLibraryManga.subscribe(),
             getLibraryItemPreferencesFlow(),
             downloadCache.changes,
-        ) { libraryManga, preferences, _ ->
-            libraryManga.map { manga ->
-                LibraryItem(
-                    libraryManga = manga,
-                    downloadCount = if (preferences.downloadBadge) {
-                        downloadManager.getDownloadCount(manga.manga).toLong()
+            securityPreferences.hideNsfwInLibrary().changes(),
+        ) { libraryManga, preferences, _, hideNsfwInLibrary ->
+            libraryManga
+                .let { mangas ->
+                    // Filter NSFW content if hideNsfwInLibrary is enabled
+                    if (hideNsfwInLibrary) {
+                        mangas.filter { !isMangaNsfw(it.manga) }
                     } else {
-                        0
-                    },
-                    unreadCount = if (preferences.unreadBadge) {
-                        manga.unreadCount
-                    } else {
-                        0
-                    },
-                    isLocal = if (preferences.localBadge) {
-                        manga.manga.isLocal()
-                    } else {
-                        false
-                    },
-                    sourceLanguage = if (preferences.languageBadge) {
-                        sourceManager.getOrStub(manga.manga.source).lang
-                    } else {
-                        ""
-                    },
-                )
-            }
+                        mangas
+                    }
+                }
+                .map { manga ->
+                    LibraryItem(
+                        libraryManga = manga,
+                        downloadCount = if (preferences.downloadBadge) {
+                            downloadManager.getDownloadCount(manga.manga).toLong()
+                        } else {
+                            0
+                        },
+                        unreadCount = if (preferences.unreadBadge) {
+                            manga.unreadCount
+                        } else {
+                            0
+                        },
+                        isLocal = if (preferences.localBadge) {
+                            manga.manga.isLocal()
+                        } else {
+                            false
+                        },
+                        sourceLanguage = if (preferences.languageBadge) {
+                            sourceManager.getOrStub(manga.manga.source).lang
+                        } else {
+                            ""
+                        },
+                    )
+                }
         }
+    }
+
+    /**
+     * Checks if a manga contains NSFW genres.
+     */
+    private fun isMangaNsfw(manga: Manga): Boolean {
+        val nsfwGenres = listOf(
+            "Erotica",
+            "Hentai",
+            "Adult",
+            "Pornographic",
+            "Smut",
+            "Ecchi",
+            "+18",
+        )
+
+        return manga.genre?.any { genre ->
+            nsfwGenres.any { it.equals(genre, ignoreCase = true) }
+        } ?: false
     }
 
     /**

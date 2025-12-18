@@ -51,6 +51,7 @@ object SettingsSecurityScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_security),
             preferenceItems = persistentListOf(
+                // Biometric Lock
                 Preference.PreferenceItem.SwitchPreference(
                     preference = useAuthPref,
                     title = stringResource(MR.strings.lock_with_biometrics),
@@ -77,6 +78,18 @@ object SettingsSecurityScreen : SearchableSettings {
                     onValueChanged = {
                         (context as FragmentActivity).authenticate(
                             title = context.stringResource(MR.strings.lock_when_idle),
+                        )
+                    },
+                ),
+
+                // Hide NSFW content in Library (with biometric protection)
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = securityPreferences.hideNsfwInLibrary(),
+                    title = stringResource(MR.strings.pref_hide_nsfw_library),
+                    subtitle = stringResource(MR.strings.pref_hide_nsfw_library_summary),
+                    onValueChanged = {
+                        (context as FragmentActivity).authenticate(
+                            title = context.stringResource(MR.strings.pref_hide_nsfw_library),
                         )
                     },
                 ),
