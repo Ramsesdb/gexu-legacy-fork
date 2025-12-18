@@ -4,15 +4,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.withContext
+import logcat.LogPriority
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.ai.repository.VectorStore
 import tachiyomi.domain.ai.service.EmbeddingResult
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.sqrt
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 
 /**
  * Optimized VectorStore implementation with:
@@ -30,7 +30,7 @@ class VectorStoreImpl(
     private data class CachedEmbedding(
         val embedding: FloatArray,
         val dimension: Int,
-        val source: String
+        val source: String,
     )
 
     // Max cache size (~6MB for 768-dim floats: 2000 × 768 × 4 bytes)
@@ -39,7 +39,9 @@ class VectorStoreImpl(
 
     // LRU-ordered cache using LinkedHashMap with access-order
     private val memoryCache = object : LinkedHashMap<Long, CachedEmbedding>(
-        maxCacheSize, 0.75f, true // accessOrder = true for LRU
+        maxCacheSize,
+        0.75f,
+        true, // accessOrder = true for LRU
     ) {
         override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, CachedEmbedding>?): Boolean {
             return size > maxCacheSize
@@ -54,6 +56,7 @@ class VectorStoreImpl(
 
     // Threshold for parallel search (use parallel if cache size > this)
     private val parallelThreshold = 100
+
     // Number of chunks for parallel processing
     private val parallelChunks = 4
 
@@ -76,7 +79,7 @@ class VectorStoreImpl(
                 memoryCache[row.manga_id] = CachedEmbedding(
                     embedding = normalize(embedding),
                     dimension = dimension,
-                    source = source
+                    source = source,
                 )
             }
 
@@ -86,7 +89,9 @@ class VectorStoreImpl(
         // Set active dimension to most common dimension in cache
         if (dimensionCounts.isNotEmpty()) {
             activeDimension = dimensionCounts.maxByOrNull { it.value }?.key ?: 768
-            logcat(LogPriority.DEBUG) { "VectorStore loaded ${allEmbeddings.size} embeddings. Active dimension: $activeDimension" }
+            logcat(LogPriority.DEBUG) {
+                "VectorStore loaded ${allEmbeddings.size} embeddings. Active dimension: $activeDimension"
+            }
         }
 
         isCacheInitialized = true
@@ -105,7 +110,7 @@ class VectorStoreImpl(
                 embedding = bytes,
                 embeddingDim = result.dimension.toLong(),
                 embeddingSource = result.source,
-                indexedAt = System.currentTimeMillis()
+                indexedAt = System.currentTimeMillis(),
             )
         }
 
@@ -113,7 +118,7 @@ class VectorStoreImpl(
             memoryCache[mangaId] = CachedEmbedding(
                 embedding = normalized,
                 dimension = result.dimension,
-                source = result.source
+                source = result.source,
             )
         }
 
@@ -123,11 +128,14 @@ class VectorStoreImpl(
 
     override suspend fun store(mangaId: Long, embedding: FloatArray) {
         // Legacy method - use default metadata
-        storeWithMeta(mangaId, EmbeddingResult(
-            embedding = embedding,
-            dimension = embedding.size,
-            source = "gemini"
-        ))
+        storeWithMeta(
+            mangaId,
+            EmbeddingResult(
+                embedding = embedding,
+                dimension = embedding.size,
+                source = "gemini",
+            ),
+        )
     }
 
     override suspend fun getEmbedding(mangaId: Long): FloatArray? {
@@ -178,7 +186,7 @@ class VectorStoreImpl(
     private fun searchSequential(
         normalizedQuery: FloatArray,
         entries: List<Pair<Long, CachedEmbedding>>,
-        limit: Int
+        limit: Int,
     ): List<Long> {
         // Use min-heap (PriorityQueue) for O(n log k) instead of O(n log n) full sort
         // This is more efficient when limit << entries.size
@@ -201,7 +209,7 @@ class VectorStoreImpl(
     private suspend fun searchParallel(
         normalizedQuery: FloatArray,
         entries: List<Pair<Long, CachedEmbedding>>,
-        limit: Int
+        limit: Int,
     ): List<Long> {
         val chunkSize = (entries.size + parallelChunks - 1) / parallelChunks
 
