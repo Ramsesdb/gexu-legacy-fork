@@ -1,5 +1,6 @@
 package tachiyomi.domain.ai.interactor
 
+import android.util.LruCache
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import tachiyomi.domain.ai.repository.VectorStore
@@ -27,6 +28,11 @@ class SearchLibrary(
 
     private val reranker = Bm25Reranker()
 
+    // LRU caches for query embeddings to reduce API calls
+    // Separate caches per service since they have different dimensions
+    private val cloudQueryCache = LruCache<String, FloatArray>(50)
+    private val localQueryCache = LruCache<String, FloatArray>(50)
+
     /**
      * Search the library using semantic similarity.
      *
@@ -50,33 +56,31 @@ class SearchLibrary(
         val mergedResults = mutableMapOf<Long, Float>()
 
         coroutineScope {
-            // Search Cloud embeddings if available
+            val deferredSearches = mutableListOf<kotlinx.coroutines.Deferred<List<Pair<Long, Float>>>>()
+
+            // Launch Cloud search if available
             val cloudDim = cloudService.getEmbeddingDimension()
             if (cloudDim in availableDimensions) {
-                async {
+                deferredSearches.add(async {
                     searchWithService(cloudService, query, limit * 2)
-                }.also { deferred ->
-                    try {
-                        val results = deferred.await()
-                        normalizeAndMerge(results, mergedResults)
-                    } catch (e: Exception) {
-                        // Continue with other dimensions if this fails
-                    }
-                }
+                })
             }
 
-            // Search Local embeddings if available
+            // Launch Local search if available (and different dimension)
             val localDim = localService.getEmbeddingDimension()
             if (localDim in availableDimensions && localDim != cloudDim) {
-                async {
+                deferredSearches.add(async {
                     searchWithService(localService, query, limit * 2)
-                }.also { deferred ->
-                    try {
-                        val results = deferred.await()
-                        normalizeAndMerge(results, mergedResults)
-                    } catch (e: Exception) {
-                        // Continue with other dimensions if this fails
-                    }
+                })
+            }
+
+            // Await all searches in parallel and merge results
+            deferredSearches.forEach { deferred ->
+                try {
+                    val results = deferred.await()
+                    normalizeAndMerge(results, mergedResults)
+                } catch (e: Exception) {
+                    // Continue with other dimensions if one fails
                 }
             }
         }
@@ -128,6 +132,7 @@ class SearchLibrary(
 
     /**
      * Search using a specific embedding service.
+     * Uses cached query embeddings when available to reduce API calls.
      */
     private suspend fun searchWithService(
         service: EmbeddingService,
@@ -135,7 +140,17 @@ class SearchLibrary(
         limit: Int
     ): List<Pair<Long, Float>> {
         if (!service.isConfigured()) return emptyList()
-        val queryEmbedding = service.embed(query) ?: return emptyList()
+
+        // Select the appropriate cache based on service
+        val cache = if (service == cloudService) cloudQueryCache else localQueryCache
+
+        // Try cache first, then API
+        val queryEmbedding = cache.get(query) ?: run {
+            val fresh = service.embed(query) ?: return emptyList()
+            cache.put(query, fresh)
+            fresh
+        }
+
         return vectorStore.searchWithScores(queryEmbedding, limit)
     }
 
@@ -164,6 +179,7 @@ class SearchLibrary(
 
     /**
      * Fallback to single-service search (old behavior).
+     * Uses query cache when available.
      */
     private suspend fun searchFallback(
         query: String,
@@ -180,7 +196,13 @@ class SearchLibrary(
 
         if (!embeddingService.isConfigured()) return emptyList()
 
-        val queryEmbedding = embeddingService.embed(query) ?: return emptyList()
+        // Use appropriate cache
+        val cache = if (embeddingService == cloudService) cloudQueryCache else localQueryCache
+        val queryEmbedding = cache.get(query) ?: run {
+            val fresh = embeddingService.embed(query) ?: return emptyList()
+            cache.put(query, fresh)
+            fresh
+        }
 
         val candidateLimit = if (useReranking) (limit * 3).coerceAtMost(20) else limit
         val mangaIds = vectorStore.search(queryEmbedding, candidateLimit)
