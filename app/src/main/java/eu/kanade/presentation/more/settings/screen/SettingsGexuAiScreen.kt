@@ -5,20 +5,20 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.coroutines.launch
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.AiProvider
 import tachiyomi.domain.ai.AiTone
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.produceState
-import androidx.compose.ui.platform.LocalContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -87,8 +87,12 @@ object SettingsGexuAiScreen : SearchableSettings {
                     onClick = {
                         // Start background job
                         eu.kanade.tachiyomi.data.ai.LibraryIndexingJob.startNow(context)
-                        android.widget.Toast.makeText(context, "Indexado iniciado en segundo plano", android.widget.Toast.LENGTH_SHORT).show()
-                    }
+                        android.widget.Toast.makeText(
+                            context,
+                            "Indexado iniciado en segundo plano",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    },
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = "Borrar Índice",
@@ -96,9 +100,13 @@ object SettingsGexuAiScreen : SearchableSettings {
                     onClick = {
                         scope.launch {
                             vectorStore.deleteAll()
-                            android.widget.Toast.makeText(context, "Índice borrado", android.widget.Toast.LENGTH_SHORT).show()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Índice borrado",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
                         }
-                    }
+                    },
                 ),
                 // Local model section
                 Preference.PreferenceItem.InfoPreference(
@@ -113,7 +121,8 @@ object SettingsGexuAiScreen : SearchableSettings {
                 if (!isModelAvailable.value && !isDownloading) {
                     Preference.PreferenceItem.TextPreference(
                         title = "Descargar Modelo Local",
-                        subtitle = "~${tachiyomi.domain.ai.service.ModelDownloadManager.APPROXIMATE_SIZE_MB}MB - Permite embeddings sin internet",
+                        subtitle = "~${tachiyomi.domain.ai.service.ModelDownloadManager.APPROXIMATE_SIZE_MB}MB - " +
+                            "Permite embeddings sin internet",
                         onClick = {
                             isDownloading = true
                             scope.launch {
@@ -123,11 +132,15 @@ object SettingsGexuAiScreen : SearchableSettings {
                                         isDownloading = false
                                         downloadProgress = 0f
                                         val message = if (success) "Modelo descargado" else "Error: $error"
-                                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
-                                    }
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            message,
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
                                 )
                             }
-                        }
+                        },
                     )
                 } else if (isModelAvailable.value) {
                     Preference.PreferenceItem.TextPreference(
@@ -137,9 +150,13 @@ object SettingsGexuAiScreen : SearchableSettings {
                             scope.launch {
                                 val deleted = modelDownloadManager.deleteModel()
                                 val message = if (deleted) "Modelo eliminado" else "Error al eliminar"
-                                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                                android.widget.Toast.makeText(
+                                    context,
+                                    message,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
                             }
-                        }
+                        },
                     )
                 } else {
                     Preference.PreferenceItem.InfoPreference(title = "")

@@ -196,7 +196,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                      val pagesRemaining = totalPages - listIndex - 1
                      if (pagesRemaining < 5 && !preloadRequested && nextChapter != null) {
                          preloadRequested = true
-                         logcat { "NovelViewer: Requesting preload of next chapter (${pagesRemaining} pages remaining)" }
+                         logcat {
+                            "NovelViewer: Requesting preload of next chapter (${pagesRemaining} pages remaining)"
+                        }
                          activity.requestPreloadChapter(nextChapter!!)
                      }
                  }
@@ -723,7 +725,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                 // PDF Check
                 val contentType = response.header("Content-Type", "") ?: ""
-                val isPdf = contentType.contains("application/pdf") || request.url.toString().endsWith(".pdf", true)
+                val isPdf = contentType.contains("application/pdf") ||
+                    request.url.toString().endsWith(".pdf", true)
 
                 if (isPdf) {
                     try {
@@ -854,15 +857,29 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                             val paragraphs = candidate.select("p")
                             val links = candidate.select("a")
+                            // ktlint-disable standard:max-line-length
                             val linkTextLength = links.sumOf { it.text().length }
-                            val linkDensity = if (text.isNotEmpty()) linkTextLength.toDouble() / text.length else 1.0
+                            // ktlint-enable standard:max-line-length
+                            val linkDensity = if (text.isNotEmpty()) {
+                                linkTextLength.toDouble() / text.length
+                            } else {
+                                1.0
+                            }
                             if (linkDensity > 0.25) continue
 
                             var score = text.length.toDouble() * 0.1
                             score += paragraphs.size * 50
-                            if (paragraphs.isEmpty() && text.length > 2000) score -= 1000
+                            if (paragraphs.isEmpty() && text.length > 2000) {
+                                score -= 1000
+                            }
                             val className = candidate.className().lowercase()
-                            if (className.contains("content") || className.contains("article") || className.contains("story") || className.contains("post")) score += 500
+                            if (className.contains("content") ||
+                                className.contains("article") ||
+                                className.contains("story") ||
+                                className.contains("post")
+                            ) {
+                                score += 500
+                            }
 
                             if (score > maxScore) {
                                 maxScore = score
@@ -1441,7 +1458,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
                                 appendLine("===============================")
                                 appendLine()
-                                appendLine("IMPORTANT: The user is actively reading this content. You have full context.")
+                                appendLine(
+                                    "IMPORTANT: The user is actively reading this content. You have full context."
+                                )
                                 appendLine("- Answer questions about the current chapter and characters")
                                 appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
                                 appendLine("- Be helpful and friendly")
