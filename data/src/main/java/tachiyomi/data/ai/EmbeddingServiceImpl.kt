@@ -100,7 +100,7 @@ class EmbeddingServiceImpl(
         val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=$apiKey"
 
         val requestBody = GeminiEmbeddingRequest(
-            content = GeminiContent(parts = listOf(GeminiPart(text = text)))
+            content = GeminiContent(parts = listOf(GeminiPart(text = text))),
         )
 
         val jsonBody = json.encodeToString(requestBody)
