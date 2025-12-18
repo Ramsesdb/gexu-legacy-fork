@@ -8,7 +8,7 @@ package tachiyomi.domain.ai.service
  * when truncated for embedding.
  */
 class TextChunker(
-    private val maxChunkSize: Int = 1500,
+    private val maxChunkSize: Int = 2500, // Increased from 1500 to capture more info
     private val overlapSize: Int = 200,
     private val minChunkSize: Int = 100,
 ) {

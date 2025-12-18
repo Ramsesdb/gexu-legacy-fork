@@ -33,9 +33,10 @@ class VectorStoreImpl(
         val source: String,
     )
 
-    // Max cache size (~6MB for 768-dim floats: 2000 × 768 × 4 bytes)
-    // This balances memory usage with search performance
-    private val maxCacheSize = 2000
+    // Max cache size (~30MB for 768-dim floats: 10000 × 768 × 4 bytes)
+    // Increased from 2000 to prevent silent data loss in large libraries
+    // Modern Android devices can handle this memory footprint
+    private val maxCacheSize = 10000
 
     // LRU-ordered cache using LinkedHashMap with access-order
     private val memoryCache = object : LinkedHashMap<Long, CachedEmbedding>(

@@ -23,3 +23,14 @@ logs/
 # Backup files (large user data, should not be versioned)
 *.tachibk
 EditedBackup*.json
+
+# Agent-specific documentation and analysis files
+.gemini/antigravity/brain/
+**/GEXU_REPORT_*.md
+**/GEXU_AI_ANALYSIS*.md
+**/GEXU_AI_VALIDATION*.md
+**/CAMBIOS_RAG.md
+
+# User-specific agent rules
+.agent/workflows/cicd.md
+.agent

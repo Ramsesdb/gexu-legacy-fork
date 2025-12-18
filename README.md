@@ -1,12 +1,12 @@
 <div align="center">
 
-<img src="./.github/assets/logo.png" alt="Gexu logo" title="Gexu logo" width="120"/>
+<img src="./logo.png" alt="Gexu logo" title="Gexu logo" width="180"/>
 
 # Gexu
 
-### Geek Nexus: Smart manga reader with AI-powered features
+### Geek Nexus: The Intelligent Manga Reader
 
-**Gexu** is a SFW-focused fork of Mihon/Tachiyomi with **modern UX**, **tablet-friendly design**, and **intelligent features** (recommendations, Q&A, summaries, semantic search), while maintaining **full compatibility** with extensions and backups.
+**Gexu** is a next-generation manga reader powered by **AI and semantic search**. Built on Mihon/Tachiyomi, it features a **state-of-the-art Novel/PDF viewer**, **contextual AI chat**, **hybrid vector search (RAG)**, and **full extension compatibility**.
 
 [![CI](https://img.shields.io/github/actions/workflow/status/Ramsesdb/gexu/build.yml?branch=main&labelColor=27303D)](https://github.com/Ramsesdb/gexu/actions/workflows/build.yml)
 [![License: Apache-2.0](https://img.shields.io/github/license/Ramsesdb/gexu?labelColor=27303D&color=0877d2)](/LICENSE)
@@ -16,42 +16,87 @@
 
 ---
 
-## 🎯 Core Principles
+## ✨ What Makes Gexu Different?
 
-- **SFW by default** — Adult content hidden with optional PIN/biometric unlock
-- **Full compatibility** — Works with `.tachibk` backups and Mihon/Tachiyomi extensions
-- **Performance first** — 60fps scrolling, lazy loading, efficient caching
-- **Modern UI** — Clean bottom navigation, tablet-optimized layouts
+### 🤖 AI-Powered Reading Experience
 
-## 🚀 Roadmap (MVP Features)
+- **Contextual AI Chat:** Ask questions about your current manga/novel while reading
+- **Semantic Library Search:** Find manga by describing scenes or themes ("Find the one where the MC fights a dragon")
+- **Anti-Spoiler Mode:** AI respects your reading progress (won't spoil future chapters)
+- **RAG (Retrieval-Augmented Generation):** Local vector store with hybrid BM25 re-ranking
+- **Multi-Provider Support:** OpenAI, Gemini, Claude, Anthropic, OpenRouter, or custom endpoints
+- **Hybrid Embeddings:** Cloud (Gemini 768-dim) + Local (MediaPipe USE 100-dim) for offline capability
 
-- [x] **Rebranding foundation** — New identity, icon, app name
-- [ ] **Bottom navigation** — Library / Recents / Updates / More
-- [ ] **Enhanced reader** — Dual-page spread support for tablets in landscape
-- [ ] **SFW toggle** — Global filter with protected access
-- [ ] **Multi-source feed** — Unified updates from 3-5 favorite sources
-- [ ] **Multi-source merge** — Combine chapters from different sources for same series
-- [ ] **Novel mode** — Text viewer with TTS, customizable typography
-- [ ] **AI features** — Recommendations, semantic search, chat Q&A, chapter recaps
+### 📖 Advanced Novel/PDF Reader
+
+- **Intelligent OCR:** Extract text from manga pages using Google MLKit
+- **PDF Support:** Native rendering with MuPDF (fast, with reflow and table of contents)
+- **Hybrid Reading Mode:** Toggle between images and extracted text on-the-fly
+- **Two Reading Directions:** Vertical scroll or horizontal page-flip (book mode)
+- **Smart Text Extraction:** Prioritized OCR based on current reading position
+- **Customizable Typography:** Font size, themes (Dark/Light/Sepia/System), line height
+
+### 🔧 Built on Solid Foundations
+
+- **100% Mihon/Tachiyomi Compatible:** Works with all extensions and `.tachibk` backups
+- **Jetpack Compose UI:** Modern, Material 3 design with smooth 60fps scrolling
+- **Clean Architecture:** Multi-module MVVM with SQLDelight, Coroutines, and Dependency Injection
+- **Efficient Caching:** Disk + memory caching with LRU eviction for images and embeddings
+
+---
+
+## 🚀 Key Features
+
+| Category | Features |
+|----------|----------|
+| **AI/RAG** | • Semantic search (10K+ vector cache)<br>• Hybrid embedding (cloud + local)<br>• BM25 re-ranking (70% vector + 30% keyword)<br>• Context-aware prompts with reading history |
+| **Reader** | • OCR text extraction (MLKit)<br>• PDF rendering (MuPDF)<br>• Vertical scroll / Book flip modes<br>• Customizable themes & fonts |
+| **Library** | • Extension compatibility (Mihon/Tachiyomi)<br>• Backup/restore (`.tachibk`)<br>• Fast image loading (Coil 3)<br>• SQLite with efficient indexing |
+| **Tech Stack** | • Kotlin 100%<br>• Jetpack Compose<br>• SQLDelight<br>• MediaPipe (on-device ML) |
+
+---
 
 ## 📦 Download & Install
 
-*Releases coming soon. For now, build from source:*
+### Latest Release
 
-### Build (Debug)
+Check the [Releases](https://github.com/Ramsesdb/gexu/releases) page for the latest APK.
+
+### Build from Source
 
 ```bash
+# Debug build
 ./gradlew :app:assembleStandardDebug
+
+# Install to device
 adb install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
 ```
 
-**Requirements:** Android 8.0+ (API 26) • ~100MB storage
+**Requirements:** Android 8.0+ (API 26) • ~120MB storage • ARM64 architecture
 
-### Build (Release)
+---
 
-```bash
-./gradlew :app:assembleStandardRelease
-```
+## 🎯 Roadmap
+
+### Implemented ✅
+
+- [x] **AI Chat Integration** — Ask questions about your current manga/novel
+- [x] **Semantic Search** — Find manga by description, not just title
+- [x] **Novel/PDF Reader** — OCR, reflow, customizable themes
+- [x] **Hybrid Embeddings** — Cloud + local for offline capability
+- [x] **Extension Compatibility** — Full Mihon/Tachiyomi support
+
+### In Progress 🚧
+
+- [ ] **Visual AI (Multimodal)** — Send manga panels to AI for translation/explanation
+- [ ] **SFW Toggle** — Global NSFW filter with PIN/biometric unlock
+- [ ] **TTS Integration** — Text-to-speech for extracted novel text
+
+### Planned 📋
+
+- [ ] **Auto-Summaries** — AI-generated chapter recaps after long breaks
+- [ ] **Smart Recommendations** — Personalized suggestions based on reading history
+- [ ] **Multi-Source Merge** — Combine chapters from different sources for the same series
 
 ---
 
@@ -64,19 +109,27 @@ adb install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
 | **Min SDK** | 26 (Android 8.0) |
 | **Target SDK** | 35 (Android 15) |
 | **Language** | Kotlin 100% |
-| **Architecture** | Multi-module (MVVM + Jetpack Compose) |
+| **Architecture** | Multi-module (MVVM + Clean Architecture) |
+| **UI Framework** | Jetpack Compose + Material 3 |
+| **Database** | SQLDelight with SQLite |
+| **ML** | MediaPipe (on-device), MLKit (OCR) |
 
 ### Deep Link Schemes
-
-Gexu supports the following URL schemes for compatibility and future features:
 
 - `gexu://` — Primary scheme
 - `tachiyomi://` — Legacy compatibility
 - `mihon://` — Upstream compatibility
 
-## 🔒 SFW Stance
+---
 
-Gexu hides adult/NSFW content by default. Users can optionally enable it with PIN or biometric authentication in future releases. This makes Gexu suitable for general audiences while respecting user choice.
+## 📚 Documentation
+
+- [AI Implementation Summary](./AI_IMPLEMENTATION_SUMMARY.md) — Deep dive into RAG architecture
+- [Vision Document](./VISION.md) — Long-term goals and philosophy
+- [Build Commands](./BUILD_COMMANDS.md) — Detailed build instructions
+- [Changelog](./CHANGELOG.md) — Version history
+
+---
 
 ## 🤝 Contributing
 
@@ -86,6 +139,9 @@ Before contributing:
 - Read our [Code of Conduct](./CODE_OF_CONDUCT.md)
 - Check the [Contributing Guide](./CONTRIBUTING.md)
 - Review open [issues](https://github.com/Ramsesdb/gexu/issues)
+- Follow the [CI/CD Rules](./CI_CD_RULES.md) for code formatting
+
+---
 
 ## 💙 Credits
 
@@ -94,8 +150,12 @@ Before contributing:
 - **[Mihon](https://mihon.app)** — The upstream foundation
 - **[Tachiyomi](https://tachiyomi.org)** — The original reader
 - Community forks: [J2K](https://github.com/Jays2Kings/tachiyomiJ2K), [Yōkai](https://github.com/null2264/yokai), [SY](https://github.com/jobobby04/TachiyomiSY), [Komikku](https://github.com/komikku-app/komikku)
+- **[Google MediaPipe](https://developers.google.com/mediapipe)** — On-device ML models
+- **[MuPDF](https://mupdf.com/)** — Fast PDF rendering engine
 
 Thank you to all contributors who make the manga reader ecosystem thrive! 🙏
+
+---
 
 ## 📜 License
 
