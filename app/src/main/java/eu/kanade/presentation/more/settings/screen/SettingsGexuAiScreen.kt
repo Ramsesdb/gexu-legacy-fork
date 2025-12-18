@@ -3,7 +3,10 @@ package eu.kanade.presentation.more.settings.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import eu.kanade.presentation.more.settings.Preference
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
@@ -13,6 +16,9 @@ import tachiyomi.domain.ai.AiTone
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.produceState
+import androidx.compose.ui.platform.LocalContext
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -33,7 +39,111 @@ object SettingsGexuAiScreen : SearchableSettings {
         return listOf(
             getProviderGroup(aiPreferences),
             getPersonalityGroup(aiPreferences),
+            getRagGroup(aiPreferences),
             getBehaviorGroup(aiPreferences),
+        )
+    }
+
+    @Composable
+    private fun getRagGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val indexLibrary = remember { Injekt.get<tachiyomi.domain.ai.interactor.IndexLibrary>() }
+        val vectorStore = remember { Injekt.get<tachiyomi.domain.ai.repository.VectorStore>() }
+        val modelDownloadManager = remember { Injekt.get<tachiyomi.domain.ai.service.ModelDownloadManager>() }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        // State for index count
+        val indexCount = androidx.compose.runtime.produceState<Long>(initialValue = 0) {
+            value = try {
+                vectorStore.count()
+            } catch (e: Exception) {
+                0
+            }
+        }
+
+        // State for model availability
+        val isModelAvailable = androidx.compose.runtime.produceState(initialValue = false) {
+            value = try {
+                modelDownloadManager.isModelAvailable()
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        // State for download progress
+        var downloadProgress by remember { mutableFloatStateOf(0f) }
+        var isDownloading by remember { mutableStateOf(false) }
+
+        return Preference.PreferenceGroup(
+            title = "RAG / Contexto Avanzado",
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.InfoPreference(
+                    title = "Elementos indexados: ${indexCount.value}",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Indexar Biblioteca",
+                    subtitle = "Analiza y guarda el contenido de tus mangas para que la IA los entienda (Puede tardar).",
+                    onClick = {
+                        // Start background job
+                        eu.kanade.tachiyomi.data.ai.LibraryIndexingJob.startNow(context)
+                        android.widget.Toast.makeText(context, "Indexado iniciado en segundo plano", android.widget.Toast.LENGTH_SHORT).show()
+                    }
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Borrar Índice",
+                    subtitle = "Elimina todos los datos vectoriales generados.",
+                    onClick = {
+                        scope.launch {
+                            vectorStore.deleteAll()
+                            android.widget.Toast.makeText(context, "Índice borrado", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                ),
+                // Local model section
+                Preference.PreferenceItem.InfoPreference(
+                    title = if (isModelAvailable.value) {
+                        "✓ Modelo local disponible (offline)"
+                    } else if (isDownloading) {
+                        "Descargando modelo... ${(downloadProgress * 100).toInt()}%"
+                    } else {
+                        "Modelo local no instalado"
+                    },
+                ),
+                if (!isModelAvailable.value && !isDownloading) {
+                    Preference.PreferenceItem.TextPreference(
+                        title = "Descargar Modelo Local",
+                        subtitle = "~${tachiyomi.domain.ai.service.ModelDownloadManager.APPROXIMATE_SIZE_MB}MB - Permite embeddings sin internet",
+                        onClick = {
+                            isDownloading = true
+                            scope.launch {
+                                modelDownloadManager.downloadModel(
+                                    onProgress = { progress -> downloadProgress = progress },
+                                    onComplete = { success, error ->
+                                        isDownloading = false
+                                        downloadProgress = 0f
+                                        val message = if (success) "Modelo descargado" else "Error: $error"
+                                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                )
+                            }
+                        }
+                    )
+                } else if (isModelAvailable.value) {
+                    Preference.PreferenceItem.TextPreference(
+                        title = "Eliminar Modelo Local",
+                        subtitle = "Libera espacio de almacenamiento",
+                        onClick = {
+                            scope.launch {
+                                val deleted = modelDownloadManager.deleteModel()
+                                val message = if (deleted) "Modelo eliminado" else "Error al eliminar"
+                                android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        }
+                    )
+                } else {
+                    Preference.PreferenceItem.InfoPreference(title = "")
+                },
+            ),
         )
     }
 
@@ -86,6 +196,9 @@ object SettingsGexuAiScreen : SearchableSettings {
 
     @Composable
     private fun getPersonalityGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        // Use collectAsState for reactive slider updates
+        val temperatureValue by aiPreferences.temperature().collectAsState()
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_personality_title),
             preferenceItems = persistentListOf(
@@ -104,7 +217,7 @@ object SettingsGexuAiScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.ai_custom_instructions_hint),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (aiPreferences.temperature().get() * 10).toInt(),
+                    value = (temperatureValue * 10).toInt(),
                     valueRange = 0..10,
                     title = stringResource(MR.strings.ai_temperature),
                     subtitle = stringResource(MR.strings.ai_temperature_balanced),

@@ -1,0 +1,3 @@
+-- Add embedding metadata columns for hybrid embedding compatibility
+ALTER TABLE manga_embeddings ADD COLUMN embedding_dim INTEGER NOT NULL DEFAULT 768;
+ALTER TABLE manga_embeddings ADD COLUMN embedding_source TEXT NOT NULL DEFAULT 'gemini';

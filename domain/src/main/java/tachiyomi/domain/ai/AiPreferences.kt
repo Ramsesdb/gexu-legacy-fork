@@ -51,6 +51,15 @@ class AiPreferences(
     /** Whether to persist conversations to local database */
     fun persistConversations() = preferenceStore.getBoolean("ai_persist_conversations", true)
 
+    /** Whether to use local embedding model (offline mode) */
+    fun useLocalEmbeddings() = preferenceStore.getBoolean("ai_use_local_embeddings", false)
+
+    /** Whether the local embedding model has been downloaded */
+    fun localModelDownloaded() = preferenceStore.getBoolean("ai_local_model_downloaded", false)
+
+    /** Preferred embedding source: "cloud", "local", "hybrid" */
+    fun embeddingSource() = preferenceStore.getString("ai_embedding_source", "hybrid")
+
     companion object {
         /** Validate that API key looks reasonable (basic check) */
         fun isApiKeyValid(apiKey: String, provider: AiProvider): Boolean {

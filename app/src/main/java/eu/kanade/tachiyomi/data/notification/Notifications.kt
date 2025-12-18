@@ -59,6 +59,14 @@ object Notifications {
     const val ID_RESTORE_COMPLETE = -504
 
     /**
+     * Notification channel and ids used for AI indexing.
+     */
+    private const val GROUP_AI = "group_ai"
+    const val CHANNEL_AI_PROGRESS = "ai_indexing_progress_channel"
+    const val ID_AI_INDEXING_PROGRESS = -801
+    const val ID_AI_INDEXING_COMPLETE = -802
+
+    /**
      * Notification channel used for Incognito Mode
      */
     const val CHANNEL_INCOGNITO_MODE = "incognito_mode_channel"
@@ -114,6 +122,9 @@ object Notifications {
                 buildNotificationChannelGroup(GROUP_APK_UPDATES) {
                     setName(context.stringResource(MR.strings.label_recent_updates))
                 },
+                buildNotificationChannelGroup(GROUP_AI) {
+                    setName("Gexu AI")
+                },
             ),
         )
 
@@ -166,6 +177,11 @@ object Notifications {
                 buildNotificationChannel(CHANNEL_EXTENSIONS_UPDATE, IMPORTANCE_DEFAULT) {
                     setGroup(GROUP_APK_UPDATES)
                     setName(context.stringResource(MR.strings.channel_ext_updates))
+                },
+                buildNotificationChannel(CHANNEL_AI_PROGRESS, IMPORTANCE_LOW) {
+                    setName("AI Indexing Progress")
+                    setGroup(GROUP_AI)
+                    setShowBadge(false)
                 },
             ),
         )
