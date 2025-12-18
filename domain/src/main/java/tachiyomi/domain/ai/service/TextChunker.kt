@@ -155,4 +155,39 @@ class TextChunker(
         val startOffset: Int,
         val endOffset: Int,
     )
+
+    /**
+     * Build a single embedding text for a manga (optimized version).
+     * This only generates the primary chunk without processing additional chunks,
+     * which is more efficient when only one embedding per manga is needed.
+     *
+     * @param title Manga title
+     * @param author Author name
+     * @param genres List of genres
+     * @param description Full description
+     * @return Single text string to embed
+     */
+    fun buildPrimaryEmbeddingText(
+        title: String,
+        author: String?,
+        genres: List<String>?,
+        description: String?
+    ): String {
+        return buildString {
+            append("Title: $title")
+            if (!author.isNullOrBlank()) append("\nAuthor: $author")
+            if (!genres.isNullOrEmpty()) append("\nGenres: ${genres.joinToString(", ")}")
+            if (!description.isNullOrBlank()) {
+                // Truncate description at sentence boundary if too long
+                val maxDescLength = maxChunkSize - length - 20 // Leave room for "Description: " prefix
+                val truncatedDesc = if (description.length > maxDescLength) {
+                    val boundaryIdx = findSentenceBoundary(description, 0, maxDescLength)
+                    description.substring(0, boundaryIdx).trimEnd() + "..."
+                } else {
+                    description
+                }
+                append("\nDescription: $truncatedDesc")
+            }
+        }
+    }
 }

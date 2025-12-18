@@ -51,10 +51,10 @@ interface ModelDownloadManager {
     fun getModelPath(): String?
 
     companion object {
-        // Model file name
-        const val MODEL_FILE_NAME = "embeddinggemma-300M_seq512_mixed-precision.tflite"
+        // Model file name - Universal Sentence Encoder
+        const val MODEL_FILE_NAME = "universal_sentence_encoder.tflite"
 
-        // Approximate model size for UI display (300MB compressed, ~600MB uncompressed)
-        const val APPROXIMATE_SIZE_MB = 300
+        // Approximate model size for UI display (~30MB)
+        const val APPROXIMATE_SIZE_MB = 30
     }
 }

@@ -33,6 +33,18 @@ class EmbeddingServiceImpl(
     // Maximum retry attempts for rate-limited requests
     private val maxRetries = 2
 
+    // Last error for user feedback
+    @Volatile
+    var lastError: String? = null
+        private set
+
+    /**
+     * Clear the last error (call after displaying to user).
+     */
+    fun clearError() {
+        lastError = null
+    }
+
     override suspend fun isConfigured(): Boolean {
         return preferences.apiKey().get().isNotBlank()
     }
@@ -47,7 +59,10 @@ class EmbeddingServiceImpl(
      */
     private suspend fun embedWithRetry(text: String, retryCount: Int): FloatArray? {
         val apiKey = preferences.apiKey().get()
-        if (apiKey.isBlank()) return null
+        if (apiKey.isBlank()) {
+            lastError = "API key not configured"
+            return null
+        }
 
         // Check if we're in cooldown from a previous 429 error
         val now = System.currentTimeMillis()
@@ -63,6 +78,7 @@ class EmbeddingServiceImpl(
             }
 
             logcat(LogPriority.WARN) { "Rate limited. Max retries exceeded. Cooldown: ${remainingSeconds}s" }
+            lastError = "Rate limited. Please wait ${remainingSeconds}s and try again."
             return null
         }
 
@@ -107,6 +123,7 @@ class EmbeddingServiceImpl(
                     }
 
                     logcat(LogPriority.WARN) { "Embedding error: ${response.code}" }
+                    lastError = "Embedding API error: ${response.code}"
                     return@withIOContext null
                 }
 
@@ -117,6 +134,7 @@ class EmbeddingServiceImpl(
             }
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Embedding request failed" }
+            lastError = "Embedding failed: ${e.message ?: "Unknown error"}"
             return@withIOContext null
         }
     }
@@ -155,6 +173,8 @@ class EmbeddingServiceImpl(
     }
 
     override fun getSourceId(): String = SOURCE_ID
+
+    override fun getEmbeddingDimension(): Int = EMBEDDING_DIM
 
     override suspend fun embedWithMeta(text: String): tachiyomi.domain.ai.service.EmbeddingResult? {
         val embedding = embed(text) ?: return null

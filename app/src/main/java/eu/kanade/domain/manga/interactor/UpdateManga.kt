@@ -83,8 +83,14 @@ class UpdateManga(
                 initialized = true,
             ),
         )
-        if (success && title != null) {
-            downloadManager.renameManga(localManga, title)
+        if (success) {
+            // Invalidate AI cache when metadata changes (affects RAG context)
+            if (localManga.favorite) {
+                tachiyomi.domain.ai.AiCacheInvalidator.onLibraryChanged()
+            }
+            if (title != null) {
+                downloadManager.renameManga(localManga, title)
+            }
         }
         return success
     }
@@ -112,8 +118,13 @@ class UpdateManga(
             true -> Instant.now().toEpochMilli()
             false -> 0
         }
-        return mangaRepository.update(
+        val result = mangaRepository.update(
             MangaUpdate(id = mangaId, favorite = favorite, dateAdded = dateAdded),
         )
+        // Invalidate AI cache since library content changed
+        if (result) {
+            tachiyomi.domain.ai.AiCacheInvalidator.onLibraryChanged()
+        }
+        return result
     }
 }

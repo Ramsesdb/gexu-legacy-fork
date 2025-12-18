@@ -124,6 +124,8 @@ class LocalEmbeddingService(
 
     override fun getSourceId(): String = SOURCE_ID
 
+    override fun getEmbeddingDimension(): Int = EMBEDDING_DIM
+
     override suspend fun embedWithMeta(text: String): EmbeddingResult? {
         val embedding = embed(text) ?: return null
         return EmbeddingResult(

@@ -149,11 +149,12 @@ class Bm25Reranker(
 
     /**
      * Tokenize text into terms.
+     * Uses Unicode-aware splitting to support Japanese, Korean, Chinese,
+     * and accented characters (Spanish, French, etc.)
      */
     private fun tokenize(text: String): List<String> {
         return text.lowercase()
-            .replace(Regex("[^a-z0-9\\s]"), " ")
-            .split(Regex("\\s+"))
+            .split(Regex("[\\s\\p{Punct}]+"))  // Unicode-aware: split on whitespace and punctuation
             .filter { it.length > 1 }
     }
 

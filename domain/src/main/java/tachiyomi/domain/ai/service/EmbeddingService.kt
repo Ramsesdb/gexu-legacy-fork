@@ -73,4 +73,10 @@ interface EmbeddingService {
      * Get the source identifier for this service.
      */
     fun getSourceId(): String = "unknown"
+
+    /**
+     * Get the embedding dimension produced by this service.
+     * Used for dimension-aware search across multiple embedding sources.
+     */
+    fun getEmbeddingDimension(): Int = 768 // Default to Gemini dimension
 }
