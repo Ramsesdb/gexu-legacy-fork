@@ -160,7 +160,7 @@ fun NovelReaderScreen(
                 (
                     prefs.readingDirection == ReadingDirection.VERTICAL &&
                         listState.firstVisibleItemIndex != safeTarget
-                    ) ||
+                ) ||
                 (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
             ) {
                 if (prefs.readingDirection == ReadingDirection.BOOK) {
