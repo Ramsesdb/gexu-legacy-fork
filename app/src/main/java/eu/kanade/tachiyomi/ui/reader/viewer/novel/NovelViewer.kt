@@ -3,18 +3,34 @@ package eu.kanade.tachiyomi.ui.reader.viewer.novel
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.ComposeView
+import coil3.imageLoader
+import coil3.request.CachePolicy
+import coil3.request.ImageRequest
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.tachiyomi.source.model.Page
+import eu.kanade.tachiyomi.source.model.SChapter
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.util.MuPdfUtil
+import eu.kanade.tachiyomi.util.PdfUtil
 import eu.kanade.tachiyomi.util.view.setComposeContent
-import tachiyomi.domain.source.service.SourceManager
-import eu.kanade.tachiyomi.source.online.HttpSource
-import tachiyomi.domain.manga.interactor.GetManga
-import uy.kohesive.injekt.injectLazy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
@@ -22,40 +38,24 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import kotlinx.coroutines.sync.withLock
-import org.jsoup.Jsoup
-import okhttp3.Request
-import androidx.compose.runtime.remember
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.Composable
-import kotlinx.coroutines.flow.MutableStateFlow
-import eu.kanade.tachiyomi.util.PdfUtil
-import eu.kanade.tachiyomi.util.MuPdfUtil
-import java.io.File
-import eu.kanade.tachiyomi.source.model.Page
-import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
-import eu.kanade.tachiyomi.source.model.SChapter
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.text.TextRecognition
-import com.google.mlkit.vision.text.latin.TextRecognizerOptions
-import com.google.android.gms.tasks.Tasks
-import eu.kanade.presentation.theme.TachiyomiTheme
 import logcat.LogPriority
 import logcat.logcat
+import okhttp3.Request
 import okio.buffer
 import okio.sink
-import coil3.request.CachePolicy
+import org.jsoup.Jsoup
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.source.service.SourceManager
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
+import uy.kohesive.injekt.injectLazy
+import java.io.File
 
 class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
@@ -144,7 +144,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
         // Define renderer for PDF pages - Remember to avoid recomposition
         val pdfRenderer: suspend (Int, Int) -> android.graphics.Bitmap? = remember(currentPrefs.fontSizeSp) {
-             { index, width -> renderPdfPage(index, width) }
+            { index, width -> renderPdfPage(index, width) }
         }
 
         NovelReaderScreen(
@@ -183,25 +183,25 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             },
             onRenderPage = pdfRenderer,
             onPageChanged = { listIndex ->
-                 // Update user position for Lazy OCR
-                 lastUserVisiblePage.value = listIndex
+                // Update user position for Lazy OCR
+                lastUserVisiblePage.value = listIndex
 
-                 // Notify activity and check preload
-                 if (listIndex >= 0 && listIndex < virtualPages.size) {
-                     val page = virtualPages[listIndex]
-                     activity.onPageSelected(page)
+                // Notify activity and check preload
+                if (listIndex >= 0 && listIndex < virtualPages.size) {
+                    val page = virtualPages[listIndex]
+                    activity.onPageSelected(page)
 
-                     // Check if we should preload next chapter (within last 5 pages)
-                     val totalPages = virtualPages.size
-                     val pagesRemaining = totalPages - listIndex - 1
-                     if (pagesRemaining < 5 && !preloadRequested && nextChapter != null) {
-                         preloadRequested = true
-                         logcat {
-                            "NovelViewer: Requesting preload of next chapter (${pagesRemaining} pages remaining)"
+                    // Check if we should preload next chapter (within last 5 pages)
+                    val totalPages = virtualPages.size
+                    val pagesRemaining = totalPages - listIndex - 1
+                    if (pagesRemaining < 5 && !preloadRequested && nextChapter != null) {
+                        preloadRequested = true
+                        logcat {
+                            "NovelViewer: Requesting preload of next chapter ($pagesRemaining pages remaining)"
                         }
-                         activity.requestPreloadChapter(nextChapter!!)
-                     }
-                 }
+                        activity.requestPreloadChapter(nextChapter!!)
+                    }
+                }
             },
             onLoadPage = { page ->
                 // Trigger page loading via pageLoader for disk caching (like WebtoonViewer)
@@ -221,16 +221,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             },
             onAiClick = {
                 showAiChat = true
-            }
+            },
         )
 
         // Gexu AI Overlay
         NovelAiChatOverlay(
             visible = showAiChat,
             mangaTitle = readerState.manga?.title,
-            onDismiss = { showAiChat = false }
+            onDismiss = { showAiChat = false },
         )
-
     }
 
     private suspend fun renderPdfPage(index: Int, width: Int): android.graphics.Bitmap? {
@@ -241,17 +240,22 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 // Check if cancelled before starting heavy work
                 currentCoroutineContext().ensureActive()
 
-                 val safeDoc = pdfDocument ?: return@withLock null
-                 val isOriginalMode = !showTextMode.value
-                 withContext(Dispatchers.IO) {
-                     currentCoroutineContext().ensureActive()
-                     if (isOriginalMode) {
-                         // Original PDF page rendering (no reflow, preserves original layout)
-                         eu.kanade.tachiyomi.util.MuPdfUtil.renderPage(safeDoc, index, width)
-                     } else {
-                         // Reflow rendering (text-friendly with adjustable font size)
-                         eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(safeDoc, index, width, prefs.value.fontSizeSp.toFloat())
-                     }
+                val safeDoc = pdfDocument ?: return@withLock null
+                val isOriginalMode = !showTextMode.value
+                withContext(Dispatchers.IO) {
+                    currentCoroutineContext().ensureActive()
+                    if (isOriginalMode) {
+                        // Original PDF page rendering (no reflow, preserves original layout)
+                        eu.kanade.tachiyomi.util.MuPdfUtil.renderPage(safeDoc, index, width)
+                    } else {
+                        // Reflow rendering (text-friendly with adjustable font size)
+                        eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(
+                            safeDoc,
+                            index,
+                            width,
+                            prefs.value.fontSizeSp.toFloat(),
+                        )
+                    }
                 }
             }
         } catch (e: Exception) {
@@ -274,8 +278,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
         // DON'T clear images - keep them visible while OCR runs in background
         withContext(Dispatchers.Main) {
-            content.value = emptyList()  // Clear text content initially
-            showTextMode.value = true    // Switch to text mode container
+            content.value = emptyList() // Clear text content initially
+            showTextMode.value = true // Switch to text mode container
             ocrProgress.value = 0 to currentImages.size
         }
 
@@ -316,7 +320,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         logcat(LogPriority.ERROR) { "OCR: Failed to open private PDF doc: ${e.message}" }
                         null
                     }
-                } else null
+                } else {
+                    null
+                }
 
                 try {
                     var processedCount = 0
@@ -353,9 +359,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                         // If nothing immediate, check distant pages but throttling
                         if (nextIndex == -1) {
-                             val pD = findUnprocessed((center + 11) until total)
-                             val pE = findUnprocessed((center - 6) downTo 0)
-                             nextIndex = pD ?: pE ?: -1
+                            val pD = findUnprocessed((center + 11) until total)
+                            val pE = findUnprocessed((center - 6) downTo 0)
+                            nextIndex = pD ?: pE ?: -1
                         }
 
                         if (nextIndex == -1) break
@@ -367,7 +373,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         // Throttle heuristic:
                         // If the page is "far" (priority D), sleep a bit to save resources
                         val isFar = index > (center + 10) || index < (center - 5)
-                         if (isFar) {
+                        if (isFar) {
                             delay(150) // Slow down for distant pages
                         }
 
@@ -376,59 +382,70 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                         val bitmap: android.graphics.Bitmap? = if (isPdfMode && ocrPdfDoc != null) {
                             val pageIndex = imgUrl.removePrefix("pdf://").toInt()
-                            eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(ocrPdfDoc, pageIndex, 1080, prefs.value.fontSizeSp.toFloat())
+                            eu.kanade.tachiyomi.util.MuPdfUtil.renderPageReflow(
+                                ocrPdfDoc,
+                                pageIndex,
+                                1080,
+                                prefs.value.fontSizeSp.toFloat(),
+                            )
                         } else if (imgUrl.startsWith("pdf://")) {
-                             renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
+                            renderPdfPage(imgUrl.removePrefix("pdf://").toInt(), 1080)
                         } else if (imgUrl.startsWith("page://") || virtualPages.isNotEmpty()) {
-                             // FAST PATH: Use page.stream from virtualPages (ChapterLoader pages)
-                             val pageIndex = if (imgUrl.startsWith("page://")) {
-                                 imgUrl.removePrefix("page://").toIntOrNull() ?: index
-                             } else {
-                                 index
-                             }
-                             val page = virtualPages.getOrNull(pageIndex)
-                             val stream = page?.stream
-                             if (stream != null) {
-                                 try {
-                                     stream().use { inputStream ->
-                                         android.graphics.BitmapFactory.decodeStream(inputStream)
-                                     }
-                                 } catch (e: Exception) {
-                                     logcat(LogPriority.WARN) { "OCR: Failed to decode stream for page $pageIndex: ${e.message}" }
-                                     null
-                                 }
-                             } else {
-                                 // Stream not available yet - page might not be loaded
-                                 // Try to load it via pageLoader first
-                                 val loader = page?.chapter?.pageLoader
-                                 if (loader != null && page.status == eu.kanade.tachiyomi.source.model.Page.State.Queue) {
-                                     try {
-                                         // Trigger loading and wait for it
-                                         loader.loadPage(page)
-                                         // Wait for stream to become available (with timeout)
-                                         var attempts = 0
-                                         while (page.stream == null && attempts < 50 && isActive) {
-                                             delay(100)
-                                             attempts++
-                                         }
-                                         page.stream?.let { s ->
-                                             s().use { inputStream ->
-                                                 android.graphics.BitmapFactory.decodeStream(inputStream)
-                                             }
-                                         }
-                                     } catch (e: Exception) {
-                                         logcat(LogPriority.WARN) { "OCR: Failed to load page $pageIndex: ${e.message}" }
-                                         null
-                                     }
-                                 } else {
-                                     null
-                                 }
-                             }
+                            // FAST PATH: Use page.stream from virtualPages (ChapterLoader pages)
+                            val pageIndex = if (imgUrl.startsWith("page://")) {
+                                imgUrl.removePrefix("page://").toIntOrNull() ?: index
+                            } else {
+                                index
+                            }
+                            val page = virtualPages.getOrNull(pageIndex)
+                            val stream = page?.stream
+                            if (stream != null) {
+                                try {
+                                    stream().use { inputStream ->
+                                        android.graphics.BitmapFactory.decodeStream(inputStream)
+                                    }
+                                } catch (e: Exception) {
+                                    logcat(LogPriority.WARN) {
+                                        "OCR: Failed to decode stream for page $pageIndex: ${e.message}"
+                                    }
+                                    null
+                                }
+                            } else {
+                                // Stream not available yet - page might not be loaded
+                                // Try to load it via pageLoader first
+                                val loader = page?.chapter?.pageLoader
+                                if (loader != null &&
+                                    page.status == eu.kanade.tachiyomi.source.model.Page.State.Queue
+                                ) {
+                                    try {
+                                        // Trigger loading and wait for it
+                                        loader.loadPage(page)
+                                        // Wait for stream to become available (with timeout)
+                                        var attempts = 0
+                                        while (page.stream == null && attempts < 50 && isActive) {
+                                            delay(100)
+                                            attempts++
+                                        }
+                                        page.stream?.let { s ->
+                                            s().use { inputStream ->
+                                                android.graphics.BitmapFactory.decodeStream(inputStream)
+                                            }
+                                        }
+                                    } catch (e: Exception) {
+                                        logcat(LogPriority.WARN) {
+                                            "OCR: Failed to load page $pageIndex: ${e.message}"
+                                        }
+                                        null
+                                    }
+                                } else {
+                                    null
+                                }
+                            }
                         } else {
-                             // Use standard image loader for real URLs
-                             if (!isActive) break
-                             try {
-                                 val request = ImageRequest.Builder(activity)
+                            // Use standard image loader for real URLs
+                            if (!isActive) break
+                            try {
+                                val request = ImageRequest.Builder(activity)
                                     .data(imgUrl)
                                     .memoryCachePolicy(CachePolicy.ENABLED)
                                     // Resize to avoid OOM on huge images for OCR
@@ -440,9 +457,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                     bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
                                 }
                                 bmp
-                             } catch(e: Exception) {
-                                 null
-                             }
+                            } catch (e: Exception) {
+                                null
+                            }
                         }
 
                         // Yield for UI responsiveness often
@@ -472,11 +489,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                             isFirstBatch = false
                                             updateOcrPageCounter(1, total, updatePosition = false)
                                             if (virtualPages.isNotEmpty()) {
-                                                 val target = center.coerceIn(0, virtualPages.lastIndex)
-                                                 moveToPage(virtualPages[target])
+                                                val target = center.coerceIn(0, virtualPages.lastIndex)
+                                                moveToPage(virtualPages[target])
                                             }
                                         } else {
-                                             updateOcrPageCounter(1, total, updatePosition = false)
+                                            updateOcrPageCounter(1, total, updatePosition = false)
                                         }
                                     }
                                     // Yield again after UI update
@@ -487,13 +504,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 pageResults[index] = "[Error OCR]"
                             }
                         } else {
-                             pageResults[index] = ""
+                            pageResults[index] = ""
                         }
                     }
-
                 } finally {
                     if (ocrPdfDoc != null) {
-                         eu.kanade.tachiyomi.util.MuPdfUtil.closeDocument(ocrPdfDoc)
+                        eu.kanade.tachiyomi.util.MuPdfUtil.closeDocument(ocrPdfDoc)
                     }
                 }
             }
@@ -509,7 +525,6 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     logcat { "OCR: No text extracted, keeping images visible" }
                 }
             }
-
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "OCR: Critical error: ${e.message}" }
             withContext(Dispatchers.Main) {
@@ -534,7 +549,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             try {
                 pdfMutex.withLock {
                     pdfDocument?.let {
-                         try { it.destroy() } catch(e: Exception) {}
+                        try {
+                            it.destroy()
+                        } catch (e: Exception) {}
                     }
                     pdfDocument = null
 
@@ -559,7 +576,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 // Delete old timestamp-based PDF files and temp stream files
                 if (file.name.startsWith("current_pdf_") ||
                     file.name.startsWith("temp_stream_") ||
-                    file.name.startsWith("pdf_cover_")) {
+                    file.name.startsWith("pdf_cover_")
+                ) {
                     file.delete()
                 }
             }
@@ -586,15 +604,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         prevChapter = chapters.prevChapter
         preloadRequested = false // Reset preload flag for new chapter
 
-    // Check if Activity has a requested page in Intent (overrides history)
-    // This fixes TOC navigation where we want to jump to a specific page, not resume history
-    val intentPage = activity.intent.getIntExtra("page", -1)
-    if (intentPage != -1) {
-        logcat { "NovelViewer: Found page extra in intent: $intentPage" }
-        chapter.requestedPage = intentPage
-    }
+        // Check if Activity has a requested page in Intent (overrides history)
+        // This fixes TOC navigation where we want to jump to a specific page, not resume history
+        val intentPage = activity.intent.getIntExtra("page", -1)
+        if (intentPage != -1) {
+            logcat { "NovelViewer: Found page extra in intent: $intentPage" }
+            chapter.requestedPage = intentPage
+        }
 
-    // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
+        // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
         // So we need to set requestedPage from last_page_read, same as ChapterLoader does
         // Note: We always restore position for novels, even for "read" chapters
         if (chapter.requestedPage == 0 && chapter.chapter.last_page_read > 0) {
@@ -608,7 +626,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         savedPagePosition = chapter.requestedPage.coerceAtLeast(0)
         initialPageIndex.value = savedPagePosition
 
-        logcat { "NovelViewer: setChapters - savedPagePosition=$savedPagePosition, requestedPage=${chapter.requestedPage}, last_page_read=${chapter.chapter.last_page_read}" }
+        logcat {
+            "NovelViewer: setChapters - savedPagePosition=$savedPagePosition, requestedPage=${chapter.requestedPage}, last_page_read=${chapter.chapter.last_page_read}"
+        }
 
         // If chapter already has pages loaded (from ChapterLoader), use them
         val existingPages = chapters.currChapter.pages
@@ -626,7 +646,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 showTextMode.value = true // Reset to text mode
                 // Reset state safely and cleanup old PDF cache files
                 pdfMutex.withLock {
-                    pdfDocument?.let { try { it.destroy() } catch (e: Exception) {} }
+                    pdfDocument?.let {
+                        try {
+                            it.destroy()
+                        } catch (e: Exception) {}
+                    }
                     pdfDocument = null
                     pdfFile?.delete()
                     pdfFile = null
@@ -661,13 +685,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 val hasPageLoader = existingPages?.any { it.chapter.pageLoader != null } == true
 
                 if (hasPageLoader && existingPages != null) {
-                    logcat { "NovelViewer: FAST PATH - Using ${existingPages.size} pages with pageLoader (like WebtoonViewer)" }
+                    logcat {
+                        "NovelViewer: FAST PATH - Using ${existingPages.size} pages with pageLoader (like WebtoonViewer)"
+                    }
 
                     // Create placeholder URLs - OptimizedReaderImage will use page.stream after loading
                     // The actual imageUrl will be fetched by HttpPageLoader.loadPage()
                     val placeholderUrls = existingPages.mapIndexed { index, page ->
                         // Use existing imageUrl if available, otherwise placeholder
-                        page.imageUrl ?: "page://${index}"
+                        page.imageUrl ?: "page://$index"
                     }
 
                     withContext(Dispatchers.Main) {
@@ -707,7 +733,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 val request = try {
                     method.invoke(httpSource, chapter.chapter) as Request
                 } catch (e: Exception) {
-                     Request.Builder()
+                    Request.Builder()
                         .url(
                             if (chapter.chapter.url.startsWith("http")) {
                                 chapter.chapter.url
@@ -731,7 +757,6 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     return@launch
                 }
 
-
                 // PDF Check
                 val contentType = response.header("Content-Type", "") ?: ""
                 val isPdf = contentType.contains("application/pdf") ||
@@ -744,15 +769,16 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         val tempPdf = File(cacheDir, "temp_stream_${System.currentTimeMillis()}.pdf")
 
                         if (saveResponseToFile(response, tempPdf)) {
-                           val pdfText = PdfUtil.extractPdfText(tempPdf)
+                            val pdfText = PdfUtil.extractPdfText(tempPdf)
 
-                           // Clean up
-                           tempPdf.delete()
+                            // Clean up
+                            tempPdf.delete()
 
-                           withContext(Dispatchers.Main) {
+                            withContext(Dispatchers.Main) {
                                 isLoading.value = false
-                                content.value = if (pdfText.length > 50) listOf(pdfText) else listOf("PDF sin texto extraíble.")
-                           }
+                                content.value =
+                                    if (pdfText.length > 50) listOf(pdfText) else listOf("PDF sin texto extraíble.")
+                            }
                         } else {
                             throw Exception("Failed to save PDF stream")
                         }
@@ -777,9 +803,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 }
 
                 val isCloudflare = rawContent.contains("Just a moment...") ||
-                                   rawContent.contains("Enable JavaScript") ||
-                                   rawContent.contains("challenge-form") ||
-                                   rawContent.contains("challenge-platform")
+                    rawContent.contains("Enable JavaScript") ||
+                    rawContent.contains("challenge-form") ||
+                    rawContent.contains("challenge-platform")
 
                 val sb = StringBuilder()
                 var isAdTrap = false
@@ -787,53 +813,56 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 // Only attempt text extraction if NOT Cloudflare
                 // Only attempt text extraction if NOT Cloudflare
                 if (!isCloudflare) {
-                     content.value = listOf("Procesando texto...")
+                    content.value = listOf("Procesando texto...")
 
-                     var extractedText: List<String>? = null
+                    var extractedText: List<String>? = null
 
-                     try {
-                         // 1. Try Readability4J (Best quality)
-                         val readability = net.dankito.readability4j.Readability4J(currentUrl.value ?: "", rawContent)
-                         val article = readability.parse()
+                    try {
+                        // 1. Try Readability4J (Best quality)
+                        val readability = net.dankito.readability4j.Readability4J(currentUrl.value ?: "", rawContent)
+                        val article = readability.parse()
 
-                         if (article.textContent != null && article.textContent!!.length > 200) {
-                             val sb = StringBuilder()
+                        if (article.textContent != null && article.textContent!!.length > 200) {
+                            val sb = StringBuilder()
 
-                             // Add Title
-                             if (!article.title.isNullOrEmpty()) {
-                                 sb.append(article.title).append("\n\n")
-                             } else {
-                                 // Fallback title from Jsoup if missing
-                                 val docTitle = Jsoup.parse(rawContent).title()
-                                     .replace(Regex("(?i)(read|free|manga|online|page|chapter).*"), "")
-                                     .trim().trimEnd('-', '|')
-                                 if (docTitle.isNotEmpty()) sb.append(docTitle).append("\n\n")
-                             }
+                            // Add Title
+                            if (!article.title.isNullOrEmpty()) {
+                                sb.append(article.title).append("\n\n")
+                            } else {
+                                // Fallback title from Jsoup if missing
+                                val docTitle = Jsoup.parse(rawContent).title()
+                                    .replace(Regex("(?i)(read|free|manga|online|page|chapter).*"), "")
+                                    .trim().trimEnd('-', '|')
+                                if (docTitle.isNotEmpty()) sb.append(docTitle).append("\n\n")
+                            }
 
-                             // Add Byline/Author if present
-                             if (!article.byline.isNullOrEmpty()) {
-                                 sb.append("By: ${article.byline}").append("\n\n")
-                             }
+                            // Add Byline/Author if present
+                            if (!article.byline.isNullOrEmpty()) {
+                                sb.append("By: ${article.byline}").append("\n\n")
+                            }
 
-                             // Process content
-                             sb.append(article.textContent)
+                            // Process content
+                            sb.append(article.textContent)
 
-                             val lines = sb.toString().lines()
-                                 .map { it.trim() }
-                                 .filter { it.isNotBlank() && !pageNumberRegex.matches(it) && !it.contains("Next Chapter", true) }
+                            val lines = sb.toString().lines()
+                                .map { it.trim() }
+                                .filter {
+                                    it.isNotBlank() && !pageNumberRegex.matches(it) &&
+                                        !it.contains("Next Chapter", true)
+                                }
 
-                             if (lines.isNotEmpty()) {
-                                 extractedText = lines
-                                 logcat { "NovelViewer: Extracted content via Readability4J" }
-                             }
-                         }
-                     } catch (e: Exception) {
-                         logcat(LogPriority.WARN) { "NovelViewer: Readability4J failed: ${e.message}" }
-                     }
+                            if (lines.isNotEmpty()) {
+                                extractedText = lines
+                                logcat { "NovelViewer: Extracted content via Readability4J" }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        logcat(LogPriority.WARN) { "NovelViewer: Readability4J failed: ${e.message}" }
+                    }
 
-                     // 2. Fallback to manual Jsoup heuristic if Readability4J failed or returned little text
-                     if (extractedText == null || extractedText.isEmpty()) {
-                         logcat { "NovelViewer: Readability4J returned empty, falling back to Jsoup heuristics" }
+                    // 2. Fallback to manual Jsoup heuristic if Readability4J failed or returned little text
+                    if (extractedText == null || extractedText.isEmpty()) {
+                        logcat { "NovelViewer: Readability4J returned empty, falling back to Jsoup heuristics" }
 
                         // Pre-process HTML
                         val processedHtml = rawContent.replace(Regex("(?i)<br\\s*/?>"), "\n")
@@ -843,11 +872,13 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         val junkSelectors = listOf(
                             "script", "style", "nav", "footer", "header", "aside",
                             ".sidebar", ".widget", ".menu", ".comments", "#comments",
-                            ".pagination", ".pager", ".breadcrumb", ".social", ".share"
+                            ".pagination", ".pager", ".breadcrumb", ".social", ".share",
                         )
                         junkSelectors.forEach { doc.select(it).remove() }
 
-                        val junkRegex = "(?i)comment|meta|footer|foot|header|menu|nav|pagination|pager|sidebar|ad|share|social|popup|cookie|banner".toRegex()
+                        val junkRegex =
+                            "(?i)comment|meta|footer|foot|header|menu|nav|pagination|pager|sidebar|ad|share|social|popup|cookie|banner"
+                                .toRegex()
                         doc.allElements.forEach { el ->
                             if (el.id().matches(junkRegex) || el.className().matches(junkRegex)) {
                                 el.remove()
@@ -894,7 +925,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             }
                         }
 
-                        val target = if (bestContainer != null && !isMostlyPageNumbers(bestContainer.text())) bestContainer else doc.body()
+                        val target = if (bestContainer != null && !isMostlyPageNumbers(bestContainer.text())) {
+                            bestContainer
+                        } else {
+                            doc.body()
+                        }
 
                         // 3. Final construction
                         val title = doc.title()
@@ -904,38 +939,41 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                         // AD-TRAP DETECTION
                         isAdTrap = title.contains("Sweet Tooth", true) ||
-                                       title.contains("Recipes", true) ||
-                                       title.contains("Captcha", true) ||
-                                       doc.text().contains("Click here to continue", true)
+                            title.contains("Recipes", true) ||
+                            title.contains("Captcha", true) ||
+                            doc.text().contains("Click here to continue", true)
 
                         if (!isAdTrap) {
-                             val sb = StringBuilder()
+                            val sb = StringBuilder()
                             if (title.isNotEmpty()) sb.append(title).append("\n\n")
 
                             val rawTextLines = target.text().lines()
                             val cleanLines = rawTextLines
                                 .map { it.trim() }
-                                .filter { it.length > 3 && !pageNumberRegex.matches(it) && !it.contains("Next Chapter", true) }
+                                .filter {
+                                    it.length > 3 && !pageNumberRegex.matches(it) &&
+                                        !it.contains("Next Chapter", true)
+                                }
 
                             if (cleanLines.isNotEmpty()) {
                                 cleanLines.forEach { sb.append(it).append("\n\n") }
                                 extractedText = sb.toString().split("\n\n").filter { it.isNotBlank() }
                             }
                         }
-                     }
+                    }
 
-                     // FINALIZE
-                     if (extractedText != null && extractedText.isNotEmpty() && !isAdTrap) {
-                          withContext(Dispatchers.Main) {
+                    // FINALIZE
+                    if (extractedText != null && extractedText.isNotEmpty() && !isAdTrap) {
+                        withContext(Dispatchers.Main) {
                             isLoading.value = false
                             content.value = extractedText
                             images.value = emptyList()
                         }
                         return@launch
-                     } else {
-                         // Triggers failure block below
-                         isAdTrap = true // Force fallback to images if both methods failed
-                     }
+                    } else {
+                        // Triggers failure block below
+                        isAdTrap = true // Force fallback to images if both methods failed
+                    }
                 }
 
                 // CHECK RESULT & FALLBACK (Logic preserved but simplified check)
@@ -985,10 +1023,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             if (pageList.isNotEmpty()) {
                 // Determine Image URLs
                 val imageUrls = pageList.mapNotNull { page ->
-                     if (page.imageUrl != null) page.imageUrl
-                     else {
-                         try { source.getImageUrl(page) } catch(e: Exception) { null }
-                     }
+                    if (page.imageUrl != null) {
+                        page.imageUrl
+                    } else {
+                        try {
+                            source.getImageUrl(page)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
                 }
 
                 if (imageUrls.isNotEmpty()) {
@@ -1279,7 +1322,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     withContext(Dispatchers.Main) {
                         isLoading.value = false
                         loadingMessage.value = null
-                         // Fallback to PDF mode on error
+                        // Fallback to PDF mode on error
                         showTextMode.value = false
                         if (virtualPages.isNotEmpty()) {
                             moveToPage(virtualPages[savedPagePosition.coerceIn(0, virtualPages.lastIndex)])
@@ -1287,9 +1330,6 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     }
                 }
             }
-
-
-
         } catch (e: Exception) {
             logcat(LogPriority.ERROR) { "Error handling local PDF: ${e.message}" }
             withContext(Dispatchers.Main) {
@@ -1452,7 +1492,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         val manga = activity.viewModel.manga
                         val currentState = activity.viewModel.state.value
                         val systemPrompt = buildString {
-                            appendLine("You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.")
+                            appendLine(
+                                "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
+                            )
                             appendLine()
                             manga?.let { m ->
                                 appendLine("=== CURRENT READING CONTEXT ===")
@@ -1469,7 +1511,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 appendLine("===============================")
                                 appendLine()
                                 appendLine(
-                                    "IMPORTANT: The user is actively reading this content. You have full context."
+                                    "IMPORTANT: The user is actively reading this content. You have full context.",
                                 )
                                 appendLine("- Answer questions about the current chapter and characters")
                                 appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
@@ -1478,7 +1520,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         }
 
                         val allMessages = listOf(
-                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt)
+                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt),
                         ) + messages
 
                         val result = aiRepository.sendMessage(allMessages)
@@ -1491,7 +1533,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 onFailure = { e ->
                                     isLoading = false
                                     error = e.message ?: "Error desconocido"
-                                }
+                                },
                             )
                         }
                     } catch (e: Exception) {
