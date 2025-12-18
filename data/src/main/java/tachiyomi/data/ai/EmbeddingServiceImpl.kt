@@ -97,7 +97,8 @@ class EmbeddingServiceImpl(
     }
 
     private suspend fun getGeminiEmbedding(text: String, apiKey: String): FloatArray? = withIOContext {
-        val url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=$apiKey"
+        val baseUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent"
+        val url = "$baseUrl?key=$apiKey"
 
         val requestBody = GeminiEmbeddingRequest(
             content = GeminiContent(parts = listOf(GeminiPart(text = text))),
