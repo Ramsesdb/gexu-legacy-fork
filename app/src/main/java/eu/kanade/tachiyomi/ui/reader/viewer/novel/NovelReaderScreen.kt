@@ -156,10 +156,13 @@ fun NovelReaderScreen(
             val safeTarget = targetPageIndex.coerceIn(0, totalItems - 1)
 
             // Only force scroll if we haven't navigated yet OR if it's a new target
-            if (!hasNavigated || (
-                (prefs.readingDirection == ReadingDirection.VERTICAL && listState.firstVisibleItemIndex != safeTarget) ||
-                        (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
-            )) {
+            if (!hasNavigated ||
+                (
+                    prefs.readingDirection == ReadingDirection.VERTICAL &&
+                        listState.firstVisibleItemIndex != safeTarget
+                ) ||
+                (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
+            ) {
                 if (prefs.readingDirection == ReadingDirection.BOOK) {
                     pagerState.scrollToPage(safeTarget)
                 } else {
@@ -226,7 +229,7 @@ fun NovelReaderScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = prefs.theme.backgroundColor()
+        color = prefs.theme.backgroundColor(),
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
 
@@ -238,17 +241,17 @@ fun NovelReaderScreen(
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
                         CircularProgressIndicator(
-                            color = MaterialTheme.colorScheme.primary
+                            color = MaterialTheme.colorScheme.primary,
                         )
                         if (loadingMessage != null) {
                             Text(
                                 text = loadingMessage,
                                 color = prefs.theme.textColor(),
                                 style = MaterialTheme.typography.bodyMedium,
-                                textAlign = TextAlign.Center
+                                textAlign = TextAlign.Center,
                             )
                         }
                     }
