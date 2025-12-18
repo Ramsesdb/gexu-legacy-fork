@@ -699,13 +699,22 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 logcat { "NovelViewer: No images from extension, trying HTML extraction" }
 
                 // Use the Source's logic to build the request.
-                val method = HttpSource::class.java.getDeclaredMethod("pageListRequest", eu.kanade.tachiyomi.source.model.SChapter::class.java)
+                val method = HttpSource::class.java.getDeclaredMethod(
+                    "pageListRequest",
+                    eu.kanade.tachiyomi.source.model.SChapter::class.java,
+                )
                 method.isAccessible = true
                 val request = try {
                     method.invoke(httpSource, chapter.chapter) as Request
                 } catch (e: Exception) {
                      Request.Builder()
-                        .url(if (chapter.chapter.url.startsWith("http")) chapter.chapter.url else httpSource.baseUrl + chapter.chapter.url)
+                        .url(
+                            if (chapter.chapter.url.startsWith("http")) {
+                                chapter.chapter.url
+                            } else {
+                                httpSource.baseUrl + chapter.chapter.url
+                            },
+                        )
                         .headers(httpSource.headers)
                         .build()
                 }
@@ -857,9 +866,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
 
                             val paragraphs = candidate.select("p")
                             val links = candidate.select("a")
-                            // ktlint-disable standard:max-line-length
                             val linkTextLength = links.sumOf { it.text().length }
-                            // ktlint-enable standard:max-line-length
                             val linkDensity = if (text.isNotEmpty()) {
                                 linkTextLength.toDouble() / text.length
                             } else {
@@ -1214,7 +1221,10 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     if (muPdfDoc != null) {
                         var isFirstPriorityBatch = true
 
-                        val extractedPages = MuPdfUtil.extractTextWithPriority(muPdfDoc, savedPagePosition) { page: Int, total: Int, pages: List<String> ->
+                        val extractedPages = MuPdfUtil.extractTextWithPriority(
+                            muPdfDoc,
+                            savedPagePosition,
+                        ) { page: Int, total: Int, pages: List<String> ->
                             withContext(Dispatchers.Main) {
                                 // CRITICAL: As soon as we have the priority text (first batch), open the reader
                                 if (isFirstPriorityBatch && pages.isNotEmpty()) {
