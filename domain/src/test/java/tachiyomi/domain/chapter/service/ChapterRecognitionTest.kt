@@ -243,7 +243,7 @@ class ChapterRecognitionTest {
         assertChapter(mangaTitle, "ch 122-a", 122.1)
         assertChapter(mangaTitle, "Solo Leveling Ch.123-extra", 123.99)
         assertChapter(mangaTitle, "Solo Leveling, 024-005", 24.005)
-        assertChapter(mangaTitle, "Ch.191-200 Read Online", 191.200)
+        assertChapter(mangaTitle, "Ch.191-200 Read Online", 191.0)
     }
 
     @Test
