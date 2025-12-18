@@ -33,7 +33,20 @@ class VectorStoreImpl(
         val source: String
     )
 
-    private val memoryCache = java.util.concurrent.ConcurrentHashMap<Long, CachedEmbedding>()
+    // Max cache size (~6MB for 768-dim floats: 2000 × 768 × 4 bytes)
+    // This balances memory usage with search performance
+    private val maxCacheSize = 2000
+
+    // LRU-ordered cache using LinkedHashMap with access-order
+    private val memoryCache = object : LinkedHashMap<Long, CachedEmbedding>(
+        maxCacheSize, 0.75f, true // accessOrder = true for LRU
+    ) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, CachedEmbedding>?): Boolean {
+            return size > maxCacheSize
+        }
+    }
+    private val cacheLock = Any()
+
     @Volatile private var isCacheInitialized = false
 
     // Current search dimension (set by storeWithMeta or during initialization)
@@ -59,11 +72,13 @@ class VectorStoreImpl(
             val dimension = row.embedding_dim?.toInt() ?: embedding.size
             val source = row.embedding_source ?: "gemini"
 
-            memoryCache[row.manga_id] = CachedEmbedding(
-                embedding = normalize(embedding),
-                dimension = dimension,
-                source = source
-            )
+            synchronized(cacheLock) {
+                memoryCache[row.manga_id] = CachedEmbedding(
+                    embedding = normalize(embedding),
+                    dimension = dimension,
+                    source = source
+                )
+            }
 
             dimensionCounts[dimension] = (dimensionCounts[dimension] ?: 0) + 1
         }
@@ -94,11 +109,13 @@ class VectorStoreImpl(
             )
         }
 
-        memoryCache[mangaId] = CachedEmbedding(
-            embedding = normalized,
-            dimension = result.dimension,
-            source = result.source
-        )
+        synchronized(cacheLock) {
+            memoryCache[mangaId] = CachedEmbedding(
+                embedding = normalized,
+                dimension = result.dimension,
+                source = result.source
+            )
+        }
 
         // Update active dimension if storing new embeddings
         activeDimension = result.dimension
@@ -115,7 +132,7 @@ class VectorStoreImpl(
 
     override suspend fun getEmbedding(mangaId: Long): FloatArray? {
         if (isCacheInitialized) {
-            return memoryCache[mangaId]?.embedding
+            return synchronized(cacheLock) { memoryCache[mangaId]?.embedding }
         }
 
         val bytes = handler.awaitOneOrNull {
@@ -128,7 +145,7 @@ class VectorStoreImpl(
     override suspend fun search(queryVector: FloatArray, limit: Int): List<Long> {
         ensureCacheLoaded()
 
-        if (memoryCache.isEmpty()) return emptyList()
+        if (synchronized(cacheLock) { memoryCache.isEmpty() }) return emptyList()
 
         // Normalize query vector once
         val normalizedQuery = normalize(queryVector)
@@ -136,15 +153,16 @@ class VectorStoreImpl(
 
         return withIOContext {
             // Filter to only search embeddings with matching dimension
-            val compatibleEntries = memoryCache.entries
-                .filter { it.value.dimension == queryDim }
-                .toList()
+            val compatibleEntries = synchronized(cacheLock) {
+                memoryCache.entries
+                    .filter { it.value.dimension == queryDim }
+                    .map { it.key to it.value } // Copy to avoid ConcurrentModificationException
+            }
 
             if (compatibleEntries.isEmpty()) {
                 logcat(LogPriority.WARN) {
-                    "No embeddings with dimension $queryDim found. Available dimensions: ${
-                        memoryCache.values.map { it.dimension }.distinct()
-                    }"
+                    val dims = synchronized(cacheLock) { memoryCache.values.map { it.dimension }.distinct() }
+                    "No embeddings with dimension $queryDim found. Available dimensions: $dims"
                 }
                 return@withIOContext emptyList()
             }
@@ -159,19 +177,30 @@ class VectorStoreImpl(
 
     private fun searchSequential(
         normalizedQuery: FloatArray,
-        entries: List<Map.Entry<Long, CachedEmbedding>>,
+        entries: List<Pair<Long, CachedEmbedding>>,
         limit: Int
     ): List<Long> {
-        return entries
-            .map { entry -> Pair(entry.key, dotProduct(normalizedQuery, entry.value.embedding)) }
-            .sortedByDescending { pair -> pair.second }
-            .take(limit)
-            .map { pair -> pair.first }
+        // Use min-heap (PriorityQueue) for O(n log k) instead of O(n log n) full sort
+        // This is more efficient when limit << entries.size
+        val topK = java.util.PriorityQueue<Pair<Long, Float>>(limit.coerceAtLeast(1), compareBy { it.second })
+
+        entries.forEach { (id, cached) ->
+            val score = dotProduct(normalizedQuery, cached.embedding)
+            if (topK.size < limit) {
+                topK.offer(id to score)
+            } else if (score > topK.peek().second) {
+                topK.poll()
+                topK.offer(id to score)
+            }
+        }
+
+        // Return sorted descending (highest score first)
+        return topK.sortedByDescending { it.second }.map { it.first }
     }
 
     private suspend fun searchParallel(
         normalizedQuery: FloatArray,
-        entries: List<Map.Entry<Long, CachedEmbedding>>,
+        entries: List<Pair<Long, CachedEmbedding>>,
         limit: Int
     ): List<Long> {
         val chunkSize = (entries.size + parallelChunks - 1) / parallelChunks
@@ -180,8 +209,8 @@ class VectorStoreImpl(
             val results = entries.chunked(chunkSize)
                 .map { chunk ->
                     async {
-                        chunk.map { entry ->
-                            Pair(entry.key, dotProduct(normalizedQuery, entry.value.embedding))
+                        chunk.map { (id, cached) ->
+                            Pair(id, dotProduct(normalizedQuery, cached.embedding))
                         }
                     }
                 }
@@ -198,14 +227,14 @@ class VectorStoreImpl(
         handler.await {
             manga_embeddingsQueries.deleteEmbedding(mangaId)
         }
-        memoryCache.remove(mangaId)
+        synchronized(cacheLock) { memoryCache.remove(mangaId) }
     }
 
     override suspend fun deleteAll() {
         handler.await {
             manga_embeddingsQueries.deleteAllEmbeddings()
         }
-        memoryCache.clear()
+        synchronized(cacheLock) { memoryCache.clear() }
         isCacheInitialized = true // Empty cache is valid
     }
 
@@ -217,11 +246,14 @@ class VectorStoreImpl(
         handler.await {
             manga_embeddingsQueries.deleteEmbeddingsForSource(source)
         }
-        memoryCache.entries.removeIf { it.value.source == source }
+        synchronized(cacheLock) {
+            val keysToRemove = memoryCache.entries.filter { it.value.source == source }.map { it.key }
+            keysToRemove.forEach { memoryCache.remove(it) }
+        }
     }
 
     override suspend fun count(): Long {
-        if (isCacheInitialized) return memoryCache.size.toLong()
+        if (isCacheInitialized) return synchronized(cacheLock) { memoryCache.size.toLong() }
 
         return handler.awaitOne {
             manga_embeddingsQueries.countEmbeddings()
@@ -233,7 +265,7 @@ class VectorStoreImpl(
      */
     suspend fun countForDimension(dimension: Int): Long {
         if (isCacheInitialized) {
-            return memoryCache.values.count { it.dimension == dimension }.toLong()
+            return synchronized(cacheLock) { memoryCache.values.count { it.dimension == dimension }.toLong() }
         }
         return handler.awaitOne {
             manga_embeddingsQueries.countEmbeddingsForDim(dimension.toLong())
@@ -254,20 +286,22 @@ class VectorStoreImpl(
     override suspend fun getPredominantSource(): String? {
         ensureCacheLoaded()
 
-        if (memoryCache.isEmpty()) return null
+        return synchronized(cacheLock) {
+            if (memoryCache.isEmpty()) return@synchronized null
 
-        val sourceCounts = memoryCache.values
-            .groupingBy { it.source }
-            .eachCount()
+            val sourceCounts = memoryCache.values
+                .groupingBy { it.source }
+                .eachCount()
 
-        return sourceCounts.maxByOrNull { it.value }?.key
+            sourceCounts.maxByOrNull { it.value }?.key
+        }
     }
 
     /**
      * Force reload cache from database.
      */
     suspend fun invalidateCache() {
-        memoryCache.clear()
+        synchronized(cacheLock) { memoryCache.clear() }
         isCacheInitialized = false
         ensureCacheLoaded()
     }
@@ -318,5 +352,57 @@ class VectorStoreImpl(
             floats[i] = buffer.float
         }
         return floats
+    }
+
+    /**
+     * Search with scores for mixed embedding support.
+     * Returns manga IDs paired with their similarity scores.
+     */
+    override suspend fun searchWithScores(queryVector: FloatArray, limit: Int): List<Pair<Long, Float>> {
+        ensureCacheLoaded()
+
+        if (synchronized(cacheLock) { memoryCache.isEmpty() }) return emptyList()
+
+        val normalizedQuery = normalize(queryVector)
+        val queryDim = queryVector.size
+
+        return withIOContext {
+            val compatibleEntries = synchronized(cacheLock) {
+                memoryCache.entries
+                    .filter { it.value.dimension == queryDim }
+                    .map { it.key to it.value }
+            }
+
+            if (compatibleEntries.isEmpty()) {
+                return@withIOContext emptyList()
+            }
+
+            // Use PriorityQueue for top-k selection
+            val topK = java.util.PriorityQueue<Pair<Long, Float>>(limit.coerceAtLeast(1), compareBy { it.second })
+
+            compatibleEntries.forEach { (id, cached) ->
+                val score = dotProduct(normalizedQuery, cached.embedding)
+                if (topK.size < limit) {
+                    topK.offer(id to score)
+                } else if (score > topK.peek().second) {
+                    topK.poll()
+                    topK.offer(id to score)
+                }
+            }
+
+            // Return sorted descending with scores
+            topK.sortedByDescending { it.second }
+        }
+    }
+
+    /**
+     * Get all dimensions present in the store.
+     */
+    override suspend fun getAvailableDimensions(): Set<Int> {
+        ensureCacheLoaded()
+
+        return synchronized(cacheLock) {
+            memoryCache.values.map { it.dimension }.toSet()
+        }
     }
 }

@@ -111,6 +111,11 @@ class IndexLibrary(
             onProgress?.invoke(minOf(afterBatchProgress, total), total, "Processing...")
         }
 
+        // Invalidate AI cache if any manga was indexed (affects RAG search results)
+        if (indexed > 0) {
+            tachiyomi.domain.ai.AiCacheInvalidator.onLibraryChanged()
+        }
+
         IndexingResult(indexed, skipped, failed, source = embeddingService.getSourceId())
     }
 
@@ -118,22 +123,19 @@ class IndexLibrary(
      * Build embedding text using intelligent chunking.
      * Returns the first (primary) chunk for backwards compatibility.
      *
-     * For very long descriptions, this creates a smarter split at sentence
+     * For very long descriptions, this uses smart truncation at sentence
      * boundaries rather than hard truncation.
      */
     private fun buildEmbeddingText(item: LibraryManga): String {
         val manga = item.manga
 
-        // Use chunker for intelligent text building
-        val chunks = textChunker.buildEmbeddingTexts(
+        // Use optimized single-chunk method (avoids creating unused additional chunks)
+        return textChunker.buildPrimaryEmbeddingText(
             title = manga.title,
             author = manga.author,
             genres = manga.genre,
             description = manga.description
         )
-
-        // Return primary chunk (future: could store multiple chunks)
-        return chunks.firstOrNull() ?: ""
     }
 
     data class IndexingResult(
