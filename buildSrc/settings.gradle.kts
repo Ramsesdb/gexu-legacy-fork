@@ -16,24 +16,25 @@ dependencyResolutionManagement {
     // Preferir repos de settings
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        // Orden recomendado con mirrors estables
+        // Official sources first, JetBrains cache-redirector as fallback
         google()
-        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
-        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
-        maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
+        maven(url = "https://repo1.maven.org/maven2")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
     }
 }
 
 pluginManagement {
     repositories {
-        maven(url = "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2")
+        // Official sources first, JetBrains cache-redirector as fallback
         gradlePluginPortal()
         google()
-        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
-        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
-        maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
+        maven(url = "https://repo1.maven.org/maven2")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://cache-redirector.jetbrains.com/plugins.gradle.org/m2")
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
     }
 }
 

@@ -8,13 +8,13 @@ pluginManagement {
         }
     }
     repositories {
-        // Orden recomendado con mirrors estables
+        // Official sources first, JetBrains cache-redirector as fallback
         gradlePluginPortal()
         google()
-        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
-        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
-        maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
+        maven(url = "https://repo1.maven.org/maven2")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
     }
 }
 
@@ -33,14 +33,14 @@ dependencyResolutionManagement {
     // Preferir repos definidos aquí sobre los de proyecto
     repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
     repositories {
-        // Orden recomendado con mirrors estables
+        // Official sources first, JetBrains cache-redirector as fallback
         google()
-        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
-        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
-        maven(url = "https://repo1.maven.org/maven2")
         mavenCentral()
-        maven(url = "https://jitpack.io") // el proyecto usa artefactos de JitPack
+        maven(url = "https://repo1.maven.org/maven2")
+        maven(url = "https://maven-central.storage-download.googleapis.com/maven2")
+        maven(url = "https://jitpack.io")
         maven(url = "https://maven.ghostscript.com")
+        maven(url = "https://cache-redirector.jetbrains.com/maven-central")
     }
 }
 
