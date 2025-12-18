@@ -120,15 +120,11 @@ class IndexLibrary(
 
     /**
      * Build embedding text using intelligent chunking.
-     * Returns the first (primary) chunk for backwards compatibility.
-     *
-     * For very long descriptions, this uses smart truncation at sentence
-     * boundaries rather than hard truncation.
+     * Returns a single optimized chunk with smart truncation at sentence boundaries.
      */
     private fun buildEmbeddingText(item: LibraryManga): String {
         val manga = item.manga
 
-        // Use optimized single-chunk method (avoids creating unused additional chunks)
         return textChunker.buildPrimaryEmbeddingText(
             title = manga.title,
             author = manga.author,
