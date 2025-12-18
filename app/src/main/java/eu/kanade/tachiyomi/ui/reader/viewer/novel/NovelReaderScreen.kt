@@ -1,6 +1,6 @@
-/* ktlint-disable standard:max-line-length */
+@file:Suppress("ktlint:standard:max-line-length")
+
 package eu.kanade.tachiyomi.ui.reader.viewer.novel
-/* ktlint-enable standard:max-line-length */
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -48,7 +48,6 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -78,8 +77,8 @@ import kotlin.math.absoluteValue
 
 // Reading direction for novel reader
 enum class ReadingDirection {
-    VERTICAL,  // LazyColumn scroll
-    BOOK       // HorizontalPager (book-style page swipe)
+    VERTICAL, // LazyColumn scroll
+    BOOK, // HorizontalPager (book-style page swipe)
 }
 
 @Composable
@@ -115,7 +114,6 @@ fun NovelReaderScreen(
     onTocNavigate: (Int) -> Unit = {},
     onAiClick: () -> Unit = {},
 ) {
-
     // TOC modal state
     var showTocModal by remember { mutableStateOf(false) }
     // Calculate total items
@@ -129,7 +127,7 @@ fun NovelReaderScreen(
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = initialPage)
     val pagerState = rememberPagerState(
         initialPage = initialPage,
-        pageCount = { totalItems.coerceAtLeast(1) }
+        pageCount = { totalItems.coerceAtLeast(1) },
     )
 
     // Track if we've done the initial navigation
