@@ -216,4 +216,3 @@ class EmbeddingServiceImpl(
         val values: List<Float>
     )
 }
-

@@ -72,7 +72,7 @@ class ModelDownloadManagerImpl(
     private suspend fun downloadFile(
         url: String,
         targetFile: File,
-        onProgress: ((Long) -> Unit)? = null
+        onProgress: ((Long) -> Unit)? = null,
     ) {
         val request = Request.Builder().url(url).build()
         logcat(LogPriority.INFO) { "Starting download: $url" }
@@ -110,7 +110,7 @@ class ModelDownloadManagerImpl(
 
     override suspend fun downloadModel(
         onProgress: (Float) -> Unit,
-        onComplete: (success: Boolean, error: String?) -> Unit
+        onComplete: (success: Boolean, error: String?) -> Unit,
     ) {
         if (isCurrentlyDownloading.get()) {
             onComplete(false, "Download already in progress")

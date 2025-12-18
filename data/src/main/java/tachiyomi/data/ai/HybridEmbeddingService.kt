@@ -1,10 +1,10 @@
 package tachiyomi.data.ai
 
-import tachiyomi.domain.ai.service.EmbeddingResult
-import tachiyomi.domain.ai.service.EmbeddingService
+import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
-import kotlinx.coroutines.runBlocking
+import tachiyomi.domain.ai.service.EmbeddingResult
+import tachiyomi.domain.ai.service.EmbeddingService
 
 /**
  * Hybrid embedding service that tries cloud first, then falls back to local.
@@ -23,12 +23,15 @@ class HybridEmbeddingService(
     // Cache configuration state to avoid suspend calls where not possible
     @Volatile
     private var cloudConfiguredCache: Boolean? = null
+
     @Volatile
     private var localConfiguredCache: Boolean? = null
 
     private fun isOnline(): Boolean {
         return try {
-            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE) as? android.net.ConnectivityManager
+            val connectivityManager = context.getSystemService(
+                android.content.Context.CONNECTIVITY_SERVICE,
+            ) as? android.net.ConnectivityManager
             connectivityManager?.activeNetworkInfo?.isConnected == true
         } catch (e: Exception) {
             false
@@ -107,9 +110,9 @@ class HybridEmbeddingService(
      */
     fun getCurrentDimension(): Int {
         return if (isOnline() && cloudConfiguredCache == true) {
-            EmbeddingServiceImpl.EMBEDDING_DIM  // 768 for Gemini
+            EmbeddingServiceImpl.EMBEDDING_DIM // 768 for Gemini
         } else {
-            LocalEmbeddingService.EMBEDDING_DIM  // 100 for USE (Universal Sentence Encoder)
+            LocalEmbeddingService.EMBEDDING_DIM // 100 for USE (Universal Sentence Encoder)
         }
     }
 

@@ -5,11 +5,11 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.text.textembedder.TextEmbedder
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import logcat.LogPriority
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.ai.service.EmbeddingResult
 import tachiyomi.domain.ai.service.EmbeddingService
-import logcat.LogPriority
-import tachiyomi.core.common.util.system.logcat
 import java.io.File
 
 /**
@@ -131,7 +131,7 @@ class LocalEmbeddingService(
         return EmbeddingResult(
             embedding = embedding,
             dimension = embedding.size,
-            source = SOURCE_ID
+            source = SOURCE_ID,
         )
     }
 
@@ -153,6 +153,7 @@ class LocalEmbeddingService(
 
     companion object {
         const val SOURCE_ID = "local"
+
         // Universal Sentence Encoder produces 100-dimensional embeddings
         const val EMBEDDING_DIM = 100
     }

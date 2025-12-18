@@ -121,7 +121,9 @@ class AiRepositoryImpl(
             contents = contents,
             systemInstruction = if (systemInstruction.isNotBlank()) {
                 GeminiSystemInstruction(parts = listOf(GeminiPart(text = systemInstruction)))
-            } else null,
+            } else {
+                null
+            },
         )
 
         val request = Request.Builder()
