@@ -84,31 +84,38 @@ object HomeScreen : Screen() {
     )
 
     /**
-     * Get the list of tabs based on network connectivity.
-     * - When online: Show AiTab, hide UpdatesTab (AI requires internet)
-     * - When offline: Show UpdatesTab, hide AiTab (Updates work offline)
-     * This keeps the bottom nav to 5 tabs max for better UX.
+     * Get the list of tabs for bottom navigation based on network state.
+     * - Online: Show AiTab (chat requires cloud API), Updates in More section
+     * - Offline: Show UpdatesTab, AI not available
      */
     @Composable
     private fun getTabsForCurrentState(): List<eu.kanade.presentation.util.Tab> {
         val context = LocalContext.current
-        val networkState = remember { context.activeNetworkState() }
-        val isOnline = networkState.isOnline
+        val isOnline by produceState(initialValue = false) {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager
+            value = connectivityManager?.activeNetworkInfo?.isConnected == true
+        }
 
         return remember(isOnline) {
-            buildList {
-                add(LibraryTab)
-                if (!isOnline) {
-                    // Offline: Show Updates tab
-                    add(UpdatesTab)
-                }
-                add(HistoryTab)
-                add(BrowseTab)
-                if (isOnline) {
-                    // Online: Show AI tab
-                    add(AiTab)
-                }
-                add(MoreTab)
+            if (isOnline) {
+                // Online: Show Gexu AI (chat requires internet)
+                listOf(
+                    LibraryTab,
+                    HistoryTab,
+                    BrowseTab,
+                    AiTab,
+                    MoreTab,
+                )
+            } else {
+                // Offline: Show Updates instead of AI
+                listOf(
+                    LibraryTab,
+                    UpdatesTab,
+                    HistoryTab,
+                    BrowseTab,
+                    MoreTab,
+                )
             }
         }
     }

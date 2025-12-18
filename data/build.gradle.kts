@@ -43,4 +43,8 @@ dependencies {
     implementation(projects.core.common)
 
     api(libs.bundles.sqldelight)
+
+    // MediaPipe for Local Embeddings (on-device AI)
+    // MediaPipe tasks-text includes TFLite internally, no need for separate tensorflow deps
+    implementation(libs.mediapipe.tasks.text)
 }

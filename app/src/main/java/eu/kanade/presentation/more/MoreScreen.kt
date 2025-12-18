@@ -9,6 +9,7 @@ import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.GetApp
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.QueryStats
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material3.HorizontalDivider
@@ -36,11 +37,13 @@ fun MoreScreen(
     incognitoMode: Boolean,
     onIncognitoModeChange: (Boolean) -> Unit,
     onClickDownloadQueue: () -> Unit,
+    onClickUpdates: () -> Unit,
     onClickCategories: () -> Unit,
     onClickStats: () -> Unit,
     onClickDataAndStorage: () -> Unit,
     onClickSettings: () -> Unit,
     onClickAbout: () -> Unit,
+    isOnline: Boolean = true, // When offline, Updates is in nav bar so don't show here
 ) {
     val uriHandler = LocalUriHandler.current
 
@@ -100,6 +103,16 @@ fun MoreScreen(
                     icon = Icons.Outlined.GetApp,
                     onPreferenceClick = onClickDownloadQueue,
                 )
+            }
+            // Only show Updates here when online (when offline, Updates is in nav bar)
+            if (isOnline) {
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(MR.strings.label_recent_updates),
+                        icon = Icons.Outlined.Refresh,
+                        onPreferenceClick = onClickUpdates,
+                    )
+                }
             }
             item {
                 TextPreferenceWidget(

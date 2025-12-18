@@ -1,0 +1,6 @@
+CREATE TABLE IF NOT EXISTS manga_embeddings(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    embedding BLOB NOT NULL,
+    indexed_at INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);

@@ -12,6 +12,9 @@ ktlint-core = "1.8.0"
 firebase-bom = "34.6.0"
 markdown = "0.38.1"
 junit = "6.0.1"
+litert = "1.0.1"
+mediapipe_tasks = "0.10.14"
+tflite_support = "0.4.4"
 
 [libraries]
 desugar = "com.android.tools:desugar_jdk_libs:2.1.5"
@@ -105,6 +108,10 @@ markdown-core = { module = "com.mikepenz:multiplatform-markdown-renderer", versi
 markdown-coil = { module = "com.mikepenz:multiplatform-markdown-renderer-coil3", version.ref = "markdown" }
 
 stringSimilarity = { module = "com.aallam.similarity:string-similarity-kotlin", version = "0.1.0" }
+litert = { module = "org.tensorflow:tensorflow-lite", version = "2.16.1" }
+litert-gpu = { module = "org.tensorflow:tensorflow-lite-gpu", version = "2.16.1" }
+mediapipe-tasks-text = { module = "com.google.mediapipe:tasks-text", version.ref = "mediapipe_tasks" }
+tflite-support = { module = "org.tensorflow:tensorflow-lite-support", version = "0.4.4" }
 
 [plugins]
 google-services = { id = "com.google.gms.google-services", version = "4.4.4" }

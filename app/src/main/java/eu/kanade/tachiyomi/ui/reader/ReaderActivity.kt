@@ -33,11 +33,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.Insets
@@ -488,6 +490,14 @@ class ReaderActivity : BaseActivity() {
         val isPagerType = ReadingMode.isPagerType(viewModel.getMangaReadingMode())
         val cropEnabled = if (isPagerType) cropBorderPaged else cropBorderWebtoon
 
+        // Check network state for AI button visibility
+        val context = LocalContext.current
+        val isOnline by produceState(initialValue = false) {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager
+            value = connectivityManager?.activeNetworkInfo?.isConnected == true
+        }
+
         ReaderAppBars(
             visible = state.menuVisible,
 
@@ -529,6 +539,7 @@ class ReaderActivity : BaseActivity() {
             },
             onClickSettings = viewModel::openSettingsDialog,
             onAiClick = onOpenAiChat, // Show overlay instead of navigating
+            isOnline = isOnline,
         )
     }
 

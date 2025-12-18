@@ -1,0 +1,51 @@
+CREATE TABLE manga_embeddings(
+    manga_id INTEGER NOT NULL PRIMARY KEY,
+    embedding BLOB NOT NULL,
+    embedding_dim INTEGER NOT NULL DEFAULT 768,
+    embedding_source TEXT NOT NULL DEFAULT 'gemini',
+    indexed_at INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE
+);
+
+getEmbedding:
+SELECT embedding
+FROM manga_embeddings
+WHERE manga_id = :mangaId;
+
+getEmbeddingWithMeta:
+SELECT embedding, embedding_dim, embedding_source
+FROM manga_embeddings
+WHERE manga_id = :mangaId;
+
+getAllEmbeddings:
+SELECT *
+FROM manga_embeddings;
+
+getAllEmbeddingsForDim:
+SELECT *
+FROM manga_embeddings
+WHERE embedding_dim = :dim;
+
+insertEmbedding:
+INSERT OR REPLACE INTO manga_embeddings(manga_id, embedding, embedding_dim, embedding_source, indexed_at)
+VALUES (:mangaId, :embedding, :embeddingDim, :embeddingSource, :indexedAt);
+
+deleteEmbedding:
+DELETE FROM manga_embeddings
+WHERE manga_id = :mangaId;
+
+deleteAllEmbeddings:
+DELETE FROM manga_embeddings;
+
+deleteEmbeddingsForSource:
+DELETE FROM manga_embeddings
+WHERE embedding_source = :source;
+
+countEmbeddings:
+SELECT COUNT(*)
+FROM manga_embeddings;
+
+countEmbeddingsForDim:
+SELECT COUNT(*)
+FROM manga_embeddings
+WHERE embedding_dim = :dim;

@@ -65,6 +65,7 @@ fun ReaderAppBars(
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
     onAiClick: () -> Unit = {},
+    isOnline: Boolean = false,
 ) {
     val isRtl = viewer is R2LPagerViewer
     val backgroundColor = MaterialTheme.colorScheme
@@ -128,6 +129,7 @@ fun ReaderAppBars(
                     onClickCropBorder = onClickCropBorder,
                     onClickSettings = onClickSettings,
                     onAiClick = onAiClick,
+                    isOnline = isOnline,
                 )
             }
         }
