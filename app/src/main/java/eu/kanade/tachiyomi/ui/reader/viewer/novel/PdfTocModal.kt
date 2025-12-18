@@ -18,7 +18,12 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.*
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -41,7 +46,7 @@ fun PdfTocModal(
     tocItems: List<MuPdfUtil.TocItem>,
     currentPage: Int,
     onNavigate: (pageNumber: Int) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
 ) {
     // Find the current chapter based on page position
     val currentChapterIndex = remember(currentPage, tocItems) {
@@ -62,8 +67,8 @@ fun PdfTocModal(
         properties = DialogProperties(
             usePlatformDefaultWidth = false,
             dismissOnBackPress = true,
-            dismissOnClickOutside = true
-        )
+            dismissOnClickOutside = true,
+        ),
     ) {
         Surface(
             modifier = Modifier
@@ -71,10 +76,10 @@ fun PdfTocModal(
                 .fillMaxHeight(0.85f)
                 .clip(RoundedCornerShape(16.dp)),
             color = MaterialTheme.colorScheme.surface,
-            tonalElevation = 6.dp
+            tonalElevation = 6.dp,
         ) {
             Column(
-                modifier = Modifier.fillMaxSize()
+                modifier = Modifier.fillMaxSize(),
             ) {
                 // Header
                 Row(
@@ -83,19 +88,19 @@ fun PdfTocModal(
                         .background(MaterialTheme.colorScheme.primaryContainer)
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         text = "Tabla de Contenido",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
                     )
                     IconButton(onClick = onDismiss) {
                         Icon(
                             Icons.Default.Close,
                             contentDescription = "Cerrar",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
                 }
@@ -105,7 +110,7 @@ fun PdfTocModal(
                     text = "${tocItems.size} capítulos",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
 
                 HorizontalDivider()
@@ -116,7 +121,7 @@ fun PdfTocModal(
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),
-                    contentPadding = PaddingValues(vertical = 8.dp)
+                    contentPadding = PaddingValues(vertical = 8.dp),
                 ) {
                     itemsIndexed(tocItems) { index, item ->
                         val isCurrentChapter = index == currentChapterIndex
@@ -124,7 +129,7 @@ fun PdfTocModal(
                         TocListItem(
                             item = item,
                             isCurrentChapter = isCurrentChapter,
-                            onClick = { onNavigate(item.pageNumber) }
+                            onClick = { onNavigate(item.pageNumber) },
                         )
                     }
                 }
@@ -137,7 +142,7 @@ fun PdfTocModal(
 private fun TocListItem(
     item: MuPdfUtil.TocItem,
     isCurrentChapter: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     val backgroundColor = if (isCurrentChapter) {
         MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f)
@@ -161,7 +166,7 @@ private fun TocListItem(
             .clickable { onClick() }
             .padding(start = startPadding, end = 16.dp, top = 12.dp, bottom = 12.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.CenterVertically,
     ) {
         // Chapter title
         Text(
@@ -175,7 +180,7 @@ private fun TocListItem(
             color = textColor,
             maxLines = 2,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
         )
 
         Spacer(modifier = Modifier.width(8.dp))
@@ -187,7 +192,7 @@ private fun TocListItem(
                 MaterialTheme.colorScheme.primary
             } else {
                 MaterialTheme.colorScheme.surfaceVariant
-            }
+            },
         ) {
             Text(
                 text = "${item.pageNumber + 1}",
@@ -197,7 +202,7 @@ private fun TocListItem(
                 } else {
                     MaterialTheme.colorScheme.onSurfaceVariant
                 },
-                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
             )
         }
     }

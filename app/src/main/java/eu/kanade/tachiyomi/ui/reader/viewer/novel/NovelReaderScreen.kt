@@ -1,4 +1,6 @@
+/* ktlint-disable standard:max-line-length */
 package eu.kanade.tachiyomi.ui.reader.viewer.novel
+/* ktlint-enable standard:max-line-length */
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -138,7 +140,9 @@ fun NovelReaderScreen(
     // This watches for content load and forces the jump to saved position.
     LaunchedEffect(totalItems, initialPage) {
         if (totalItems > initialPage && initialPage > 0 && !hasNavigated) {
-            logcat { "NovelReaderScreen: Async content loaded ($totalItems items), jumping to saved page $initialPage" }
+            logcat {
+                "NovelReaderScreen: Async content loaded ($totalItems items), jumping to saved page $initialPage"
+            }
             if (prefs.readingDirection == ReadingDirection.BOOK) {
                 pagerState.scrollToPage(initialPage)
             } else {
@@ -156,7 +160,7 @@ fun NovelReaderScreen(
             // Only force scroll if we haven't navigated yet OR if it's a new target
             if (!hasNavigated || (
                 (prefs.readingDirection == ReadingDirection.VERTICAL && listState.firstVisibleItemIndex != safeTarget) ||
-                (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
+                        (prefs.readingDirection == ReadingDirection.BOOK && pagerState.currentPage != safeTarget)
             )) {
                 if (prefs.readingDirection == ReadingDirection.BOOK) {
                     pagerState.scrollToPage(safeTarget)
@@ -1029,7 +1033,11 @@ private fun ThemeChip(
             Text(
                 text = theme.name,
                 style = MaterialTheme.typography.labelMedium,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant
+                color = if (isSelected) {
+                    MaterialTheme.colorScheme.onPrimaryContainer
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant
+                }
             )
         }
     }
