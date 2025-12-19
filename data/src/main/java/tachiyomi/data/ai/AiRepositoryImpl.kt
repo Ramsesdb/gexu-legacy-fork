@@ -111,9 +111,24 @@ class AiRepositoryImpl(
         val contents = messages
             .filter { it.role != ChatMessage.Role.SYSTEM }
             .map { msg ->
+                val parts = mutableListOf<GeminiPart>()
+                if (msg.content.isNotBlank()) {
+                    parts.add(GeminiPart(text = msg.content))
+                }
+                val imageData = msg.image
+                if (imageData != null) {
+                    parts.add(
+                        GeminiPart(
+                            inlineData = GeminiInlineData(
+                                mimeType = "image/jpeg",
+                                data = imageData,
+                            ),
+                        ),
+                    )
+                }
                 GeminiContent(
                     role = if (msg.role == ChatMessage.Role.USER) "user" else "model",
-                    parts = listOf(GeminiPart(text = msg.content)),
+                    parts = parts,
                 )
             }
 
@@ -265,7 +280,14 @@ class AiRepositoryImpl(
 
     @Serializable
     private data class GeminiPart(
-        val text: String,
+        val text: String? = null,
+        @SerialName("inline_data") val inlineData: GeminiInlineData? = null,
+    )
+
+    @Serializable
+    private data class GeminiInlineData(
+        @SerialName("mime_type") val mimeType: String,
+        val data: String,
     )
 
     @Serializable

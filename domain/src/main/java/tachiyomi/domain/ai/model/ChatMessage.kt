@@ -6,6 +6,7 @@ package tachiyomi.domain.ai.model
 data class ChatMessage(
     val role: Role,
     val content: String,
+    val image: String? = null, // Base64 encoded image or URL
     val timestamp: Long = System.currentTimeMillis(),
 ) {
     enum class Role {
@@ -16,7 +17,7 @@ data class ChatMessage(
 
     companion object {
         fun system(content: String) = ChatMessage(Role.SYSTEM, content)
-        fun user(content: String) = ChatMessage(Role.USER, content)
+        fun user(content: String, image: String? = null) = ChatMessage(Role.USER, content, image = image)
         fun assistant(content: String) = ChatMessage(Role.ASSISTANT, content)
     }
 }

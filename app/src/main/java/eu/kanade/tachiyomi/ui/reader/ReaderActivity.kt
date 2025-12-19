@@ -36,6 +36,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -1037,6 +1038,9 @@ class ReaderActivity : BaseActivity() {
         var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
         var isLoading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
+        var attachedImage by remember { mutableStateOf<String?>(null) }
+        var showVisualSelection by remember { mutableStateOf(false) }
+        var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
         // Get AI repository
         val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
@@ -1045,10 +1049,34 @@ class ReaderActivity : BaseActivity() {
         val getReadingContext: tachiyomi.domain.ai.GetReadingContext = remember {
             uy.kohesive.injekt.Injekt.get()
         }
+        val scope = rememberCoroutineScope()
 
         // Pause viewer scroll handling when chat is visible to prevent page changes
         LaunchedEffect(visible) {
             viewModel.state.value.viewer?.setPaused(visible)
+        }
+
+        // Visual Selection Screen (fullscreen overlay)
+        if (showVisualSelection && capturedBitmap != null) {
+            eu.kanade.presentation.ai.components.VisualSelectionScreen(
+                bitmap = capturedBitmap!!,
+                onConfirm = { selectedBitmap ->
+                    // Convert to Base64
+                    val stream = java.io.ByteArrayOutputStream()
+                    selectedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+                    attachedImage = android.util.Base64.encodeToString(
+                        stream.toByteArray(),
+                        android.util.Base64.NO_WRAP,
+                    )
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+                onCancel = {
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+            )
+            return
         }
 
         eu.kanade.presentation.ai.components.AiChatOverlay(
@@ -1060,9 +1088,10 @@ class ReaderActivity : BaseActivity() {
             onSendMessage = { content ->
                 if (content.isBlank()) return@AiChatOverlay
 
-                // Add user message
-                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content)
+                // Add user message with optional image
+                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content, attachedImage)
                 messages = messages + userMessage
+                attachedImage = null // Clear after sending
                 isLoading = true
                 error = null
 
@@ -1072,6 +1101,9 @@ class ReaderActivity : BaseActivity() {
                         // Build system prompt with manga context
                         val currentState = viewModel.state.value
                         val systemPrompt = buildString {
+                            // LANGUAGE INSTRUCTION FIRST - most important
+                            appendLine("CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. Si el usuario escribe en español, responde en español. If the user writes in English, respond in English.")
+                            appendLine()
                             appendLine(
                                 "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
                             )
@@ -1096,6 +1128,8 @@ class ReaderActivity : BaseActivity() {
                                 appendLine("- Answer questions about the current chapter and characters")
                                 appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
                                 appendLine("- Be helpful and friendly")
+                                appendLine("- If the user sends an image, describe and analyze it in detail.")
+                                appendLine("- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.")
                             }
                         }
 
@@ -1127,7 +1161,21 @@ class ReaderActivity : BaseActivity() {
             onClearConversation = {
                 messages = emptyList()
                 error = null
+                attachedImage = null
             },
+            onCaptureVision = {
+                // Capture current page and show visual selection
+                scope.launch {
+                    val bitmap = viewModel.captureCurrentPage()
+                    if (bitmap != null) {
+                        capturedBitmap = bitmap
+                        showVisualSelection = true
+                    }
+                }
+            },
+            hasAttachedImage = attachedImage != null,
+            attachedImageBase64 = attachedImage,
+            onClearAttachedImage = { attachedImage = null },
             onDismiss = onDismiss,
         )
     }

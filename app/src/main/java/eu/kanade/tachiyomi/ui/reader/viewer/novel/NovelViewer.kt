@@ -1548,6 +1548,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 messages = emptyList()
                 error = null
             },
+            onCaptureVision = {
+                // Vision capture not available in novel viewer (text-based)
+            },
+            hasAttachedImage = false,
+            attachedImageBase64 = null,
+            onClearAttachedImage = {},
             onDismiss = onDismiss,
         )
     }
