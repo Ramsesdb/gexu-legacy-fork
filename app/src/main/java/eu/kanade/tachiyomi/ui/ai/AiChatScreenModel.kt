@@ -99,12 +99,15 @@ class AiChatScreenModel(
         if (content.isBlank()) return
 
         // Add user message immediately
-        val userMessage = ChatMessage.user(content)
+        val image = state.value.attachedImage
+        val userMessage = ChatMessage.user(content, image)
+
         mutableState.update { state ->
             state.copy(
                 messages = state.messages + userMessage,
                 isLoading = true,
                 error = null,
+                attachedImage = null, // Clear after sending
             )
         }
 
@@ -259,6 +262,16 @@ class AiChatScreenModel(
 
         appendLine("You are Gexu AI, a knowledgeable reading companion for manga, manhwa, and light novels.")
         appendLine()
+        // CRITICAL: Language adaptation rule
+        appendLine("LANGUAGE RULE (MANDATORY):")
+        appendLine(
+            "- ALWAYS detect the language of the user's message and respond in that SAME language.",
+        )
+        appendLine("- If the user writes in Spanish, respond in Spanish.")
+        appendLine("- If the user writes in English, respond in English.")
+        appendLine("- If the user writes in Japanese, respond in Japanese.")
+        appendLine("- Apply this rule to ALL responses without exception.")
+        appendLine()
         appendLine("COMMUNICATION STYLE:")
         appendLine(tone.systemPrompt)
         appendLine()
@@ -322,7 +335,65 @@ class AiChatScreenModel(
         // History drawer state
         val showHistoryDrawer: Boolean = false,
         val savedConversations: List<AiConversation> = emptyList(),
+        val attachedImage: String? = null, // Base64 encoded image
+        val showVisualSelection: Boolean = false,
+        val capturedBitmap: android.graphics.Bitmap? = null,
     )
+
+    fun attachImage(base64Image: String) {
+        mutableState.update { it.copy(attachedImage = base64Image) }
+    }
+
+    fun removeAttachedImage() {
+        mutableState.update { it.copy(attachedImage = null) }
+    }
+
+    /**
+     * Start the visual selection flow with a captured bitmap.
+     */
+    fun startVisualSelection(bitmap: android.graphics.Bitmap) {
+        mutableState.update {
+            it.copy(
+                showVisualSelection = true,
+                capturedBitmap = bitmap,
+            )
+        }
+    }
+
+    /**
+     * Called when user confirms selection in VisualSelectionScreen.
+     * Converts bitmap to Base64 and attaches it.
+     */
+    fun confirmVisualSelection(bitmap: android.graphics.Bitmap) {
+        screenModelScope.launchIO {
+            val base64 = bitmapToBase64(bitmap)
+            mutableState.update {
+                it.copy(
+                    showVisualSelection = false,
+                    capturedBitmap = null,
+                    attachedImage = base64,
+                )
+            }
+        }
+    }
+
+    /**
+     * Cancel visual selection without attaching.
+     */
+    fun cancelVisualSelection() {
+        mutableState.update {
+            it.copy(
+                showVisualSelection = false,
+                capturedBitmap = null,
+            )
+        }
+    }
+
+    private fun bitmapToBase64(bitmap: android.graphics.Bitmap): String {
+        val stream = java.io.ByteArrayOutputStream()
+        bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+        return android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+    }
 }
 
 /**
@@ -330,7 +401,7 @@ class AiChatScreenModel(
  */
 private fun AiMessage.toChatMessage(): ChatMessage {
     return when (role) {
-        MessageRole.USER -> ChatMessage.user(content)
+        MessageRole.USER -> ChatMessage.user(content, null) // History currently doesn't persist images
         MessageRole.ASSISTANT -> ChatMessage.assistant(content)
         MessageRole.SYSTEM -> ChatMessage.system(content)
     }

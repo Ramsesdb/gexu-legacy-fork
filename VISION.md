@@ -203,7 +203,7 @@ A privacy-focused, client-side AI architecture where users bring their own API k
 - [x] Multi-Provider Support (Gemini, OpenAI, etc.)
 - [x] Settings & Key Management
 - [x] AI Tab Implementation
-- [ ] Local RAG (Vector Search)
+- [x] Local RAG (Vector Search)
 - [ ] Visual Context (Multimodal input)
 - [ ] Automatic Chapter Summaries
 

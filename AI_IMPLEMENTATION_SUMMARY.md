@@ -103,7 +103,9 @@ Utiliza el patrón `SearchableSettings` del proyecto para integración nativa.
 - [x] **Personalización**: Tono, Temperatura e Instrucciones Custom.
 - [x] **Gestión de Proveedores**: UI amigable para configurar Keys y Modelos.
 - [x] **Protección de Contexto**: Anti-Spoiler basado en historial de lectura.
+- [x] **RAG Local**: Indexado vectorial de la biblioteca para consultas offline.
+    - Implementación de `VectorStore` con búsquedas paraleas.
+    - Soporte híbrido: Embeddings Gemini (768-dim) + Local (MediaPipe 100-dim).
 
 ### Próximos Pasos
-- [ ] **RAG Local**: Indexado vectorial de la biblioteca para consultas offline.
 - [ ] **Visión**: Soporte para modelos multimodales (enviar imagen de página actual).

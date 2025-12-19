@@ -165,14 +165,14 @@ class EmbeddingServiceImpl(
     /**
      * Check if the service is currently rate limited.
      */
-    fun isRateLimited(): Boolean {
+    override fun isRateLimited(): Boolean {
         return System.currentTimeMillis() < quotaExceededUntil
     }
 
     /**
      * Get remaining cooldown time in seconds.
      */
-    fun getRemainingCooldownSeconds(): Long {
+    override fun getRemainingCooldownSeconds(): Long {
         val remaining = quotaExceededUntil - System.currentTimeMillis()
         return if (remaining > 0) remaining / 1000 else 0
     }
@@ -188,6 +188,25 @@ class EmbeddingServiceImpl(
             dimension = EMBEDDING_DIM,
             source = SOURCE_ID,
         )
+    }
+
+    /**
+     * Test the API connection by making a minimal embedding request.
+     * Returns null on success, or an error message on failure.
+     */
+    suspend fun testConnection(): String? {
+        val apiKey = preferences.apiKey().get()
+        if (apiKey.isBlank()) {
+            return "API key is empty"
+        }
+
+        // Make a minimal test request
+        val testResult = embed("test")
+        return if (testResult != null) {
+            null // Success
+        } else {
+            lastError ?: "Connection test failed"
+        }
     }
 
     companion object {
