@@ -1102,7 +1102,9 @@ class ReaderActivity : BaseActivity() {
                         val currentState = viewModel.state.value
                         val systemPrompt = buildString {
                             // LANGUAGE INSTRUCTION FIRST - most important
-                            appendLine("CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. Si el usuario escribe en español, responde en español. If the user writes in English, respond in English.")
+                            appendLine(
+                                "CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. Si el usuario escribe en español, responde en español. If the user writes in English, respond in English.",
+                            )
                             appendLine()
                             appendLine(
                                 "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
