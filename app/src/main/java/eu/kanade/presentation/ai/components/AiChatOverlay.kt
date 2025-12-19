@@ -1,10 +1,13 @@
 package eu.kanade.presentation.ai.components
 
+import android.graphics.BitmapFactory
+import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,6 +29,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -36,6 +40,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.HorizontalDivider
@@ -57,6 +62,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -75,6 +82,10 @@ fun AiChatOverlay(
     mangaTitle: String?,
     onSendMessage: (String) -> Unit,
     onClearConversation: () -> Unit,
+    onCaptureVision: () -> Unit,
+    hasAttachedImage: Boolean = false,
+    attachedImageBase64: String? = null,
+    onClearAttachedImage: () -> Unit = {},
     onDismiss: () -> Unit,
 ) {
     AnimatedVisibility(
@@ -118,6 +129,10 @@ fun AiChatOverlay(
                     mangaTitle = mangaTitle,
                     onSendMessage = onSendMessage,
                     onClearConversation = onClearConversation,
+                    onCaptureVision = onCaptureVision,
+                    hasAttachedImage = hasAttachedImage,
+                    attachedImageBase64 = attachedImageBase64,
+                    onClearAttachedImage = onClearAttachedImage,
                     onDismiss = onDismiss,
                 )
             }
@@ -134,6 +149,10 @@ private fun AiChatContent(
     mangaTitle: String?,
     onSendMessage: (String) -> Unit,
     onClearConversation: () -> Unit,
+    onCaptureVision: () -> Unit,
+    hasAttachedImage: Boolean,
+    attachedImageBase64: String?,
+    onClearAttachedImage: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -235,10 +254,11 @@ private fun AiChatContent(
                 }
             }
 
-            items(
-                items = messages.filter { it.role != ChatMessage.Role.SYSTEM },
-                key = { it.timestamp },
-            ) { message ->
+            val filteredMessages = messages.filter { it.role != ChatMessage.Role.SYSTEM }
+            itemsIndexed(
+                items = filteredMessages,
+                key = { index, message -> "${index}_${message.timestamp}" },
+            ) { _, message ->
                 ChatBubble(message = message)
             }
 
@@ -253,6 +273,71 @@ private fun AiChatContent(
             if (error != null) {
                 item {
                     ErrorMessage(error = error)
+                }
+            }
+        }
+
+        // Image preview strip (when image is attached)
+        AnimatedVisibility(
+            visible = attachedImageBase64 != null,
+        ) {
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    attachedImageBase64?.let { base64 ->
+                        val imageBitmap = remember(base64) {
+                            try {
+                                val bytes = Base64.decode(base64, Base64.NO_WRAP)
+                                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                    ?.asImageBitmap()
+                            } catch (e: Exception) {
+                                null
+                            }
+                        }
+                        imageBitmap?.let { bitmap ->
+                            Box {
+                                Image(
+                                    bitmap = bitmap,
+                                    contentDescription = "Preview",
+                                    modifier = Modifier
+                                        .size(64.dp)
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentScale = ContentScale.Crop,
+                                )
+                                // Close button on top-right corner
+                                Surface(
+                                    onClick = onClearAttachedImage,
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .padding(2.dp)
+                                        .size(20.dp),
+                                    shape = CircleShape,
+                                    color = MaterialTheme.colorScheme.error,
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Quitar imagen",
+                                        modifier = Modifier
+                                            .padding(2.dp)
+                                            .size(16.dp),
+                                        tint = MaterialTheme.colorScheme.onError,
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Text(
+                        text = "Imagen adjunta",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
                 }
             }
         }
@@ -294,6 +379,29 @@ private fun AiChatContent(
                         },
                     ),
                 )
+
+                // Vision capture button
+                FilledIconButton(
+                    onClick = onCaptureVision,
+                    enabled = !isLoading,
+                    colors = IconButtonDefaults.filledIconButtonColors(
+                        containerColor = if (hasAttachedImage) {
+                            MaterialTheme.colorScheme.tertiary
+                        } else {
+                            MaterialTheme.colorScheme.secondaryContainer
+                        },
+                        contentColor = if (hasAttachedImage) {
+                            MaterialTheme.colorScheme.onTertiary
+                        } else {
+                            MaterialTheme.colorScheme.onSecondaryContainer
+                        },
+                    ),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.RemoveRedEye,
+                        contentDescription = "Capturar imagen",
+                    )
+                }
 
                 FilledIconButton(
                     onClick = {
@@ -369,16 +477,43 @@ private fun ChatBubble(message: ChatMessage) {
                 MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
-            Text(
-                text = message.content,
+            Column(
                 modifier = Modifier.padding(12.dp),
-                color = if (isUser) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                // Show attached image if present
+                if (isUser && message.image != null) {
+                    val imageBitmap = remember(message.image) {
+                        try {
+                            val bytes = Base64.decode(message.image, Base64.NO_WRAP)
+                            BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                                ?.asImageBitmap()
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    imageBitmap?.let { bitmap ->
+                        Image(
+                            bitmap = bitmap,
+                            contentDescription = "Imagen adjunta",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(120.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop,
+                        )
+                    }
+                }
+                Text(
+                    text = message.content,
+                    color = if (isUser) {
+                        MaterialTheme.colorScheme.onPrimary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
     }
 }

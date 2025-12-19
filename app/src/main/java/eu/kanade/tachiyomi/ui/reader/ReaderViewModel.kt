@@ -837,6 +837,46 @@ class ReaderViewModel @JvmOverloads constructor(
     }
 
     /**
+     * Captures the CURRENT page as a Bitmap suitable for AI analysis.
+     * Returns null if no page is ready.
+     * The bitmap is resized for efficiency (max 1024px).
+     */
+    suspend fun captureCurrentPage(): android.graphics.Bitmap? {
+        val page = getCurrentChapter()?.pages?.getOrNull(chapterPageIndex)
+            ?: state.value.viewerChapters?.currChapter?.pages?.getOrNull(0)
+
+        // If specific page not found, try getting current page from state
+        val targetPage = page ?: return null
+
+        if (targetPage.status != Page.State.Ready) return null
+
+        return withIOContext {
+            try {
+                // Reuse ImageSaver logic but return bitmap instead of saving
+                val stream = targetPage.stream?.invoke() ?: return@withIOContext null
+                val originalBitmap = android.graphics.BitmapFactory.decodeStream(stream)
+
+                // Resize if too large (e.g. > 1024px width/height) to save bandwidth/latency
+                val maxDim = 1024
+                if (originalBitmap.width > maxDim || originalBitmap.height > maxDim) {
+                    val ratio = kotlin.math.min(
+                        maxDim.toDouble() / originalBitmap.width,
+                        maxDim.toDouble() / originalBitmap.height,
+                    )
+                    val width = (originalBitmap.width * ratio).toInt()
+                    val height = (originalBitmap.height * ratio).toInt()
+                    android.graphics.Bitmap.createScaledBitmap(originalBitmap, width, height, true)
+                } else {
+                    originalBitmap
+                }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                null
+            }
+        }
+    }
+
+    /**
      * Shares the image of the selected page and notifies the UI with the path of the file to share.
      * The image must be first copied to the internal partition because there are many possible
      * formats it can come from, like a zipped chapter, in which case it's not possible to directly

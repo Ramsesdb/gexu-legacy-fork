@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -186,10 +186,11 @@ fun AiChatScreen(
                         }
                     }
 
-                    items(
-                        items = state.messages.filter { it.role != ChatMessage.Role.SYSTEM },
-                        key = { it.timestamp },
-                    ) { message ->
+                    val filteredMessages = state.messages.filter { it.role != ChatMessage.Role.SYSTEM }
+                    itemsIndexed(
+                        items = filteredMessages,
+                        key = { index, message -> "${index}_${message.timestamp}" },
+                    ) { _, message ->
                         ChatBubble(message = message)
                     }
 
