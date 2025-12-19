@@ -318,6 +318,31 @@ object HomeScreen : Screen() {
                             }
                         }
                     }
+                    MoreTab::class.isInstance(tab) -> {
+                        // Show updates badge on More tab when online
+                        // (because UpdatesTab is hidden inside More when Gexu AI is in nav)
+                        val count by produceState(initialValue = 0) {
+                            val pref = Injekt.get<LibraryPreferences>()
+                            combine(
+                                pref.newShowUpdatesCount().changes(),
+                                pref.newUpdatesCount().changes(),
+                            ) { show, count -> if (show) count else 0 }
+                                .collectLatest { value = it }
+                        }
+                        if (count > 0) {
+                            Badge {
+                                val desc = pluralStringResource(
+                                    MR.plurals.notification_chapters_generic,
+                                    count = count,
+                                    count,
+                                )
+                                Text(
+                                    text = count.toString(),
+                                    modifier = Modifier.semantics { contentDescription = desc },
+                                )
+                            }
+                        }
+                    }
                     BrowseTab::class.isInstance(tab) -> {
                         val count by produceState(initialValue = 0) {
                             Injekt.get<SourcePreferences>().extensionUpdatesCount().changes()
@@ -339,6 +364,7 @@ object HomeScreen : Screen() {
                     }
                 }
             },
+
         ) {
             Icon(
                 painter = tab.options.icon!!,

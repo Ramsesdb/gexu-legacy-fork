@@ -76,6 +76,16 @@ data object MoreTab : Tab {
             connectivityManager?.activeNetworkInfo?.isConnected == true
         }
 
+        // Observe new updates count using produceState (same pattern as HomeScreen)
+        val newUpdatesCount by androidx.compose.runtime.produceState(initialValue = 0) {
+            val libraryPrefs = uy.kohesive.injekt.Injekt.get<tachiyomi.domain.library.service.LibraryPreferences>()
+            kotlinx.coroutines.flow.combine(
+                libraryPrefs.newShowUpdatesCount().changes(),
+                libraryPrefs.newUpdatesCount().changes(),
+            ) { show, count -> if (show) count else 0 }
+                .collect { value = it }
+        }
+
         MoreScreen(
             downloadQueueStateProvider = { downloadQueueState },
             downloadedOnly = screenModel.downloadedOnly,
@@ -90,6 +100,7 @@ data object MoreTab : Tab {
             onClickSettings = { navigator.push(SettingsScreen()) },
             onClickAbout = { navigator.push(SettingsScreen(SettingsScreen.Destination.About)) },
             isOnline = isOnline,
+            newUpdatesCount = newUpdatesCount,
         )
     }
 }

@@ -44,6 +44,7 @@ fun MoreScreen(
     onClickSettings: () -> Unit,
     onClickAbout: () -> Unit,
     isOnline: Boolean = true, // When offline, Updates is in nav bar so don't show here
+    newUpdatesCount: Int = 0, // Number of new chapter updates to display
 ) {
     val uriHandler = LocalUriHandler.current
 
@@ -109,6 +110,7 @@ fun MoreScreen(
                 item {
                     TextPreferenceWidget(
                         title = stringResource(MR.strings.label_recent_updates),
+                        subtitle = if (newUpdatesCount > 0) newUpdatesCount.toString() else null,
                         icon = Icons.Outlined.Refresh,
                         onPreferenceClick = onClickUpdates,
                     )

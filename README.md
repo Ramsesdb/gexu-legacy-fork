@@ -127,7 +127,7 @@ adb install -r app/build/outputs/apk/standard/debug/app-standard-debug.apk
 - [AI Implementation Summary](./AI_IMPLEMENTATION_SUMMARY.md) — Deep dive into RAG architecture
 - [Vision Document](./VISION.md) — Long-term goals and philosophy
 - [Build Commands](./BUILD_COMMANDS.md) — Detailed build instructions
-- [Changelog](./CHANGELOG.md) — Version history
+- [Changelog](./GEXU_CHANGELOG.md) — Version history
 
 ---
 

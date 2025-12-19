@@ -45,12 +45,14 @@ interface EmbeddingService {
      * Implementations can override for more efficient batch processing.
      *
      * @param texts List of texts to embed
-     * @param delayMs Delay between requests for rate limiting (default 500ms)
+     * @param delayProvider Lambda that returns the delay in ms before each request.
+     *                      This allows for adaptive delays based on rate-limiting state.
+     *                      Default returns 500ms.
      * @return Map of index to EmbeddingResult (missing indices indicate failures)
      */
     suspend fun embedBatchWithMeta(
         texts: List<String>,
-        delayMs: Long = 500L,
+        delayProvider: suspend () -> Long = { 500L },
     ): Map<Int, EmbeddingResult> {
         val results = mutableMapOf<Int, EmbeddingResult>()
         texts.forEachIndexed { index, text ->
@@ -59,8 +61,11 @@ interface EmbeddingService {
                 if (result != null) {
                     results[index] = result
                 }
-                if (index < texts.lastIndex && delayMs > 0) {
-                    kotlinx.coroutines.delay(delayMs)
+                if (index < texts.lastIndex) {
+                    val delay = delayProvider()
+                    if (delay > 0) {
+                        kotlinx.coroutines.delay(delay)
+                    }
                 }
             } catch (e: Exception) {
                 // Skip failed embeddings
@@ -79,4 +84,16 @@ interface EmbeddingService {
      * Used for dimension-aware search across multiple embedding sources.
      */
     fun getEmbeddingDimension(): Int = 768 // Default to Gemini dimension
+
+    /**
+     * Check if the service is currently rate limited.
+     * Default returns false (no rate limiting).
+     */
+    fun isRateLimited(): Boolean = false
+
+    /**
+     * Get remaining cooldown time in seconds when rate limited.
+     * Default returns 0.
+     */
+    fun getRemainingCooldownSeconds(): Long = 0
 }

@@ -74,27 +74,40 @@ class IndexLibrary(
 
             if (textsToEmbed.isEmpty()) return@forEachIndexed
 
-            // Report progress at start of batch
-            val currentProgress = batchIndex * BATCH_SIZE + 1
-            val batchTitle = batch.firstOrNull()?.manga?.title ?: ""
-            onProgress?.invoke(minOf(currentProgress, total), total, batchTitle)
+            // Track progress within batch
+            var batchProcessed = 0
+            val batchStartIndex = batchIndex * BATCH_SIZE
 
             try {
-                // Use batch embedding
+                // Use batch embedding with adaptive delay provider
                 val embeddings = embeddingService.embedBatchWithMeta(
                     texts = textsToEmbed.map { it.second },
-                    delayMs = 500L,
+                    delayProvider = {
+                        // Check if we're rate-limited and need to wait longer
+                        if (embeddingService.isRateLimited()) {
+                            val cooldown = embeddingService.getRemainingCooldownSeconds() * 1000L + 1000L
+                            cooldown.coerceAtLeast(500L)
+                        } else {
+                            500L // Default delay
+                        }
+                    },
+
                 )
 
-                // Store successful embeddings
+                // Store successful embeddings with per-item progress
                 embeddings.forEach { (index, result) ->
                     val mangaId = textsToEmbed[index].first
+                    val mangaTitle = batch.getOrNull(index)?.manga?.title ?: "Processing..."
                     try {
                         vectorStore.storeWithMeta(mangaId, result)
                         indexed++
                     } catch (e: Exception) {
                         failed++
                     }
+                    batchProcessed++
+                    // Report progress per item
+                    val currentProgress = batchStartIndex + batchProcessed
+                    onProgress?.invoke(minOf(currentProgress, total), total, mangaTitle)
                 }
 
                 // Count failures
@@ -104,10 +117,6 @@ class IndexLibrary(
                 e.printStackTrace()
                 failed += textsToEmbed.size
             }
-
-            // Update progress after batch
-            val afterBatchProgress = (batchIndex + 1) * BATCH_SIZE
-            onProgress?.invoke(minOf(afterBatchProgress, total), total, "Processing...")
         }
 
         // Invalidate AI cache if any manga was indexed (affects RAG search results)
