@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupReaderNote
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.data.UpdateStrategyColumnAdapter
@@ -74,6 +75,7 @@ class MangaRestorer(
                 history = backupManga.history,
                 tracks = backupManga.tracking,
                 excludedScanlators = backupManga.excludedScanlators,
+                readerNotes = backupManga.readerNotes,
             )
         }
     }
@@ -274,12 +276,14 @@ class MangaRestorer(
         history: List<BackupHistory>,
         tracks: List<BackupTracking>,
         excludedScanlators: List<String>,
+        readerNotes: List<BackupReaderNote>,
     ): Manga {
         restoreCategories(manga, categories, backupCategories)
         restoreChapters(manga, chapters)
         restoreTracking(manga, tracks)
         restoreHistory(history)
         restoreExcludedScanlators(manga, excludedScanlators)
+        restoreReaderNotes(manga, readerNotes)
         updateManga.awaitUpdateFetchInterval(manga, now, currentFetchWindow)
         return manga
     }
@@ -430,6 +434,44 @@ class MangaRestorer(
             handler.await {
                 toInsert.forEach {
                     excluded_scanlatorsQueries.insert(manga.id, it)
+                }
+            }
+        }
+    }
+
+    /**
+     * Restores the reader notes for the manga.
+     *
+     * @param manga the manga whose reader notes have to be restored.
+     * @param backupNotes the reader notes to restore.
+     */
+    private suspend fun restoreReaderNotes(manga: Manga, backupNotes: List<BackupReaderNote>) {
+        if (backupNotes.isEmpty()) return
+
+        backupNotes.forEach { note ->
+            val chapter = handler.awaitOneOrNull {
+                chaptersQueries.getChapterByUrl(note.chapterUrl)
+            }
+            if (chapter != null) {
+                // Check if note already exists (avoid duplicates)
+                val existingNotes = handler.awaitList {
+                    reader_notesQueries.getNotesByChapterId(chapter._id) { id, _, _, _, _, pn, nt, _ ->
+                        Pair(pn.toInt(), nt)
+                    }
+                }
+                val noteExists = existingNotes.any {
+                    it.first == note.pageNumber && it.second == note.noteText
+                }
+                if (!noteExists) {
+                    handler.await {
+                        reader_notesQueries.insertNote(
+                            mangaId = manga.id,
+                            chapterId = chapter._id,
+                            pageNumber = note.pageNumber.toLong(),
+                            noteText = note.noteText,
+                            createdAt = Date(note.createdAt),
+                        )
+                    }
                 }
             }
         }

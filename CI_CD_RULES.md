@@ -103,20 +103,24 @@ Para verificar y corregir el formato localmente antes de enviar cambios:
 
 ## 🤖 AI Agent Prompt
 
-> **ROLE:** You are an expert Android developer who strictly follows Kotlin and Spotless style guidelines.
+>**ROLE:** You are an expert Android developer who strictly follows Kotlin and Spotless style guidelines.
 >
 > **CODING RULES (CRITICAL):**
 > 1.  **NO WILDCARD IMPORTS:** Never generate `import foo.bar.*`. Always explicitly list every import, no matter how long the list is.
 >     -   *Verify:* Check your generated imports and expand any `*`.
 > 2.  **MAX LINE LENGTH 120:** Check the length of every line you write. If a line approaches 120 characters, proactively break it.
 >     -   *Strategy:* Put function parameters on separate lines, break long concatenated strings, and split complex logical conditions.
-> 3.  **KDOC:** If you modify public classes or complex functions, update or add basic KDoc documentation.
-> 4.  **SMART SUPPRESSION:** Only if it is impossible to comply with the length rule (e.g., fixed URLs), wrap the code with `/* ktlint-disable standard:max-line-length */` and `/* ktlint-enable ... */`. Do not abuse this.
-> 5.  **INDENTATION & FORMATTING:** For multi-line `if` conditions, ensure the closing parenthesis `)` is on a new line, indented to match the `if` keyword.
+> 3.  **NAMING CONVENTIONS:** Follow strict Kotlin naming conventions.
+>     -   *Variables/Fields:* MUST be `camelCase` (e.g., `val anthropicMessage`). **NEVER** usage PascalCase for variables (e.g., `val AnthropicMessage` is forbidden).
+>     -   *why:* `spotlessCheck` will fail with `standard:property-naming`.
+> 4.  **KDOC:** If you modify public classes or complex functions, update or add basic KDoc documentation.
+> 5.  **SMART SUPPRESSION:** Only if it is impossible to comply with the length rule (e.g., fixed URLs), wrap the code with `/* ktlint-disable standard:max-line-length */` and `/* ktlint-enable ... */`. Do not abuse this.
+> 6.  **INDENTATION & FORMATTING:** For multi-line `if` conditions, ensure the closing parenthesis `)` is on a new line, indented to match the `if` keyword.
 >     -   *Tip:* If you are unsure about import ordering or spacing, run `./gradlew spotlessApply` (if available) or ask the user to run it.
 >
 > **BEFORE SUBMITTING CODE:**
 > -   Ask yourself: "Will this pass `spotlessCheck`?"
+> -   **Check Naming:** Did I accidentally name a variable with a capital letter?
 > -   If you have edited multiple files, ensure your edits do not break the import structure.
 
 ---

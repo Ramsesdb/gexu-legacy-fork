@@ -13,19 +13,19 @@ class ReaderNotesRepositoryImpl(
 
     override fun getNotesByMangaId(mangaId: Long): Flow<List<ReaderNote>> {
         return handler.subscribeToList {
-            readerNotesQueries.getNotesByMangaId(mangaId, ::mapReaderNote)
+            reader_notesQueries.getNotesByMangaId(mangaId, ::mapReaderNote)
         }
     }
 
     override suspend fun getNotesByChapterId(chapterId: Long): List<ReaderNote> {
         return handler.awaitList {
-            readerNotesQueries.getNotesByChapterId(chapterId, ::mapReaderNote)
+            reader_notesQueries.getNotesByChapterId(chapterId, ::mapReaderNote)
         }
     }
 
     override suspend fun getNotesCountByMangaId(mangaId: Long): Long {
         return handler.awaitOne {
-            readerNotesQueries.getNotesCountByMangaId(mangaId)
+            reader_notesQueries.getNotesCountByMangaId(mangaId)
         }
     }
 
@@ -36,7 +36,7 @@ class ReaderNotesRepositoryImpl(
         noteText: String,
     ) {
         handler.await {
-            readerNotesQueries.insertNote(
+            reader_notesQueries.insertNote(
                 mangaId = mangaId,
                 chapterId = chapterId,
                 pageNumber = pageNumber.toLong(),
@@ -48,43 +48,43 @@ class ReaderNotesRepositoryImpl(
 
     override suspend fun updateNote(noteId: Long, noteText: String) {
         handler.await {
-            readerNotesQueries.updateNote(noteText = noteText, noteId = noteId)
+            reader_notesQueries.updateNote(noteText = noteText, noteId = noteId)
         }
     }
 
     override suspend fun deleteNote(noteId: Long) {
         handler.await {
-            readerNotesQueries.deleteNote(noteId)
+            reader_notesQueries.deleteNote(noteId)
         }
     }
 
     override suspend fun deleteNotesByMangaId(mangaId: Long) {
         handler.await {
-            readerNotesQueries.deleteNotesByMangaId(mangaId)
+            reader_notesQueries.deleteNotesByMangaId(mangaId)
         }
     }
 
     override suspend fun deleteNotesByChapterId(chapterId: Long) {
         handler.await {
-            readerNotesQueries.deleteNotesByChapterId(chapterId)
+            reader_notesQueries.deleteNotesByChapterId(chapterId)
         }
     }
 
     override suspend fun getNotesForAiContext(mangaId: Long): List<ReaderNote> {
         return handler.awaitList {
-            readerNotesQueries.getNotesByMangaId(mangaId, ::mapReaderNote)
+            reader_notesQueries.getNotesByMangaId(mangaId, ::mapReaderNote)
         }
     }
 
     override suspend fun getAllRecentNotes(limit: Int): List<ReaderNoteWithManga> {
         return handler.awaitList {
-            readerNotesQueries.getAllRecentNotes(limit.toLong(), ::mapReaderNoteWithManga)
+            reader_notesQueries.getAllRecentNotes(limit.toLong(), ::mapReaderNoteWithManga)
         }
     }
 
     override suspend fun searchNotesByMangaTitle(query: String, limit: Int): List<ReaderNoteWithManga> {
         return handler.awaitList {
-            readerNotesQueries.searchNotesByMangaTitle(query, limit.toLong(), ::mapReaderNoteWithManga)
+            reader_notesQueries.searchNotesByMangaTitle(query, limit.toLong(), ::mapReaderNoteWithManga)
         }
     }
 
