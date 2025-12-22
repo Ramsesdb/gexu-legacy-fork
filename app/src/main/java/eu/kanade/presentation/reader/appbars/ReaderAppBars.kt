@@ -47,6 +47,8 @@ fun ReaderAppBars(
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
+    onEditNotes: (() -> Unit)?,
+    onAddQuickNote: (() -> Unit)? = null,
 
     viewer: Viewer?,
     onNextChapter: () -> Unit,
@@ -92,6 +94,8 @@ fun ReaderAppBars(
                 onOpenInWebView = onOpenInWebView,
                 onOpenInBrowser = onOpenInBrowser,
                 onShare = onShare,
+                onEditNotes = onEditNotes,
+                onAddQuickNote = onAddQuickNote,
             )
         }
 

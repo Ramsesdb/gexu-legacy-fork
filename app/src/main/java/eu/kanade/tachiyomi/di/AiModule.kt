@@ -92,6 +92,7 @@ class AiModule : InjektModule {
                 categoryRepository = get(),
                 searchLibrary = get(),
                 trackRepository = get(),
+                readerNotesRepository = get(),
             )
         }
 

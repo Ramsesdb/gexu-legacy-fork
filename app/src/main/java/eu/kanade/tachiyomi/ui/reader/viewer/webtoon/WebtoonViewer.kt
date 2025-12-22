@@ -140,15 +140,15 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         }
         recycler.longTapListener = f@{ event ->
-            if (activity.viewModel.state.value.menuVisible || config.longTapEnabled) {
-                val child = recycler.findChildViewUnder(event.x, event.y)
-                if (child != null) {
-                    val position = recycler.getChildAdapterPosition(child)
-                    val item = adapter.items.getOrNull(position)
-                    if (item is ReaderPage) {
-                        activity.onPageLongTap(item)
-                        return@f true
-                    }
+            // Always allow long press on reader pages for contextual notes
+            val child = recycler.findChildViewUnder(event.x, event.y)
+            if (child != null) {
+                val position = recycler.getChildAdapterPosition(child)
+                val item = adapter.items.getOrNull(position)
+                if (item is ReaderPage) {
+                    // Show contextual popup at the touch position
+                    activity.viewModel.onLongPress(event.rawX, event.rawY)
+                    return@f true
                 }
             }
             false

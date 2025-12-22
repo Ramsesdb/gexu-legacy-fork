@@ -150,6 +150,7 @@
     <string name="action_move_to_bottom_all_for_series">Move series to bottom</string>
     <string name="action_notes">Notes</string>
     <string name="action_edit_notes">Edit notes</string>
+    <string name="notes_hint">Write your note here…</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
@@ -1121,4 +1122,20 @@
     <string name="ai_temperature_creative">Creative</string>
     <string name="ai_persist_conversations">Save Conversations</string>
     <string name="ai_persist_conversations_summary">Keep chat history for later</string>
+
+    <!-- Reader Notes -->
+    <string name="notes_tab_general">General</string>
+    <string name="notes_tab_chapter">Chapter</string>
+    <string name="notes_tab_chapter_count">Chapter (%d)</string>
+    <string name="notes_empty_title">No chapter notes</string>
+    <string name="notes_empty_hint">Tap 📝 while reading to add notes</string>
+    <string name="notes_location_format">Ch. %1$s, Page %2$d</string>
+    <string name="chapter_number_format">Ch. %1$s</string>
+
+    <!-- AI Web Search -->
+    <string name="ai_web_search">Web Search</string>
+    <string name="ai_web_search_summary">Allow AI to search the web for current information</string>
+    <string name="ai_gemini_search_key">Gemini API Key for Search</string>
+    <string name="ai_gemini_search_key_summary">Required to enable web search with non-Gemini providers</string>
+    <string name="ai_web_search_unavailable">Web search requires a Gemini API key</string>
 </resources>

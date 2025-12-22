@@ -3,6 +3,7 @@ package eu.kanade.presentation.reader.appbars
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material.icons.outlined.NoteAdd
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -22,6 +23,8 @@ fun ReaderTopBar(
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
+    onEditNotes: (() -> Unit)?,
+    onAddQuickNote: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AppBar(
@@ -51,6 +54,15 @@ fun ReaderTopBar(
                                 onClick = onToggleBookmarked,
                             ),
                         )
+                        onAddQuickNote?.let {
+                            add(
+                                AppBar.Action(
+                                    title = stringResource(MR.strings.action_notes),
+                                    icon = Icons.Outlined.NoteAdd,
+                                    onClick = it,
+                                ),
+                            )
+                        }
                         onOpenInWebView?.let {
                             add(
                                 AppBar.OverflowAction(

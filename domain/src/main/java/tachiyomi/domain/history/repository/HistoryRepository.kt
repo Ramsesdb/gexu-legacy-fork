@@ -13,6 +13,12 @@ interface HistoryRepository {
 
     suspend fun getTotalReadDuration(): Long
 
+    suspend fun getReadDurationByManga(limit: Long): List<Pair<Long, Long>>
+
+    suspend fun getReadingStreak(): Int
+
+    suspend fun getDaysReadLastWeek(): Long
+
     suspend fun getHistoryByMangaId(mangaId: Long): List<History>
 
     suspend fun resetHistory(historyId: Long)

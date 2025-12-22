@@ -1,16 +1,25 @@
 package tachiyomi.data.ai
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.Response
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.AiProvider
 import tachiyomi.domain.ai.model.ChatMessage
+import tachiyomi.domain.ai.model.StreamChunk
 import tachiyomi.domain.ai.repository.AiRepository
 import java.io.IOException
 
@@ -23,7 +32,7 @@ class AiRepositoryImpl(
     override suspend fun sendMessage(messages: List<ChatMessage>): Result<ChatMessage> {
         val apiKey = aiPreferences.apiKey().get()
         val provider = AiProvider.fromName(aiPreferences.provider().get())
-        val model = aiPreferences.model().get()
+        val model = aiPreferences.getEffectiveModel()
 
         if (apiKey.isBlank()) {
             return Result.failure(IllegalStateException("API key not configured"))
@@ -79,6 +88,9 @@ class AiRepositoryImpl(
         return try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
+                    if (response.code == 429) {
+                        return Result.failure(IOException("Quota exceeded (429). Please check your API limits."))
+                    }
                     return Result.failure(IOException("API error: ${response.code} - ${response.body?.string()}"))
                 }
 
@@ -132,10 +144,19 @@ class AiRepositoryImpl(
                 )
             }
 
+        // Determine if we should enable web search
+        val useWebSearch = aiPreferences.enableWebSearch().get() &&
+            aiPreferences.getGeminiKeyForSearch() != null
+
         val requestBody = GeminiRequest(
             contents = contents,
             systemInstruction = if (systemInstruction.isNotBlank()) {
                 GeminiSystemInstruction(parts = listOf(GeminiPart(text = systemInstruction)))
+            } else {
+                null
+            },
+            tools = if (useWebSearch) {
+                listOf(GeminiTool(googleSearch = GeminiGoogleSearch()))
             } else {
                 null
             },
@@ -150,6 +171,9 @@ class AiRepositoryImpl(
         return try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
+                    if (response.code == 429) {
+                        return Result.failure(IOException("Quota exceeded (429). Please check your API limits."))
+                    }
                     return Result.failure(IOException("API error: ${response.code} - ${response.body?.string()}"))
                 }
 
@@ -179,10 +203,11 @@ class AiRepositoryImpl(
         val anthropicMessages = messages
             .filter { it.role != ChatMessage.Role.SYSTEM }
             .map { msg ->
-                AnthropicMessage(
+                val anthropicMessage = AnthropicMessage(
                     role = if (msg.role == ChatMessage.Role.USER) "user" else "assistant",
                     content = msg.content,
                 )
+                anthropicMessage
             }
 
         val requestBody = AnthropicRequest(
@@ -203,6 +228,9 @@ class AiRepositoryImpl(
         return try {
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
+                    if (response.code == 429) {
+                        return Result.failure(IOException("Quota exceeded (429). Please check your API limits."))
+                    }
                     return Result.failure(IOException("API error: ${response.code} - ${response.body?.string()}"))
                 }
 
@@ -235,6 +263,260 @@ class AiRepositoryImpl(
         }
     }
 
+    /**
+     * Stream AI responses in real-time using Server-Sent Events (SSE).
+     * Now supports Gemini and OpenAI/compatible providers.
+     */
+    override fun streamMessage(messages: List<ChatMessage>): Flow<StreamChunk> = callbackFlow {
+        val apiKey = aiPreferences.apiKey().get()
+        val provider = AiProvider.fromName(aiPreferences.provider().get())
+        val model = aiPreferences.getEffectiveModel()
+
+        if (apiKey.isBlank()) {
+            trySend(StreamChunk.Error("API key not configured"))
+            close()
+            return@callbackFlow
+        }
+
+        // Dispatch based on provider
+        val flow = if (provider == AiProvider.GEMINI) {
+            streamGemini(messages, apiKey, model)
+        } else {
+            // OpenAI, OpenRouter, Custom, Anthropic (using OpenAI format for now/placeholder)
+            // Note: Anthropic has different format, but for now we focus on OpenAI/Custom
+            if (provider == AiProvider.ANTHROPIC) {
+                // Fallback for Anthropic until specific implementation
+                streamNonBlockingFallback(messages)
+            } else {
+                streamOpenAiCompatible(messages, apiKey, provider, model)
+            }
+        }
+
+        flow.collect {
+            trySend(it)
+        }
+        close()
+    }.flowOn(Dispatchers.IO)
+
+    private fun streamNonBlockingFallback(messages: List<ChatMessage>): Flow<StreamChunk> = callbackFlow {
+        try {
+            val result = sendMessage(messages)
+            result.fold(
+                onSuccess = { response ->
+                    trySend(StreamChunk.Text(response.content))
+                    trySend(StreamChunk.Done)
+                },
+                onFailure = { error ->
+                    trySend(StreamChunk.Error(error.message ?: "Unknown error"))
+                },
+            )
+        } catch (e: Exception) {
+            trySend(StreamChunk.Error(e.message ?: "Request failed"))
+        }
+        close()
+    }.flowOn(Dispatchers.IO)
+
+    private fun streamGemini(
+        messages: List<ChatMessage>,
+        apiKey: String,
+        model: String,
+    ): Flow<StreamChunk> = callbackFlow {
+        val url = "${AiProvider.GEMINI.baseUrl}/$model:streamGenerateContent?alt=sse&key=$apiKey"
+
+        val systemInstruction = messages
+            .filter { it.role == ChatMessage.Role.SYSTEM }
+            .joinToString("\n") { it.content }
+
+        val contents = messages
+            .filter { it.role != ChatMessage.Role.SYSTEM }
+            .map { msg ->
+                val parts = mutableListOf<GeminiPart>()
+                if (msg.content.isNotBlank()) {
+                    parts.add(GeminiPart(text = msg.content))
+                }
+                val imageData = msg.image
+                if (imageData != null) {
+                    parts.add(
+                        GeminiPart(
+                            inlineData = GeminiInlineData(
+                                mimeType = "image/jpeg",
+                                data = imageData,
+                            ),
+                        ),
+                    )
+                }
+                GeminiContent(
+                    role = if (msg.role == ChatMessage.Role.USER) "user" else "model",
+                    parts = parts,
+                )
+            }
+
+        val useWebSearch = aiPreferences.enableWebSearch().get() &&
+            aiPreferences.getGeminiKeyForSearch() != null
+
+        val requestBody = GeminiRequest(
+            contents = contents,
+            systemInstruction = if (systemInstruction.isNotBlank()) {
+                GeminiSystemInstruction(parts = listOf(GeminiPart(text = systemInstruction)))
+            } else {
+                null
+            },
+            tools = if (useWebSearch) {
+                listOf(GeminiTool(googleSearch = GeminiGoogleSearch()))
+            } else {
+                null
+            },
+        )
+
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("Content-Type", "application/json")
+            .post(json.encodeToString(requestBody).toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val call = client.newCall(request)
+
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                trySend(StreamChunk.Error(e.message ?: "Connection failed"))
+                close()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) {
+                    val errorMsg = if (response.code == 429) {
+                        "Quota exceeded (429). Please try again later."
+                    } else {
+                        "API error: ${response.code}"
+                    }
+                    trySend(StreamChunk.Error(errorMsg))
+                    close()
+                    return
+                }
+
+                try {
+                    response.body?.source()?.let { source ->
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: continue
+                            if (line.startsWith("data: ")) {
+                                val jsonData = line.removePrefix("data: ").trim()
+                                if (jsonData.isNotEmpty()) {
+                                    try {
+                                        val chunk = json.decodeFromString<GeminiResponse>(jsonData)
+                                        val text = chunk.candidates?.firstOrNull()
+                                            ?.content?.parts?.firstOrNull()?.text
+                                        if (!text.isNullOrEmpty()) {
+                                            trySend(StreamChunk.Text(text))
+                                        }
+                                    } catch (e: Exception) {
+                                        // Skip
+                                    }
+                                }
+                            }
+                        }
+                        trySend(StreamChunk.Done)
+                    } ?: trySend(StreamChunk.Error("Empty response body"))
+                } catch (e: Exception) {
+                    trySend(StreamChunk.Error(e.message ?: "Stream parsing error"))
+                } finally {
+                    close()
+                }
+            }
+        })
+        awaitClose { call.cancel() }
+    }.flowOn(Dispatchers.IO)
+
+    private fun streamOpenAiCompatible(
+        messages: List<ChatMessage>,
+        apiKey: String,
+        provider: AiProvider,
+        model: String,
+    ): Flow<StreamChunk> = callbackFlow {
+        val baseUrl = when (provider) {
+            AiProvider.CUSTOM -> aiPreferences.customBaseUrl().get()
+            else -> provider.baseUrl
+        }
+
+        val requestBody = OpenAiRequest(
+            model = model,
+            messages = messages.map { msg ->
+                OpenAiMessage(
+                    role = when (msg.role) {
+                        ChatMessage.Role.SYSTEM -> "system"
+                        ChatMessage.Role.USER -> "user"
+                        ChatMessage.Role.ASSISTANT -> "assistant"
+                    },
+                    content = msg.content,
+                )
+            },
+            maxTokens = aiPreferences.maxTokens().get(),
+            temperature = aiPreferences.temperature().get(),
+            stream = true,
+        )
+
+        val request = Request.Builder()
+            .url(baseUrl)
+            .addHeader("Authorization", "Bearer $apiKey")
+            .addHeader("Content-Type", "application/json")
+            .post(json.encodeToString(requestBody).toRequestBody("application/json".toMediaType()))
+            .build()
+
+        val call = client.newCall(request)
+
+        call.enqueue(object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                trySend(StreamChunk.Error(e.message ?: "Connection failed"))
+                close()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                if (!response.isSuccessful) {
+                    val errorMsg = if (response.code == 429) {
+                        "Quota exceeded (429). Please try again later."
+                    } else {
+                        "API error: ${response.code}"
+                    }
+                    trySend(StreamChunk.Error(errorMsg))
+                    close()
+                    return
+                }
+
+                try {
+                    response.body?.source()?.let { source ->
+                        while (!source.exhausted()) {
+                            val line = source.readUtf8Line() ?: continue
+                            if (line.startsWith("data: ")) {
+                                val jsonData = line.removePrefix("data: ").trim()
+                                if (jsonData == "[DONE]") {
+                                    trySend(StreamChunk.Done)
+                                    break
+                                }
+                                if (jsonData.isNotEmpty()) {
+                                    try {
+                                        val chunk = json.decodeFromString<OpenAiStreamResponse>(jsonData)
+                                        val text = chunk.choices.firstOrNull()?.delta?.content
+                                        if (!text.isNullOrEmpty()) {
+                                            trySend(StreamChunk.Text(text))
+                                        }
+                                    } catch (e: Exception) {
+                                        // Skip
+                                    }
+                                }
+                            }
+                        }
+                        // If loop finishes without [DONE], we still close
+                        trySend(StreamChunk.Done)
+                    } ?: trySend(StreamChunk.Error("Empty response body"))
+                } catch (e: Exception) {
+                    trySend(StreamChunk.Error(e.message ?: "Stream parsing error"))
+                } finally {
+                    close()
+                }
+            }
+        })
+        awaitClose { call.cancel() }
+    }.flowOn(Dispatchers.IO)
+
     // ========== Request/Response DTOs ==========
 
     @Serializable
@@ -243,6 +525,7 @@ class AiRepositoryImpl(
         val messages: List<OpenAiMessage>,
         @SerialName("max_tokens") val maxTokens: Int,
         val temperature: Float,
+        val stream: Boolean = false,
     )
 
     @Serializable
@@ -265,7 +548,16 @@ class AiRepositoryImpl(
     private data class GeminiRequest(
         val contents: List<GeminiContent>,
         @SerialName("system_instruction") val systemInstruction: GeminiSystemInstruction? = null,
+        val tools: List<GeminiTool>? = null,
     )
+
+    @Serializable
+    private data class GeminiTool(
+        @SerialName("google_search") val googleSearch: GeminiGoogleSearch? = null,
+    )
+
+    @Serializable
+    private class GeminiGoogleSearch // Empty object enables the tool
 
     @Serializable
     private data class GeminiSystemInstruction(
@@ -322,5 +614,20 @@ class AiRepositoryImpl(
     @Serializable
     private data class AnthropicContent(
         val text: String,
+    )
+
+    @Serializable
+    private data class OpenAiStreamResponse(
+        val choices: List<OpenAiStreamChoice>,
+    )
+
+    @Serializable
+    private data class OpenAiStreamChoice(
+        val delta: OpenAiStreamDelta,
+    )
+
+    @Serializable
+    private data class OpenAiStreamDelta(
+        val content: String? = null,
     )
 }

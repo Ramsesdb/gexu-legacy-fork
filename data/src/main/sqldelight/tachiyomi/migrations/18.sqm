@@ -1,0 +1,14 @@
+-- Create reader_notes table for storing chapter-specific reading notes
+CREATE TABLE IF NOT EXISTS reader_notes(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    manga_id INTEGER NOT NULL,
+    chapter_id INTEGER NOT NULL,
+    page_number INTEGER NOT NULL DEFAULT 0,
+    note_text TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE,
+    FOREIGN KEY(chapter_id) REFERENCES chapters (_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS reader_notes_manga_id_index ON reader_notes(manga_id);
+CREATE INDEX IF NOT EXISTS reader_notes_chapter_id_index ON reader_notes(chapter_id);

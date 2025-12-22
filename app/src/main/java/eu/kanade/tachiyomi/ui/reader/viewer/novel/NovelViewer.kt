@@ -30,6 +30,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.util.MuPdfUtil
 import eu.kanade.tachiyomi.util.PdfUtil
+import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,8 @@ import okio.sink
 import org.jsoup.Jsoup
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -81,6 +84,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private val showTextMode = MutableStateFlow(true) // true = show text, false = show images/PDF
     private val targetPageIndex = MutableStateFlow<Int?>(null) // Target page for slider navigation
     private val initialPageIndex = MutableStateFlow(0) // Initial page to start at (from saved position)
+    private val isCapturingVision = MutableStateFlow(false) // When true, hide menu for capture
 
     // Page tracking for image-based chapters
     private var currentChapter: ReaderChapter? = null
@@ -139,6 +143,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         val targetPage by targetPageIndex.collectAsState()
         val initialPage by initialPageIndex.collectAsState()
         val toc by tocItems.collectAsState()
+        val isCapturing by isCapturingVision.collectAsState()
+        val activityAiChatOpen by activity.isAiChatOpenFlow.collectAsState()
         var currentPrefs by remember { prefs }
         var showAiChat by remember { mutableStateOf(false) }
 
@@ -157,7 +163,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             ocrProgress = ocrProg,
             initialOffset = 0L,
             prefs = currentPrefs,
-            menuVisible = readerState.menuVisible,
+            menuVisible = readerState.menuVisible && !isCapturing && !showAiChat && !activityAiChatOpen,
+            forceHideMenu = isCapturing || showAiChat || activityAiChatOpen,
             showTextMode = textMode,
             hasExtractedText = textList.isNotEmpty(),
             hasOriginalImages = originalImageList.isNotEmpty(),
@@ -221,6 +228,10 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             },
             onAiClick = {
                 showAiChat = true
+            },
+            onLongPress = { x, y, _ ->
+                // Trigger contextual notes popup
+                activity.viewModel.onLongPress(x, y)
             },
         )
 
@@ -1468,9 +1479,42 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
         var isLoading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
+        var attachedImage by remember { mutableStateOf<String?>(null) }
+        var showVisualSelection by remember { mutableStateOf(false) }
+        var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
         val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
-            Injekt.get()
+            uy.kohesive.injekt.Injekt.get()
+        }
+        val aiPreferences: tachiyomi.domain.ai.AiPreferences = remember {
+            uy.kohesive.injekt.Injekt.get()
+        }
+        val isWebSearchEnabled by aiPreferences.enableWebSearch().changes()
+            .collectAsState(initial = aiPreferences.enableWebSearch().get())
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val webSearchUnavailableMsg = stringResource(MR.strings.ai_web_search_unavailable)
+
+        // Visual Selection Screen (fullscreen overlay)
+        if (showVisualSelection && capturedBitmap != null) {
+            eu.kanade.presentation.ai.components.VisualSelectionScreen(
+                bitmap = capturedBitmap!!,
+                onConfirm = { selectedBitmap ->
+                    // Convert to Base64
+                    val stream = java.io.ByteArrayOutputStream()
+                    selectedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+                    attachedImage = android.util.Base64.encodeToString(
+                        stream.toByteArray(),
+                        android.util.Base64.NO_WRAP,
+                    )
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+                onCancel = {
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+            )
+            return
         }
 
         eu.kanade.presentation.ai.components.AiChatOverlay(
@@ -1479,11 +1523,20 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             isLoading = isLoading,
             error = error,
             mangaTitle = mangaTitle,
+            isWebSearchEnabled = isWebSearchEnabled,
+            onToggleWebSearch = {
+                if (!aiPreferences.canEnableWebSearch()) {
+                    context.toast(webSearchUnavailableMsg)
+                } else {
+                    aiPreferences.enableWebSearch().set(!isWebSearchEnabled)
+                }
+            },
             onSendMessage = { content ->
                 if (content.isBlank()) return@AiChatOverlay
 
-                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content)
+                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content, attachedImage)
                 messages = messages + userMessage
+                attachedImage = null // Clear after sending
                 isLoading = true
                 error = null
 
@@ -1492,6 +1545,13 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         val manga = activity.viewModel.manga
                         val currentState = activity.viewModel.state.value
                         val systemPrompt = buildString {
+                            // LANGUAGE INSTRUCTION FIRST - most important
+                            appendLine(
+                                "CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. " +
+                                    "Si el usuario escribe en español, responde en español. " +
+                                    "If the user writes in English, respond in English.",
+                            )
+                            appendLine()
                             appendLine(
                                 "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
                             )
@@ -1516,6 +1576,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                 appendLine("- Answer questions about the current chapter and characters")
                                 appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
                                 appendLine("- Be helpful and friendly")
+                                appendLine("- If the user sends an image, describe and analyze it in detail.")
+                                appendLine("- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.")
                             }
                         }
 
@@ -1549,11 +1611,30 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 error = null
             },
             onCaptureVision = {
-                // Vision capture not available in novel viewer (text-based)
+                // Set capture mode - this will trigger immediate menu hide via Compose state
+                isCapturingVision.value = true
+
+                // Wait for menu to be hidden (3 frames for recomposition + layout + draw)
+                activity.window.decorView.postOnAnimation {
+                    activity.window.decorView.postOnAnimation {
+                        activity.window.decorView.postOnAnimation {
+                            // Capture using Activity's method which handles Activity overlays
+                            activity.captureViewportAsync { bitmap ->
+                                // Exit capture mode
+                                isCapturingVision.value = false
+
+                                if (bitmap != null) {
+                                    capturedBitmap = bitmap
+                                    showVisualSelection = true
+                                }
+                            }
+                        }
+                    }
+                }
             },
-            hasAttachedImage = false,
-            attachedImageBase64 = null,
-            onClearAttachedImage = {},
+            hasAttachedImage = attachedImage != null,
+            attachedImageBase64 = attachedImage,
+            onClearAttachedImage = { attachedImage = null },
             onDismiss = onDismiss,
         )
     }

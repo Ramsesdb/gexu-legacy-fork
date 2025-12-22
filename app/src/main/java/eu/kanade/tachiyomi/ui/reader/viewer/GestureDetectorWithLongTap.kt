@@ -28,6 +28,12 @@ open class GestureDetectorWithLongTap(
     private var lastDownEvent: MotionEvent? = null
 
     /**
+     * Tracks whether the current gesture moved beyond slop (is a scroll, not a tap).
+     * Used to distinguish scroll-end from tap for double-tap prevention.
+     */
+    private var isScrolling = false
+
+    /**
      * Runnable to execute when a long tap is confirmed.
      */
     private val longTapFn = Runnable { listener.onLongTapConfirmed(lastDownEvent!!) }
@@ -37,6 +43,7 @@ open class GestureDetectorWithLongTap(
             MotionEvent.ACTION_DOWN -> {
                 lastDownEvent?.recycle()
                 lastDownEvent = MotionEvent.obtain(ev)
+                isScrolling = false
 
                 // This is the key difference with the built-in detector. We have to ignore the
                 // event if the last up and current down are too close in time (double tap).
@@ -49,14 +56,22 @@ open class GestureDetectorWithLongTap(
             MotionEvent.ACTION_MOVE -> {
                 if (abs(ev.x - downX) > slop || abs(ev.y - downY) > slop) {
                     handler.removeCallbacks(longTapFn)
+                    isScrolling = true
                 }
             }
             MotionEvent.ACTION_UP -> {
-                lastUp = ev.eventTime
+                // Only update lastUp for tap gestures, not for scroll-end events.
+                // This prevents long-press from failing after scrolling when the user
+                // tries to long-press again within doubleTapTime of the scroll ending.
+                if (!isScrolling) {
+                    lastUp = ev.eventTime
+                }
                 handler.removeCallbacks(longTapFn)
+                isScrolling = false
             }
             MotionEvent.ACTION_CANCEL, MotionEvent.ACTION_POINTER_DOWN -> {
                 handler.removeCallbacks(longTapFn)
+                isScrolling = false
             }
         }
         return super.onTouchEvent(ev)
