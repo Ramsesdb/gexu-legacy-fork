@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Notification icon: black logo on white background -->
-<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item
-        android:drawable="@drawable/ic_gexu_logo_black"
-        android:top="6dp"
-        android:bottom="6dp"
-        android:left="6dp"
-        android:right="6dp" />
-</layer-list>
+<!-- Notification icon: Gexu logo scaled for notification display -->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:insetLeft="6dp"
+    android:insetTop="6dp"
+    android:insetRight="6dp"
+    android:insetBottom="6dp">
+    <bitmap
+        android:src="@drawable/ic_gexu_logo_white"
+        android:tint="#FFFFFFFF"
+        android:gravity="center" />
+</inset>

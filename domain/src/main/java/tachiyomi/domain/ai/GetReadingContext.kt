@@ -8,6 +8,7 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.repository.MangaRepository
+import tachiyomi.domain.manga.repository.ReaderNotesRepository
 import tachiyomi.domain.track.repository.TrackRepository
 import java.text.SimpleDateFormat
 import java.util.concurrent.TimeUnit
@@ -19,6 +20,7 @@ class GetReadingContext(
     private val categoryRepository: CategoryRepository,
     private val searchLibrary: tachiyomi.domain.ai.interactor.SearchLibrary,
     private val trackRepository: TrackRepository,
+    private val readerNotesRepository: ReaderNotesRepository,
 ) {
 
     // Cache for global context (invalidates after 5 minutes)
@@ -45,27 +47,54 @@ class GetReadingContext(
             emptyList()
         }
 
-        if (relevantMangas.isEmpty()) return globalContext
+        // 3. Search for notes related to the query (by manga title)
+        val relatedNotes = try {
+            readerNotesRepository.searchNotesByMangaTitle(query, limit = 10)
+        } catch (e: Exception) {
+            emptyList()
+        }
 
-        // 3. Enrich Context with Search Results
+        if (relevantMangas.isEmpty() && relatedNotes.isEmpty()) return globalContext
+
+        // 4. Enrich Context with Search Results
         return buildString {
             append(globalContext)
             appendLine()
-            appendLine("--- RAG: RELEVANT LIBRARY ITEMS FOR \"$query\" ---")
-            appendLine("These manga from the user's library are semantically related to their query:")
 
-            relevantMangas.forEachIndexed { index, manga ->
-                appendLine("${index + 1}. ${manga.title}")
-                appendLine("   Author: ${manga.author ?: "Unknown"}")
-                appendLine("   Genres: ${manga.genre?.joinToString(", ") ?: "None"}")
-                val descriptionSnippet = manga.description?.take(200)?.replace("\n", " ") ?: ""
-                if (descriptionSnippet.isNotBlank()) {
-                    appendLine("   Synopsis: $descriptionSnippet...")
+            if (relevantMangas.isNotEmpty()) {
+                appendLine("--- RAG: RELEVANT LIBRARY ITEMS FOR \"$query\" ---")
+                appendLine("These manga from the user's library are semantically related to their query:")
+
+                relevantMangas.forEachIndexed { index, manga ->
+                    appendLine("${index + 1}. ${manga.title}")
+                    appendLine("   Author: ${manga.author ?: "Unknown"}")
+                    appendLine("   Genres: ${manga.genre?.joinToString(", ") ?: "None"}")
+                    val descriptionSnippet = manga.description?.take(200)?.replace("\n", " ") ?: ""
+                    if (descriptionSnippet.isNotBlank()) {
+                        appendLine("   Synopsis: $descriptionSnippet...")
+                    }
+                    appendLine()
                 }
-                appendLine()
+                appendLine("--- END RAG ---")
             }
-            appendLine("INSTRUCTION: Use these specific titles to answer the user's request when relevant.")
-            appendLine("--- END RAG ---")
+
+            // Include user's notes related to the query
+            if (relatedNotes.isNotEmpty()) {
+                appendLine()
+                appendLine("--- 📝 USER'S READING NOTES RELATED TO \"$query\" ---")
+                relatedNotes.forEach { note ->
+                    val chapterLabel = if (note.chapterNumber > 0) {
+                        "Ch. ${note.chapterNumber.toInt()}"
+                    } else {
+                        note.chapterName
+                    }
+                    appendLine("- ${note.mangaTitle} ($chapterLabel, Page ${note.pageNumber}): \"${note.noteText}\"")
+                }
+                appendLine("--- END NOTES ---")
+            }
+
+            appendLine()
+            appendLine("INSTRUCTION: Use these specific titles and notes to answer the user's request when relevant.")
         }
     }
 
@@ -97,6 +126,13 @@ class GetReadingContext(
             null
         }
 
+        // Get reader notes for this manga
+        val readerNotes = try {
+            readerNotesRepository.getNotesForAiContext(mangaId)
+        } catch (e: Exception) {
+            emptyList()
+        }
+
         return buildString {
             appendLine("--- CONTEXT START: CURRENT READING ---")
             appendLine("User is currently reading: ${manga.title}")
@@ -110,6 +146,47 @@ class GetReadingContext(
 
             appendLine("Reading Progress: User has read up to chapter $maxChapterRead.")
             if (trackerInfo != null) appendLine(trackerInfo)
+
+            // Include user's reading notes
+            if (readerNotes.isNotEmpty()) {
+                appendLine()
+                appendLine("📝 USER'S READING NOTES:")
+                readerNotes.take(10).forEach { note ->
+                    val chapterLabel = if (note.chapterNumber > 0) {
+                        "Ch. ${note.chapterNumber.toInt()}"
+                    } else {
+                        note.chapterName
+                    }
+                    appendLine("- $chapterLabel, Page ${note.pageNumber}: \"${note.noteText}\"")
+                }
+                if (readerNotes.size > 10) {
+                    appendLine("... and ${readerNotes.size - 10} more notes")
+                }
+            }
+
+            // Include bookmarked chapters (user marked these as important)
+            val bookmarkedChapters = try {
+                chapterRepository.getBookmarkedChaptersByMangaId(mangaId)
+            } catch (e: Exception) {
+                emptyList()
+            }
+
+            if (bookmarkedChapters.isNotEmpty()) {
+                appendLine()
+                appendLine("📌 BOOKMARKED CHAPTERS (User marked these as important):")
+                bookmarkedChapters
+                    .filter { it.chapterNumber <= maxChapterRead } // Anti-spoiler: only show read bookmarks
+                    .sortedBy { it.chapterNumber }
+                    .take(15)
+                    .forEach { chapter ->
+                        appendLine("- Ch. ${chapter.chapterNumber.toInt()}: ${chapter.name}")
+                    }
+                if (bookmarkedChapters.size > 15) {
+                    appendLine("... and ${bookmarkedChapters.size - 15} more bookmarks")
+                }
+            }
+
+            appendLine()
             appendLine("CRITICAL INSTRUCTION: Do NOT spoil anything beyond chapter $maxChapterRead.")
             appendLine("--- CONTEXT END ---")
         }
@@ -249,7 +326,80 @@ class GetReadingContext(
             appendLine("- Started series: $startedCount")
             appendLine("- Completed series: $completedCount")
             if (trackerStats != null) appendLine("- $trackerStats")
+
+            // NEW: Reading Habits & Streak
+            val streak = try {
+                historyRepository.getReadingStreak()
+            } catch (e: Exception) {
+                0
+            }
+            if (streak > 0) {
+                appendLine("- 🔥 Current reading streak: $streak consecutive days")
+            }
             appendLine()
+
+            // NEW: Pending Updates
+            val pendingUpdates = libraryItems
+                .filter { it.unreadCount > 0 }
+                .sortedByDescending { it.unreadCount }
+                .take(8)
+                .joinToString(", ") { "${it.manga.title} (${it.unreadCount} new)" }
+
+            if (pendingUpdates.isNotBlank()) {
+                appendLine("📥 PENDING UPDATES (Unread Chapters):")
+                appendLine(pendingUpdates)
+                appendLine()
+            }
+
+            // NEW: Time Spent per Manga
+            val timePerManga = try {
+                historyRepository.getReadDurationByManga(5).mapNotNull { (mangaId, duration) ->
+                    val title = libraryItems.find { it.manga.id == mangaId }?.manga?.title
+                    if (title != null) "$title (${formatDuration(duration)})" else null
+                }.joinToString(", ")
+            } catch (e: Exception) {
+                ""
+            }
+
+            if (timePerManga.isNotBlank()) {
+                appendLine("⏱️ MOST READ SERIES (Time Spent):")
+                appendLine(timePerManga)
+                appendLine()
+            }
+
+            // User Notes (manga general notes)
+            val userNotes = libraryItems
+                .filter { !it.manga.notes.isNullOrBlank() }
+                .take(5)
+                .joinToString("\n") {
+                    "- ${it.manga.title}: \"${it.manga.notes?.replace("\n", " ")?.take(100)}\""
+                }
+
+            if (userNotes.isNotBlank()) {
+                appendLine("📝 MANGA NOTES:")
+                appendLine(userNotes)
+                appendLine()
+            }
+
+            // Reader Notes (notes taken while reading)
+            val readerNotes = try {
+                readerNotesRepository.getAllRecentNotes(limit = 15)
+            } catch (e: Exception) {
+                emptyList()
+            }
+
+            if (readerNotes.isNotEmpty()) {
+                appendLine("📖 RECENT READING NOTES:")
+                readerNotes.forEach { note ->
+                    val chapterLabel = if (note.chapterNumber > 0) {
+                        "Ch. ${note.chapterNumber.toInt()}"
+                    } else {
+                        note.chapterName
+                    }
+                    appendLine("- ${note.mangaTitle} ($chapterLabel, Page ${note.pageNumber}): \"${note.noteText}\"")
+                }
+                appendLine()
+            }
 
             appendLine("🎯 TOP GENRES (User Preferences):")
             appendLine(genreCounts.ifBlank { "Unknown" })

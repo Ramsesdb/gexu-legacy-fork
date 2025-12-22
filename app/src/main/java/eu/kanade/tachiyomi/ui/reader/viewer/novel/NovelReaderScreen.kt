@@ -93,6 +93,7 @@ fun NovelReaderScreen(
     initialOffset: Long,
     prefs: NovelPrefs,
     menuVisible: Boolean,
+    forceHideMenu: Boolean = false, // When true, hides menu instantly without animation (for capture)
     showTextMode: Boolean = true,
     hasExtractedText: Boolean = false,
     hasOriginalImages: Boolean = false,
@@ -113,6 +114,7 @@ fun NovelReaderScreen(
     tocItems: List<MuPdfUtil.TocItem> = emptyList(),
     onTocNavigate: (Int) -> Unit = {},
     onAiClick: () -> Unit = {},
+    onLongPress: (Float, Float, Int) -> Unit = { _, _, _ -> }, // x, y, pageIndex
 ) {
     // TOC modal state
     var showTocModal by remember { mutableStateOf(false) }
@@ -261,7 +263,13 @@ fun NovelReaderScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .pointerInput(Unit) {
-                            detectTapGestures(onTap = { onToggleMenu() })
+                            detectTapGestures(
+                                onTap = { onToggleMenu() },
+                                onLongPress = { offset ->
+                                    // Not on specific page content, use page 0
+                                    onLongPress(offset.x, offset.y, 0)
+                                },
+                            )
                         }
                         .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -292,9 +300,13 @@ fun NovelReaderScreen(
                             modifier = Modifier
                                 .fillMaxSize()
                                 .pointerInput(Unit) {
-                                    detectTapGestures(onTap = {
-                                        onToggleMenu()
-                                    })
+                                    detectTapGestures(
+                                        onTap = { onToggleMenu() },
+                                        onLongPress = { offset ->
+                                            val currentPageIndex = listState.firstVisibleItemIndex
+                                            onLongPress(offset.x, offset.y, currentPageIndex)
+                                        },
+                                    )
                                 }
                                 .padding(horizontal = 16.dp),
                             contentPadding = PaddingValues(vertical = 12.dp),
@@ -473,8 +485,13 @@ fun NovelReaderScreen(
                             state = pagerState,
                             modifier = Modifier
                                 .fillMaxSize()
-                                .pointerInput(Unit) {
-                                    detectTapGestures(onTap = { onToggleMenu() })
+                                .pointerInput(pagerState) {
+                                    detectTapGestures(
+                                        onTap = { onToggleMenu() },
+                                        onLongPress = { offset ->
+                                            onLongPress(offset.x, offset.y, pagerState.currentPage)
+                                        },
+                                    )
                                 },
                             flingBehavior = PagerDefaults.flingBehavior(
                                 state = pagerState,
@@ -645,27 +662,31 @@ fun NovelReaderScreen(
                 // Note: Page counter is shown in ReaderActivity menubar, no need to duplicate here
             }
 
-            AnimatedVisibility(
-                visible = menuVisible,
-                enter = slideInHorizontally { -it },
-                exit = slideOutHorizontally { -it },
-                modifier = Modifier.align(Alignment.CenterStart),
-            ) {
-                NovelReaderControls(
-                    prefs = prefs,
-                    hasImages = images.isNotEmpty(),
-                    showTextMode = showTextMode,
-                    hasExtractedText = hasExtractedText,
-                    hasOriginalImages = hasOriginalImages,
-                    isPdfMode = isPdfMode,
-                    onPrefsChanged = onPrefsChanged,
-                    onExtractOcr = onExtractOcr,
-                    onToggleTextMode = onToggleTextMode,
-                    onToggleMenu = onToggleMenu,
-                    hasToc = tocItems.isNotEmpty(),
-                    onShowToc = { showTocModal = true },
-                    onAiClick = onAiClick,
-                )
+            // Only show menu if not force-hidden (for capture)
+            // Using if instead of AnimatedVisibility when force-hiding to avoid exit animation
+            if (!forceHideMenu) {
+                AnimatedVisibility(
+                    visible = menuVisible,
+                    enter = slideInHorizontally { -it },
+                    exit = slideOutHorizontally { -it },
+                    modifier = Modifier.align(Alignment.CenterStart),
+                ) {
+                    NovelReaderControls(
+                        prefs = prefs,
+                        hasImages = images.isNotEmpty(),
+                        showTextMode = showTextMode,
+                        hasExtractedText = hasExtractedText,
+                        hasOriginalImages = hasOriginalImages,
+                        isPdfMode = isPdfMode,
+                        onPrefsChanged = onPrefsChanged,
+                        onExtractOcr = onExtractOcr,
+                        onToggleTextMode = onToggleTextMode,
+                        onToggleMenu = onToggleMenu,
+                        hasToc = tocItems.isNotEmpty(),
+                        onShowToc = { showTocModal = true },
+                        onAiClick = onAiClick,
+                    )
+                }
             }
 
             // TOC Modal
@@ -863,32 +884,6 @@ fun NovelReaderControls(
                 }
                 Spacer(modifier = Modifier.size(12.dp))
             }
-
-            // AI Chat Button - COMMENTED OUT: Duplicate of navbar AI button
-            // Keeping code for potential future use as a quick-access option
-            /*
-            FilledTonalButton(
-                onClick = {
-                    onToggleMenu()
-                    onAiClick()
-                },
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp),
-                colors = androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
-                    containerColor = MaterialTheme.colorScheme.tertiaryContainer,
-                    contentColor = MaterialTheme.colorScheme.onTertiaryContainer
-                )
-            ) {
-                Icon(
-                    Icons.Default.AutoAwesome,
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("Preguntar a Gexu AI", style = MaterialTheme.typography.labelMedium)
-            }
-            Spacer(modifier = Modifier.size(8.dp))
-             */
 
             // Font Size - Collapsible section
             SettingsSection(

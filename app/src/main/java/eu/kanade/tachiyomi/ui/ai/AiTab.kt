@@ -89,6 +89,7 @@ data object AiTab : Tab {
             onSelectConversation = screenModel::loadConversation,
             onDeleteConversation = screenModel::deleteConversationFromHistory,
             onNewConversation = screenModel::startNewConversation,
+            onToggleWebSearch = screenModel::toggleWebSearch,
         )
     }
 }

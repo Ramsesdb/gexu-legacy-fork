@@ -1,23 +1,38 @@
 package eu.kanade.presentation.ai
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.exclude
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -25,14 +40,17 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.OutlinedTextField
@@ -50,6 +68,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -71,6 +90,7 @@ fun AiChatScreen(
     onSelectConversation: (Long) -> Unit = {},
     onDeleteConversation: (Long) -> Unit = {},
     onNewConversation: () -> Unit = {},
+    onToggleWebSearch: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     var inputText by remember { mutableStateOf("") }
@@ -134,14 +154,14 @@ fun AiChatScreen(
                     },
                     actions = {
                         // History button
-                        IconButton(onClick = onToggleHistory) {
-                            BadgedBox(
-                                badge = {
-                                    if (state.savedConversations.isNotEmpty()) {
-                                        Badge { Text(state.savedConversations.size.toString()) }
-                                    }
-                                },
-                            ) {
+                        BadgedBox(
+                            badge = {
+                                if (state.savedConversations.isNotEmpty()) {
+                                    Badge { Text(state.savedConversations.size.toString()) }
+                                }
+                            },
+                        ) {
+                            IconButton(onClick = onToggleHistory) {
                                 Icon(
                                     imageVector = Icons.Default.History,
                                     contentDescription = "History",
@@ -171,11 +191,11 @@ fun AiChatScreen(
                     .fillMaxSize()
                     .padding(paddingValues),
             ) {
-                // Chat messages
+                // Chat messages - fills available space
                 LazyColumn(
                     modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth(),
+                        .fillMaxWidth()
+                        .weight(1f),
                     state = listState,
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -186,7 +206,11 @@ fun AiChatScreen(
                         }
                     }
 
-                    val filteredMessages = state.messages.filter { it.role != ChatMessage.Role.SYSTEM }
+                    // Filter out system messages and empty assistant placeholders (but keep user messages with images)
+                    val filteredMessages = state.messages.filter {
+                        it.role != ChatMessage.Role.SYSTEM &&
+                            (it.role != ChatMessage.Role.ASSISTANT || it.content.isNotEmpty())
+                    }
                     itemsIndexed(
                         items = filteredMessages,
                         key = { index, message -> "${index}_${message.timestamp}" },
@@ -195,7 +219,7 @@ fun AiChatScreen(
                     }
 
                     // Loading indicator
-                    if (state.isLoading) {
+                    if (state.isLoading && filteredMessages.lastOrNull()?.role != ChatMessage.Role.ASSISTANT) {
                         item {
                             LoadingBubble()
                         }
@@ -209,54 +233,80 @@ fun AiChatScreen(
                     }
                 }
 
-                // Input area
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    tonalElevation = 3.dp,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
-                            .navigationBarsPadding(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        OutlinedTextField(
-                            value = inputText,
-                            onValueChange = { inputText = it },
-                            modifier = Modifier.weight(1f),
-                            placeholder = { Text(stringResource(MR.strings.ai_chat_placeholder)) },
-                            shape = RoundedCornerShape(24.dp),
-                            maxLines = 4,
-                            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                            keyboardActions = KeyboardActions(
-                                onSend = {
+                // Input area - compact with buttons inside
+                OutlinedTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp)
+                        .padding(top = 8.dp, bottom = 16.dp)
+                        .navigationBarsPadding(),
+                    placeholder = {
+                        Text(
+                            text = stringResource(MR.strings.ai_chat_placeholder),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                    },
+                    textStyle = MaterialTheme.typography.bodyLarge,
+                    shape = RoundedCornerShape(28.dp),
+                    maxLines = 4,
+                    singleLine = false,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                    keyboardActions = KeyboardActions(
+                        onSend = {
+                            if (inputText.isNotBlank() && !state.isLoading) {
+                                onSendMessage(inputText)
+                                inputText = ""
+                                keyboardController?.hide()
+                            }
+                        },
+                    ),
+                    trailingIcon = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            // Web Search Toggle
+                            IconButton(
+                                onClick = onToggleWebSearch,
+                                modifier = Modifier.size(40.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Public,
+                                    contentDescription = stringResource(MR.strings.ai_web_search),
+                                    tint = if (state.isWebSearchEnabled) {
+                                        MaterialTheme.colorScheme.primary
+                                    } else {
+                                        MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                    },
+                                )
+                            }
+
+                            // Send button
+                            FilledIconButton(
+                                onClick = {
                                     if (inputText.isNotBlank() && !state.isLoading) {
                                         onSendMessage(inputText)
                                         inputText = ""
                                         keyboardController?.hide()
                                     }
                                 },
-                            ),
-                        )
-
-                        FilledIconButton(
-                            onClick = {
-                                if (inputText.isNotBlank() && !state.isLoading) {
-                                    onSendMessage(inputText)
-                                    inputText = ""
-                                    keyboardController?.hide()
-                                }
-                            },
-                            enabled = inputText.isNotBlank() && !state.isLoading,
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Filled.Send,
-                                contentDescription = "Send",
-                            )
+                                enabled = inputText.isNotBlank() && !state.isLoading,
+                                modifier = Modifier
+                                    .padding(end = 8.dp)
+                                    .size(40.dp),
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "Send",
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .offset(x = 1.dp),
+                                )
+                            }
                         }
-                    }
-                }
+                    },
+                )
             }
         }
     }
@@ -311,16 +361,19 @@ private fun ChatBubble(message: ChatMessage) {
                 MaterialTheme.colorScheme.surfaceVariant
             },
         ) {
-            Text(
-                text = message.content,
-                modifier = Modifier.padding(12.dp),
-                color = if (isUser) {
-                    MaterialTheme.colorScheme.onPrimary
-                } else {
-                    MaterialTheme.colorScheme.onSurfaceVariant
-                },
-                style = MaterialTheme.typography.bodyMedium,
-            )
+            if (isUser) {
+                Text(
+                    text = message.content,
+                    modifier = Modifier.padding(12.dp),
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            } else {
+                eu.kanade.presentation.manga.components.MarkdownRender(
+                    content = message.content,
+                    modifier = Modifier.padding(12.dp),
+                )
+            }
         }
     }
 }
@@ -335,16 +388,26 @@ private fun LoadingBubble() {
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
+            val infiniteTransition = rememberInfiniteTransition(label = "loading")
             Row(
                 modifier = Modifier.padding(16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                repeat(3) {
+                repeat(3) { index ->
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.2f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(600, delayMillis = index * 200),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                        label = "dot $index",
+                    )
                     Box(
                         modifier = Modifier
                             .size(8.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
                     )
                 }
             }

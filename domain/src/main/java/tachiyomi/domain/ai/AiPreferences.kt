@@ -15,8 +15,25 @@ class AiPreferences(
     /** API key for the selected provider (stored securely) */
     fun apiKey() = preferenceStore.getString("ai_api_key", "")
 
-    /** Selected model for the current provider */
-    fun model() = preferenceStore.getString("ai_model", "gpt-4o-mini")
+    /** Selected model for the current provider (may be incompatible if provider changed) */
+    fun model() = preferenceStore.getString("ai_model", AiProvider.OPENAI.defaultModel)
+
+    /**
+     * Get the effective model for the current provider.
+     * Falls back to provider's default if stored model is incompatible.
+     */
+    fun getEffectiveModel(): String {
+        val currentProvider = AiProvider.fromName(provider().get())
+        val storedModel = model().get()
+
+        // If stored model is valid for current provider, use it
+        if (currentProvider.models.contains(storedModel) || currentProvider == AiProvider.CUSTOM) {
+            return storedModel
+        }
+
+        // Otherwise, use provider's default
+        return currentProvider.defaultModel
+    }
 
     /** Custom base URL (only used when provider is CUSTOM) */
     fun customBaseUrl() = preferenceStore.getString("ai_custom_base_url", "")
@@ -59,6 +76,38 @@ class AiPreferences(
 
     /** Preferred embedding source: "cloud", "local", "hybrid" */
     fun embeddingSource() = preferenceStore.getString("ai_embedding_source", "hybrid")
+
+    // ========== Web Search (Gemini Grounding) ==========
+
+    /** Enable web search grounding for AI responses */
+    fun enableWebSearch() = preferenceStore.getBoolean("ai_enable_web_search", false)
+
+    /** Gemini API key for web search (required if primary provider is not Gemini) */
+    fun geminiSearchApiKey() = preferenceStore.getString("ai_gemini_search_key", "")
+
+    /**
+     * Get Gemini key for web search:
+     * - If primary = Gemini → use geminiSearchApiKey if set, else use primary apiKey
+     * - If primary = Other → must use geminiSearchApiKey
+     */
+    fun getGeminiKeyForSearch(): String? {
+        val primaryProvider = AiProvider.fromName(provider().get())
+        val searchKey = geminiSearchApiKey().get()
+
+        return if (primaryProvider == AiProvider.GEMINI) {
+            // Gemini user: use override key if set, else use primary key
+            searchKey.ifBlank { apiKey().get().ifBlank { null } }
+        } else {
+            // Other provider: must have dedicated Gemini key
+            searchKey.ifBlank { null }
+        }
+    }
+
+    /** Check if web search is available (toggle enabled + key exists) */
+    fun isWebSearchAvailable() = enableWebSearch().get() && getGeminiKeyForSearch() != null
+
+    /** Check if web search CAN be enabled (key exists, regardless of toggle state) */
+    fun canEnableWebSearch() = getGeminiKeyForSearch() != null
 
     companion object {
         /** Validate that API key looks reasonable (basic check) */

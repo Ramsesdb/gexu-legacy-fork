@@ -3,8 +3,13 @@ package eu.kanade.presentation.ai.components
 import android.graphics.BitmapFactory
 import android.util.Base64
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.Image
@@ -21,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -33,6 +39,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -40,6 +47,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledIconButton
@@ -48,8 +56,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -86,17 +92,19 @@ fun AiChatOverlay(
     hasAttachedImage: Boolean = false,
     attachedImageBase64: String? = null,
     onClearAttachedImage: () -> Unit = {},
+    isWebSearchEnabled: Boolean = false,
+    onToggleWebSearch: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AnimatedVisibility(
         visible = visible,
         enter = slideInVertically(
             initialOffsetY = { it },
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            animationSpec = spring(stiffness = Spring.StiffnessMedium),
         ),
         exit = slideOutVertically(
             targetOffsetY = { it },
-            animationSpec = spring(stiffness = Spring.StiffnessMediumLow),
+            animationSpec = spring(stiffness = Spring.StiffnessMedium),
         ),
     ) {
         // Background scrim - consumes all clicks to prevent interacting with reader behind
@@ -133,6 +141,8 @@ fun AiChatOverlay(
                     hasAttachedImage = hasAttachedImage,
                     attachedImageBase64 = attachedImageBase64,
                     onClearAttachedImage = onClearAttachedImage,
+                    isWebSearchEnabled = isWebSearchEnabled,
+                    onToggleWebSearch = onToggleWebSearch,
                     onDismiss = onDismiss,
                 )
             }
@@ -153,6 +163,8 @@ private fun AiChatContent(
     hasAttachedImage: Boolean,
     attachedImageBase64: String?,
     onClearAttachedImage: () -> Unit,
+    isWebSearchEnabled: Boolean,
+    onToggleWebSearch: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -254,7 +266,11 @@ private fun AiChatContent(
                 }
             }
 
-            val filteredMessages = messages.filter { it.role != ChatMessage.Role.SYSTEM }
+            // Filter out system messages and empty assistant placeholders (but keep user messages)
+            val filteredMessages = messages.filter {
+                it.role != ChatMessage.Role.SYSTEM &&
+                    (it.role != ChatMessage.Role.ASSISTANT || it.content.isNotEmpty())
+            }
             itemsIndexed(
                 items = filteredMessages,
                 key = { index, message -> "${index}_${message.timestamp}" },
@@ -263,7 +279,7 @@ private fun AiChatContent(
             }
 
             // Loading indicator
-            if (isLoading) {
+            if (isLoading && filteredMessages.lastOrNull()?.role != ChatMessage.Role.ASSISTANT) {
                 item {
                     LoadingBubble()
                 }
@@ -342,48 +358,79 @@ private fun AiChatContent(
             }
         }
 
-        // Input area
+        // Input area - Unified container
         Surface(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+                .navigationBarsPadding(),
+            shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.surfaceContainerHigh,
         ) {
             Row(
                 modifier = Modifier
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-                    .navigationBarsPadding(),
+                    .fillMaxWidth()
+                    .padding(start = 16.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
-                OutlinedTextField(
-                    value = inputText,
-                    onValueChange = { inputText = it },
-                    modifier = Modifier.weight(1f),
-                    placeholder = { Text("Pregúntame algo...") },
-                    shape = RoundedCornerShape(24.dp),
-                    maxLines = 3,
-                    singleLine = false,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                        focusedContainerColor = MaterialTheme.colorScheme.surface,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
-                    keyboardActions = KeyboardActions(
-                        onSend = {
-                            if (inputText.isNotBlank() && !isLoading) {
-                                onSendMessage(inputText)
-                                inputText = ""
-                                keyboardController?.hide()
-                            }
+                // Text input field
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(min = 40.dp),
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (inputText.isEmpty()) {
+                        Text(
+                            text = "Pregúntame algo...",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                        )
+                    }
+                    BasicTextField(
+                        value = inputText,
+                        onValueChange = { inputText = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        textStyle = MaterialTheme.typography.bodyLarge.copy(
+                            color = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        maxLines = 3,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Send),
+                        keyboardActions = KeyboardActions(
+                            onSend = {
+                                if (inputText.isNotBlank() && !isLoading) {
+                                    onSendMessage(inputText)
+                                    inputText = ""
+                                    keyboardController?.hide()
+                                }
+                            },
+                        ),
+                    )
+                }
+
+                // Web Search Toggle
+                IconButton(
+                    onClick = onToggleWebSearch,
+                    modifier = Modifier.size(36.dp),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Public,
+                        contentDescription = "Búsqueda web",
+                        tint = if (isWebSearchEnabled) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                         },
-                    ),
-                )
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
 
                 // Vision capture button
                 FilledIconButton(
                     onClick = onCaptureVision,
                     enabled = !isLoading,
+                    modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = if (hasAttachedImage) {
                             MaterialTheme.colorScheme.tertiary
@@ -400,9 +447,11 @@ private fun AiChatContent(
                     Icon(
                         imageVector = Icons.Default.RemoveRedEye,
                         contentDescription = "Capturar imagen",
+                        modifier = Modifier.size(18.dp),
                     )
                 }
 
+                // Send button
                 FilledIconButton(
                     onClick = {
                         if (inputText.isNotBlank() && !isLoading) {
@@ -412,6 +461,7 @@ private fun AiChatContent(
                         }
                     },
                     enabled = inputText.isNotBlank() && !isLoading,
+                    modifier = Modifier.size(36.dp),
                     colors = IconButtonDefaults.filledIconButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                         contentColor = MaterialTheme.colorScheme.onPrimary,
@@ -420,6 +470,7 @@ private fun AiChatContent(
                     Icon(
                         imageVector = Icons.AutoMirrored.Filled.Send,
                         contentDescription = "Enviar",
+                        modifier = Modifier.size(18.dp),
                     )
                 }
             }
@@ -504,15 +555,17 @@ private fun ChatBubble(message: ChatMessage) {
                         )
                     }
                 }
-                Text(
-                    text = message.content,
-                    color = if (isUser) {
-                        MaterialTheme.colorScheme.onPrimary
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                if (isUser) {
+                    Text(
+                        text = message.content,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                } else {
+                    eu.kanade.presentation.manga.components.MarkdownRender(
+                        content = message.content,
+                    )
+                }
             }
         }
     }
@@ -528,22 +581,27 @@ private fun LoadingBubble() {
             shape = RoundedCornerShape(16.dp),
             color = MaterialTheme.colorScheme.surfaceVariant,
         ) {
+            val infiniteTransition = rememberInfiniteTransition(label = "loading")
             Row(
                 modifier = Modifier.padding(16.dp, 12.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "Pensando",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                repeat(3) {
+                repeat(3) { index ->
+                    val alpha by infiniteTransition.animateFloat(
+                        initialValue = 0.2f,
+                        targetValue = 1f,
+                        animationSpec = infiniteRepeatable(
+                            animation = tween(600, delayMillis = index * 200),
+                            repeatMode = RepeatMode.Reverse,
+                        ),
+                        label = "dot $index",
+                    )
                     Box(
                         modifier = Modifier
                             .size(6.dp)
                             .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)),
+                            .background(MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = alpha)),
                     )
                 }
             }

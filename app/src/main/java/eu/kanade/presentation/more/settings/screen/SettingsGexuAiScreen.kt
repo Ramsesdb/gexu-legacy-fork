@@ -38,9 +38,41 @@ object SettingsGexuAiScreen : SearchableSettings {
 
         return listOf(
             getProviderGroup(aiPreferences),
+            getWebSearchGroup(aiPreferences),
             getPersonalityGroup(aiPreferences),
             getRagGroup(aiPreferences),
             getBehaviorGroup(aiPreferences),
+        )
+    }
+
+    @Composable
+    private fun getWebSearchGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val currentProvider by aiPreferences.provider().collectAsState()
+        val provider = AiProvider.fromName(currentProvider)
+        val enableWebSearch by aiPreferences.enableWebSearch().collectAsState()
+
+        // Show different subtitle based on provider and availability
+        val subtitle = when {
+            provider == AiProvider.GEMINI -> stringResource(MR.strings.ai_web_search_summary)
+            enableWebSearch && !aiPreferences.isWebSearchAvailable() ->
+                stringResource(MR.strings.ai_web_search_unavailable)
+            else -> stringResource(MR.strings.ai_web_search_summary)
+        }
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.ai_web_search),
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.enableWebSearch(),
+                    title = stringResource(MR.strings.ai_web_search),
+                    subtitle = subtitle,
+                ),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = aiPreferences.geminiSearchApiKey(),
+                    title = stringResource(MR.strings.ai_gemini_search_key),
+                    subtitle = stringResource(MR.strings.ai_gemini_search_key_summary),
+                ),
+            ),
         )
     }
 

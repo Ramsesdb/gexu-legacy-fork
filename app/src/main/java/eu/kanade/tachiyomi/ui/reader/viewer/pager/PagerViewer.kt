@@ -124,13 +124,13 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 NavigationRegion.LEFT -> moveLeft()
             }
         }
-        pager.longTapListener = f@{
-            if (activity.viewModel.state.value.menuVisible || config.longTapEnabled) {
-                val item = adapter.items.getOrNull(pager.currentItem)
-                if (item is ReaderPage) {
-                    activity.onPageLongTap(item)
-                    return@f true
-                }
+        pager.longTapListener = f@{ event ->
+            // Always allow long press on reader pages for contextual notes
+            val item = adapter.items.getOrNull(pager.currentItem)
+            if (item is ReaderPage) {
+                // Show contextual popup at the touch position
+                activity.viewModel.onLongPress(event.rawX, event.rawY)
+                return@f true
             }
             false
         }

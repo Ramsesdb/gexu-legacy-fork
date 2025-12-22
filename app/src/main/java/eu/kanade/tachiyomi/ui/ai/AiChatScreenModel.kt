@@ -14,6 +14,7 @@ import tachiyomi.domain.ai.model.AiMessage
 import tachiyomi.domain.ai.model.AiMessageCreate
 import tachiyomi.domain.ai.model.ChatMessage
 import tachiyomi.domain.ai.model.MessageRole
+import tachiyomi.domain.ai.model.StreamChunk
 import tachiyomi.domain.ai.repository.AiConversationRepository
 import tachiyomi.domain.ai.repository.AiRepository
 import uy.kohesive.injekt.Injekt
@@ -47,6 +48,13 @@ class AiChatScreenModel(
         screenModelScope.launchIO {
             conversationRepository.getAllConversations().collectLatest { conversations ->
                 mutableState.update { it.copy(savedConversations = conversations) }
+            }
+        }
+
+        // Observe Web Search preference
+        screenModelScope.launchIO {
+            aiPreferences.enableWebSearch().changes().collectLatest { enabled ->
+                mutableState.update { it.copy(isWebSearchEnabled = enabled) }
             }
         }
     }
@@ -102,9 +110,10 @@ class AiChatScreenModel(
         val image = state.value.attachedImage
         val userMessage = ChatMessage.user(content, image)
 
+        // Add user message + placeholder for streaming assistant response
         mutableState.update { state ->
             state.copy(
-                messages = state.messages + userMessage,
+                messages = state.messages + userMessage + ChatMessage.assistant(""),
                 isLoading = true,
                 error = null,
                 attachedImage = null, // Clear after sending
@@ -126,39 +135,60 @@ class AiChatScreenModel(
 
             // Build messages with system context (includes RAG search based on query)
             val systemPrompt = buildSystemPrompt(content)
-            val allMessages = listOf(ChatMessage.system(systemPrompt)) + state.value.messages
+            // Exclude the empty placeholder from messages sent to API
+            val messagesForApi = state.value.messages.dropLast(1)
+            val allMessages = listOf(ChatMessage.system(systemPrompt)) + messagesForApi
 
-            val result = aiRepository.sendMessage(allMessages)
+            var fullResponse = ""
 
-            result.fold(
-                onSuccess = { response ->
-                    mutableState.update { state ->
-                        state.copy(
-                            messages = state.messages + response,
-                            isLoading = false,
-                        )
+            // Use streaming for real-time response display
+            aiRepository.streamMessage(allMessages).collect { chunk ->
+                when (chunk) {
+                    is StreamChunk.Text -> {
+                        fullResponse += chunk.delta
+                        // Update the last message (assistant placeholder) with accumulated text
+                        mutableState.update { state ->
+                            val updatedMessages = state.messages.toMutableList()
+                            if (updatedMessages.isNotEmpty()) {
+                                updatedMessages[updatedMessages.lastIndex] =
+                                    ChatMessage.assistant(fullResponse)
+                            }
+                            state.copy(messages = updatedMessages)
+                        }
                     }
+                    is StreamChunk.Done -> {
+                        mutableState.update { it.copy(isLoading = false) }
 
-                    // Persist assistant response if enabled
-                    if (shouldPersist() && conversationId != null) {
-                        conversationRepository.addMessage(
-                            AiMessageCreate(
-                                conversationId = conversationId,
-                                role = MessageRole.ASSISTANT,
-                                content = response.content,
-                            ),
-                        )
+                        // Persist assistant response if enabled
+                        if (shouldPersist() && conversationId != null && fullResponse.isNotBlank()) {
+                            conversationRepository.addMessage(
+                                AiMessageCreate(
+                                    conversationId = conversationId,
+                                    role = MessageRole.ASSISTANT,
+                                    content = fullResponse,
+                                ),
+                            )
+                        }
                     }
-                },
-                onFailure = { error ->
-                    mutableState.update { state ->
-                        state.copy(
-                            isLoading = false,
-                            error = error.message ?: "Unknown error",
-                        )
+                    is StreamChunk.Error -> {
+                        // Remove the empty placeholder on error
+                        mutableState.update { state ->
+                            val messagesWithoutPlaceholder = if (state.messages.isNotEmpty() &&
+                                state.messages.last().content.isEmpty()
+                            ) {
+                                state.messages.dropLast(1)
+                            } else {
+                                state.messages
+                            }
+                            state.copy(
+                                messages = messagesWithoutPlaceholder,
+                                isLoading = false,
+                                error = chunk.message,
+                            )
+                        }
                     }
-                },
-            )
+                }
+            }
         }
     }
 
@@ -235,6 +265,15 @@ class AiChatScreenModel(
 
     fun setApiKey(apiKey: String) {
         mutableState.update { it.copy(apiKey = apiKey) }
+    }
+
+    fun toggleWebSearch() {
+        if (!aiPreferences.canEnableWebSearch()) {
+            mutableState.update { it.copy(error = "Web search unavailable: Requesting Gemini API key in settings") }
+            return
+        }
+        val current = aiPreferences.enableWebSearch().get()
+        aiPreferences.enableWebSearch().set(!current)
     }
 
     fun saveApiKey() {
@@ -332,6 +371,7 @@ class AiChatScreenModel(
         // Persistence state
         val currentConversationId: Long? = null,
         val persistEnabled: Boolean = true,
+        val isWebSearchEnabled: Boolean = false,
         // History drawer state
         val showHistoryDrawer: Boolean = false,
         val savedConversations: List<AiConversation> = emptyList(),

@@ -1,6 +1,8 @@
 package tachiyomi.domain.ai.repository
 
+import kotlinx.coroutines.flow.Flow
 import tachiyomi.domain.ai.model.ChatMessage
+import tachiyomi.domain.ai.model.StreamChunk
 
 /**
  * Repository interface for AI chat operations.
@@ -13,6 +15,13 @@ interface AiRepository {
      * @return The AI's response message
      */
     suspend fun sendMessage(messages: List<ChatMessage>): Result<ChatMessage>
+
+    /**
+     * Stream a message from the AI with real-time chunks.
+     * @param messages The conversation history including system context
+     * @return Flow of StreamChunk representing incremental response
+     */
+    fun streamMessage(messages: List<ChatMessage>): Flow<StreamChunk>
 
     /**
      * Check if the AI service is properly configured (valid API key, etc.)
