@@ -73,6 +73,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.UpsertReaderNote
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -871,7 +872,7 @@ class ReaderViewModel @JvmOverloads constructor(
     /**
      * Saves a note from the contextual popup.
      */
-    fun saveNoteFromContextual(noteText: String) {
+    fun saveNoteFromContextual(noteText: String, tags: List<NoteTag>) {
         val manga = manga ?: return
         val context = state.value.longPressContext ?: return
         viewModelScope.launchIO {
@@ -880,6 +881,7 @@ class ReaderViewModel @JvmOverloads constructor(
                 chapterId = context.chapterId,
                 pageNumber = context.pageNumber,
                 noteText = noteText,
+                tags = tags,
             )
             withUIContext {
                 dismissLongPressPopup()

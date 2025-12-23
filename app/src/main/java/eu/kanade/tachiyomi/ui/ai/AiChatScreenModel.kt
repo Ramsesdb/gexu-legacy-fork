@@ -301,38 +301,45 @@ class AiChatScreenModel(
 
         appendLine("You are Gexu AI, a knowledgeable reading companion for manga, manhwa, and light novels.")
         appendLine()
+
         // CRITICAL: Language adaptation rule
         appendLine("LANGUAGE RULE (MANDATORY):")
-        appendLine(
-            "- ALWAYS detect the language of the user's message and respond in that SAME language.",
-        )
-        appendLine("- If the user writes in Spanish, respond in Spanish.")
-        appendLine("- If the user writes in English, respond in English.")
-        appendLine("- If the user writes in Japanese, respond in Japanese.")
+        appendLine("- ALWAYS detect the language of the user's message and respond in that SAME language.")
         appendLine("- Apply this rule to ALL responses without exception.")
         appendLine()
+
         appendLine("COMMUNICATION STYLE:")
         appendLine(tone.systemPrompt)
         appendLine()
 
-        // Check if context injection is enabled (saves tokens when disabled)
+        // Check if context injection is enabled
         val includeContext = aiPreferences.includeContext().get()
+        val currentState = state.value
 
         if (includeContext) {
-            // Inject Context Adaptively
-            val currentState = state.value
             if (currentState.currentMangaId != null) {
-                // READER MODE: Focus on current manga + brief profile for general questions
+                // READER MODE: Include basic manga context (title, progress, anti-spoiler)
+                // This is always needed since user is actively reading
                 append(getReadingContext.getContextForManga(currentState.currentMangaId, null))
                 appendLine()
-                append(getReadingContext.getBriefProfile())
-                appendLine()
                 appendLine(
-                    "PRIORITY: User is reading a specific manga. Focus answers on THIS content unless they ask for general recommendations.",
+                    "PRIORITY: User is reading this manga. Focus answers on it unless they ask otherwise.",
                 )
             } else {
-                // GENERAL CHAT MODE: Use RAG to enrich context with relevant library items
-                append(getReadingContext.getContextWithRag(userQuery))
+                // GENERAL CHAT MODE: Minimal context, use tools for data
+                appendLine("USER'S LIBRARY ACCESS:")
+                appendLine("You have access to tools to query the user's manga library:")
+                appendLine("- get_library_stats: Get library statistics and top genres")
+                appendLine("- search_library(query): Search manga by title, genre, or author")
+                appendLine(
+                    "- get_full_manga_context(title): Get FULL details about a manga " +
+                        "(description, notes, progress, etc.)",
+                )
+                appendLine("- get_user_notes(manga_title?): Get user's reading notes")
+                appendLine("- get_reading_history(limit?): Get recent reading history")
+                appendLine()
+                appendLine("USE THESE TOOLS when you need specific information about the user's library.")
+                appendLine("Do NOT guess or make up information - call the appropriate tool.")
             }
             appendLine()
         }
@@ -353,9 +360,8 @@ class AiChatScreenModel(
         appendLine()
         appendLine("Guidelines:")
         appendLine("- Keep responses concise unless asked for detail")
-        appendLine("- Always avoid major spoilers unless explicitly asked")
-        appendLine("- If you don't know something, say so honestly")
-        appendLine("- When asked about the user's library, USE THE PROVIDED CONTEXT to give specific answers.")
+        appendLine("- Always avoid spoilers unless explicitly asked")
+        appendLine("- If you don't know something, use tools to look it up or say so honestly")
     }
 
     data class State(

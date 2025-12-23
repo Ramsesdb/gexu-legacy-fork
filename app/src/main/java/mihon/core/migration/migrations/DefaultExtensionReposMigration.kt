@@ -13,7 +13,8 @@ import tachiyomi.core.common.util.system.logcat
  * Uses upsert so it's safe if repos already exist (e.g., from backup restore).
  */
 class DefaultExtensionReposMigration : Migration {
-    override val version: Float = 8f
+    // Use ALWAYS so this runs for new installs too (not just upgrades)
+    override val version: Float = Migration.ALWAYS
 
     private data class DefaultRepo(
         val baseUrl: String,
@@ -26,14 +27,14 @@ class DefaultExtensionReposMigration : Migration {
     // Default repositories to add for new users
     private val defaultRepos = listOf(
         DefaultRepo(
-            baseUrl = "https://raw.githubusercontent.com/keiyoushi/extensions/repo/index.min.json",
+            baseUrl = "https://raw.githubusercontent.com/keiyoushi/extensions/repo",
             name = "Keiyoushi",
             shortName = "KEY",
             website = "https://keiyoushi.github.io/extensions/",
             fingerprint = "NOFINGERPRINT-keiyoushi",
         ),
         DefaultRepo(
-            baseUrl = "https://raw.githubusercontent.com/yuzono/manga-repo/repo/index.min.json",
+            baseUrl = "https://raw.githubusercontent.com/yuzono/manga-repo/repo",
             name = "Yūzōnō",
             shortName = "YUZ",
             website = "https://github.com/yuzono/manga-repo",

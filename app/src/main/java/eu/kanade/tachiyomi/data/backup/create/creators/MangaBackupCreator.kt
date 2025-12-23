@@ -13,6 +13,7 @@ import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
@@ -93,6 +94,7 @@ class MangaBackupCreator(
                             pageNumber = note.pageNumber,
                             noteText = note.noteText,
                             createdAt = note.createdAt.time,
+                            tags = NoteTag.toStorageString(note.tags),
                         )
                     }
                 }
@@ -101,6 +103,7 @@ class MangaBackupCreator(
                 }
             }
         }
+
 
         return mangaObject
     }

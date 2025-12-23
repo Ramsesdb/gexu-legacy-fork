@@ -1,6 +1,7 @@
 package tachiyomi.domain.manga.repository
 
 import kotlinx.coroutines.flow.Flow
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.manga.model.ReaderNote
 import tachiyomi.domain.manga.model.ReaderNoteWithManga
 
@@ -16,9 +17,12 @@ interface ReaderNotesRepository {
         chapterId: Long,
         pageNumber: Int,
         noteText: String,
+        tags: List<NoteTag> = emptyList(),
     )
 
     suspend fun updateNote(noteId: Long, noteText: String)
+
+    suspend fun updateNoteTags(noteId: Long, tags: List<NoteTag>)
 
     suspend fun deleteNote(noteId: Long)
 
@@ -37,4 +41,14 @@ interface ReaderNotesRepository {
      * Search notes by manga title for RAG context.
      */
     suspend fun searchNotesByMangaTitle(query: String, limit: Int = 10): List<ReaderNoteWithManga>
+
+    /**
+     * Search notes by text content within a specific manga.
+     */
+    suspend fun searchNotesInManga(mangaId: Long, query: String): List<ReaderNote>
+
+    /**
+     * Search notes by tag within a specific manga.
+     */
+    suspend fun searchNotesByTag(mangaId: Long, tag: NoteTag): List<ReaderNote>
 }
