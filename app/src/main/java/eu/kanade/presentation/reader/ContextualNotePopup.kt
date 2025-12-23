@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -62,6 +64,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -97,7 +100,7 @@ fun ContextualNotePopup(
     visible: Boolean,
     context: LongPressContext?,
     onDismiss: () -> Unit,
-    onSaveNote: (String) -> Unit,
+    onSaveNote: (String, List<NoteTag>) -> Unit,
     onToggleBookmark: () -> Unit,
     onCopyPage: () -> Unit,
     onAskAi: (() -> Unit)? = null,
@@ -107,6 +110,7 @@ fun ContextualNotePopup(
 
     var mode by remember(visible) { mutableStateOf<ContextualPopupMode>(ContextualPopupMode.Menu) }
     var noteText by remember(visible) { mutableStateOf("") }
+    var selectedTags by remember(visible) { mutableStateOf<Set<NoteTag>>(emptySet()) }
     val focusRequester = remember { FocusRequester() }
 
     val configuration = LocalConfiguration.current
@@ -277,6 +281,59 @@ fun ContextualNotePopup(
 
                             Spacer(Modifier.height(8.dp))
 
+                            // Tag selector with emoji + displayName
+                            @OptIn(ExperimentalLayoutApi::class)
+                            FlowRow(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                NoteTag.entries.forEach { tag ->
+                                    val isSelected = tag in selectedTags
+                                    Surface(
+                                        onClick = {
+                                            selectedTags = if (isSelected) {
+                                                selectedTags - tag
+                                            } else {
+                                                selectedTags + tag
+                                            }
+                                        },
+                                        modifier = Modifier.height(32.dp),
+                                        shape = RoundedCornerShape(16.dp),
+                                        color = if (isSelected) {
+                                            MaterialTheme.colorScheme.primaryContainer
+                                        } else {
+                                            MaterialTheme.colorScheme.surfaceVariant
+                                        },
+                                        tonalElevation = if (isSelected) 2.dp else 0.dp,
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.padding(
+                                                horizontal = 10.dp,
+                                                vertical = 4.dp,
+                                            ),
+                                        ) {
+                                            Text(
+                                                text = tag.emoji,
+                                                style = MaterialTheme.typography.bodySmall,
+                                            )
+                                            Spacer(Modifier.width(4.dp))
+                                            Text(
+                                                text = tag.displayName,
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = if (isSelected) {
+                                                    MaterialTheme.colorScheme.onPrimaryContainer
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+
                             // Action buttons
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
@@ -297,11 +354,10 @@ fun ContextualNotePopup(
 
                                 Spacer(Modifier.weight(1f))
 
-                                // Save button
                                 Button(
                                     onClick = {
                                         if (noteText.isNotBlank()) {
-                                            onSaveNote(noteText.trim())
+                                            onSaveNote(noteText.trim(), selectedTags.toList())
                                             onDismiss()
                                         }
                                     },

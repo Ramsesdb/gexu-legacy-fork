@@ -454,8 +454,10 @@ class MangaRestorer(
             }
             if (chapter != null) {
                 // Check if note already exists (avoid duplicates)
+                // Mapper now has 9 columns: id, manga_id, chapter_id, chapter_number, chapter_name,
+                // page_number, note_text, tags, created_at
                 val existingNotes = handler.awaitList {
-                    reader_notesQueries.getNotesByChapterId(chapter._id) { id, _, _, _, _, pn, nt, _ ->
+                    reader_notesQueries.getNotesByChapterId(chapter._id) { id, _, _, _, _, pn, nt, _, _ ->
                         Pair(pn.toInt(), nt)
                     }
                 }
@@ -469,6 +471,7 @@ class MangaRestorer(
                             chapterId = chapter._id,
                             pageNumber = note.pageNumber.toLong(),
                             noteText = note.noteText,
+                            tags = note.tags,
                             createdAt = Date(note.createdAt),
                         )
                     }

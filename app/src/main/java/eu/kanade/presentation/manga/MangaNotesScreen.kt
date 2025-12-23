@@ -3,6 +3,8 @@ package eu.kanade.presentation.manga
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,24 +17,35 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Clear
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -42,6 +55,7 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.manga.components.MangaNotesTextArea
 import eu.kanade.tachiyomi.ui.manga.notes.MangaNotesScreen
 import kotlinx.coroutines.launch
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.manga.model.ReaderNote
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -56,6 +70,7 @@ fun MangaNotesScreen(
     navigateUp: () -> Unit,
     onUpdateNotes: (String) -> Unit,
     onDeleteReaderNote: (Long) -> Unit,
+    onSearchQueryChange: (String) -> Unit,
     onNavigateToPage: (chapterId: Long, pageNumber: Int) -> Unit,
 ) {
     val pagerState = rememberPagerState(pageCount = { 2 })
@@ -125,7 +140,9 @@ fun MangaNotesScreen(
                     1 -> {
                         // Reader notes tab
                         ReaderNotesContent(
-                            notes = state.readerNotes,
+                            notes = state.filteredNotes,
+                            searchQuery = state.searchQuery,
+                            onSearchQueryChange = onSearchQueryChange,
                             onDelete = onDeleteReaderNote,
                             onNavigateToPage = onNavigateToPage,
                         )
@@ -139,10 +156,80 @@ fun MangaNotesScreen(
 @Composable
 private fun ReaderNotesContent(
     notes: List<ReaderNote>,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
     onDelete: (Long) -> Unit,
     onNavigateToPage: (chapterId: Long, pageNumber: Int) -> Unit,
 ) {
-    if (notes.isEmpty()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Search bar
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = onSearchQueryChange,
+            placeholder = { Text(stringResource(MR.strings.action_search_hint)) },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            trailingIcon = {
+                if (searchQuery.isNotEmpty()) {
+                    IconButton(onClick = { onSearchQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Clear,
+                            contentDescription = stringResource(MR.strings.action_cancel),
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
+            },
+            singleLine = true,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.padding.medium)
+                .padding(top = MaterialTheme.padding.small),
+        )
+
+        // Tag filter chips
+        var selectedTagFilter by remember { mutableStateOf<NoteTag?>(null) }
+        LazyRow(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = MaterialTheme.padding.medium),
+        ) {
+            items(NoteTag.entries) { tag ->
+                FilterChip(
+                    selected = selectedTagFilter == tag,
+                    onClick = {
+                        selectedTagFilter = if (selectedTagFilter == tag) null else tag
+                    },
+                    label = {
+                        Text(
+                            text = "${tag.emoji} ${tag.displayName}",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    },
+                    colors = FilterChipDefaults.filterChipColors(
+                        selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
+                    ),
+                )
+            }
+        }
+
+        // Filter notes by selected tag
+        val displayedNotes = remember(notes, selectedTagFilter) {
+            if (selectedTagFilter == null) {
+                notes
+            } else {
+                notes.filter { note -> selectedTagFilter in note.tags }
+            }
+        }
+
+        if (displayedNotes.isEmpty()) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -169,20 +256,21 @@ private fun ReaderNotesContent(
                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
-    } else {
-        LazyColumn(
-            contentPadding = PaddingValues(MaterialTheme.padding.medium),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            items(
-                items = notes.sortedByDescending { it.createdAt },
-                key = { it.id },
-            ) { note ->
-                ReaderNoteCard(
-                    note = note,
-                    onDelete = { onDelete(note.id) },
-                    onClick = { onNavigateToPage(note.chapterId, note.pageNumber) },
-                )
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(MaterialTheme.padding.medium),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                items(
+                    items = displayedNotes.sortedByDescending { it.createdAt },
+                    key = { it.id },
+                ) { note ->
+                    ReaderNoteCard(
+                        note = note,
+                        onDelete = { onDelete(note.id) },
+                        onClick = { onNavigateToPage(note.chapterId, note.pageNumber) },
+                    )
+                }
             }
         }
     }
@@ -252,6 +340,39 @@ private fun ReaderNoteCard(
                             modifier = Modifier.size(18.dp),
                             tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
                         )
+                    }
+                }
+            }
+
+            // Tags display with emoji + name
+            if (note.tags.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    note.tags.forEach { tag ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.7f),
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    text = tag.emoji,
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    text = tag.displayName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -6,6 +6,7 @@ CREATE TABLE reader_notes(
     chapter_id INTEGER NOT NULL,
     page_number INTEGER NOT NULL DEFAULT 0,
     note_text TEXT NOT NULL,
+    tags TEXT DEFAULT NULL,
     created_at INTEGER AS Date NOT NULL,
     FOREIGN KEY(manga_id) REFERENCES mangas (_id) ON DELETE CASCADE,
     FOREIGN KEY(chapter_id) REFERENCES chapters (_id) ON DELETE CASCADE
@@ -23,6 +24,7 @@ SELECT
     C.name AS chapter_name,
     RN.page_number,
     RN.note_text,
+    RN.tags,
     RN.created_at
 FROM reader_notes RN
 JOIN chapters C ON RN.chapter_id = C._id
@@ -38,6 +40,7 @@ SELECT
     C.name AS chapter_name,
     RN.page_number,
     RN.note_text,
+    RN.tags,
     RN.created_at
 FROM reader_notes RN
 JOIN chapters C ON RN.chapter_id = C._id
@@ -48,12 +51,17 @@ getNotesCountByMangaId:
 SELECT COUNT(*) FROM reader_notes WHERE manga_id = :mangaId;
 
 insertNote:
-INSERT INTO reader_notes(manga_id, chapter_id, page_number, note_text, created_at)
-VALUES (:mangaId, :chapterId, :pageNumber, :noteText, :createdAt);
+INSERT INTO reader_notes(manga_id, chapter_id, page_number, note_text, tags, created_at)
+VALUES (:mangaId, :chapterId, :pageNumber, :noteText, :tags, :createdAt);
 
 updateNote:
 UPDATE reader_notes
 SET note_text = :noteText
+WHERE _id = :noteId;
+
+updateNoteTags:
+UPDATE reader_notes
+SET tags = :tags
 WHERE _id = :noteId;
 
 deleteNote:
@@ -75,6 +83,7 @@ SELECT
     C.name AS chapter_name,
     RN.page_number,
     RN.note_text,
+    RN.tags,
     RN.created_at
 FROM reader_notes RN
 JOIN chapters C ON RN.chapter_id = C._id
@@ -92,6 +101,7 @@ SELECT
     C.name AS chapter_name,
     RN.page_number,
     RN.note_text,
+    RN.tags,
     RN.created_at
 FROM reader_notes RN
 JOIN chapters C ON RN.chapter_id = C._id
@@ -99,3 +109,56 @@ JOIN mangas M ON RN.manga_id = M._id
 WHERE M.title LIKE '%' || :searchQuery || '%'
 ORDER BY RN.created_at DESC
 LIMIT :limit;
+
+searchNotesByText:
+SELECT 
+    RN._id,
+    RN.manga_id,
+    M.title AS manga_title,
+    RN.chapter_id,
+    C.chapter_number,
+    C.name AS chapter_name,
+    RN.page_number,
+    RN.note_text,
+    RN.tags,
+    RN.created_at
+FROM reader_notes RN
+JOIN chapters C ON RN.chapter_id = C._id
+JOIN mangas M ON RN.manga_id = M._id
+WHERE RN.note_text LIKE '%' || :query || '%'
+ORDER BY RN.created_at DESC
+LIMIT :limit;
+
+searchNotesInManga:
+SELECT 
+    RN._id,
+    RN.manga_id,
+    RN.chapter_id,
+    C.chapter_number,
+    C.name AS chapter_name,
+    RN.page_number,
+    RN.note_text,
+    RN.tags,
+    RN.created_at
+FROM reader_notes RN
+JOIN chapters C ON RN.chapter_id = C._id
+WHERE RN.manga_id = :mangaId
+AND RN.note_text LIKE '%' || :query || '%'
+ORDER BY RN.created_at DESC;
+
+searchNotesByTag:
+SELECT 
+    RN._id,
+    RN.manga_id,
+    RN.chapter_id,
+    C.chapter_number,
+    C.name AS chapter_name,
+    RN.page_number,
+    RN.note_text,
+    RN.tags,
+    RN.created_at
+FROM reader_notes RN
+JOIN chapters C ON RN.chapter_id = C._id
+WHERE RN.manga_id = :mangaId
+AND RN.tags LIKE '%' || :tag || '%'
+ORDER BY RN.created_at DESC;

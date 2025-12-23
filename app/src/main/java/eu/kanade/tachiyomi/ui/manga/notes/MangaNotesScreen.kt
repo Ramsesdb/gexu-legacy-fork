@@ -21,6 +21,7 @@ import tachiyomi.domain.manga.interactor.GetReaderNotes
 import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.ReaderNote
+import tachiyomi.domain.manga.repository.ReaderNotesRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -40,6 +41,7 @@ class MangaNotesScreen(
             navigateUp = navigator::pop,
             onUpdateNotes = screenModel::updateNotes,
             onDeleteReaderNote = screenModel::deleteReaderNote,
+            onSearchQueryChange = screenModel::updateSearchQuery,
             onNavigateToPage = { chapterId, pageNumber ->
                 // Navigate to reader at specific chapter and page
                 context.startActivity(
@@ -54,13 +56,14 @@ class MangaNotesScreen(
         private val updateMangaNotes: UpdateMangaNotes = Injekt.get(),
         private val getReaderNotes: GetReaderNotes = Injekt.get(),
         private val deleteReaderNote: DeleteReaderNote = Injekt.get(),
-    ) : StateScreenModel<State>(State(manga, manga.notes ?: "", emptyList())) {
+        private val readerNotesRepository: ReaderNotesRepository = Injekt.get(),
+    ) : StateScreenModel<State>(State(manga, manga.notes ?: "", emptyList(), "")) {
 
         init {
             // Load reader notes
             screenModelScope.launch {
                 getReaderNotes.subscribe(manga.id).collect { notes ->
-                    mutableState.update { it.copy(readerNotes = notes) }
+                    mutableState.update { it.copy(readerNotes = notes, filteredNotes = notes) }
                 }
             }
         }
@@ -82,6 +85,18 @@ class MangaNotesScreen(
                 deleteReaderNote.await(noteId)
             }
         }
+
+        fun updateSearchQuery(query: String) {
+            mutableState.update { it.copy(searchQuery = query) }
+            if (query.isBlank()) {
+                mutableState.update { it.copy(filteredNotes = it.readerNotes) }
+            } else {
+                screenModelScope.launch {
+                    val results = readerNotesRepository.searchNotesInManga(manga.id, query)
+                    mutableState.update { it.copy(filteredNotes = results) }
+                }
+            }
+        }
     }
 
     @Immutable
@@ -89,5 +104,7 @@ class MangaNotesScreen(
         val manga: Manga,
         val notes: String,
         val readerNotes: List<ReaderNote>,
+        val searchQuery: String = "",
+        val filteredNotes: List<ReaderNote> = emptyList(),
     )
 }

@@ -21,12 +21,15 @@ import tachiyomi.domain.ai.AiProvider
 import tachiyomi.domain.ai.model.ChatMessage
 import tachiyomi.domain.ai.model.StreamChunk
 import tachiyomi.domain.ai.repository.AiRepository
+import tachiyomi.domain.ai.tools.AiToolDefinitions
+import tachiyomi.domain.ai.tools.AiToolHandler
 import java.io.IOException
 
 class AiRepositoryImpl(
     private val client: OkHttpClient,
     private val aiPreferences: AiPreferences,
     private val json: Json,
+    private val toolHandler: AiToolHandler? = null,
 ) : AiRepository {
 
     override suspend fun sendMessage(messages: List<ChatMessage>): Result<ChatMessage> {
@@ -264,6 +267,52 @@ class AiRepositoryImpl(
     }
 
     /**
+     * Build the list of tools to include in Gemini requests.
+     * Includes google_search and custom function declarations when enabled.
+     */
+    private fun buildGeminiTools(): List<GeminiTool> {
+        val tools = mutableListOf<GeminiTool>()
+
+        // Add web search if enabled
+        val useWebSearch = aiPreferences.enableWebSearch().get() &&
+            aiPreferences.getGeminiKeyForSearch() != null
+        if (useWebSearch) {
+            tools.add(GeminiTool(googleSearch = GeminiGoogleSearch()))
+        }
+
+        // Add function calling tools if handler is available
+        if (toolHandler != null) {
+            val functionDeclarations = AiToolDefinitions.allTools.map { tool ->
+                val props = tool.parameters.properties
+                val reqs = tool.parameters.required
+                GeminiFunctionDeclaration(
+                    name = tool.name,
+                    description = tool.description,
+                    parameters = GeminiFunctionParameters(
+                        type = tool.parameters.type,
+                        // Only include properties if not empty (null is omitted from JSON)
+                        properties = if (props.isNotEmpty()) {
+                            props.mapValues { (_, prop) ->
+                                GeminiPropertyDef(
+                                    type = prop.type,
+                                    description = prop.description,
+                                )
+                            }
+                        } else {
+                            null
+                        },
+                        // Only include required if not empty
+                        required = reqs.ifEmpty { null },
+                    ),
+                )
+            }
+            tools.add(GeminiTool(functionDeclarations = functionDeclarations))
+        }
+
+        return tools.ifEmpty { emptyList() }
+    }
+
+    /**
      * Stream AI responses in real-time using Server-Sent Events (SSE).
      * Now supports Gemini and OpenAI/compatible providers.
      */
@@ -351,8 +400,8 @@ class AiRepositoryImpl(
                 )
             }
 
-        val useWebSearch = aiPreferences.enableWebSearch().get() &&
-            aiPreferences.getGeminiKeyForSearch() != null
+        // Use the helper to build tools (includes google_search + function declarations)
+        val tools = buildGeminiTools()
 
         val requestBody = GeminiRequest(
             contents = contents,
@@ -361,11 +410,7 @@ class AiRepositoryImpl(
             } else {
                 null
             },
-            tools = if (useWebSearch) {
-                listOf(GeminiTool(googleSearch = GeminiGoogleSearch()))
-            } else {
-                null
-            },
+            tools = tools.ifEmpty { null },
         )
 
         val request = Request.Builder()
@@ -384,10 +429,16 @@ class AiRepositoryImpl(
 
             override fun onResponse(call: Call, response: Response) {
                 if (!response.isSuccessful) {
-                    val errorMsg = if (response.code == 429) {
-                        "Quota exceeded (429). Please try again later."
-                    } else {
-                        "API error: ${response.code}"
+                    // Include actual error body for debugging
+                    val errorBody = try {
+                        response.body?.string()?.take(300) ?: ""
+                    } catch (e: Exception) {
+                        ""
+                    }
+                    val errorMsg = when (response.code) {
+                        429 -> "Quota exceeded (429). Please try again later."
+                        400 -> "Bad request (400): $errorBody"
+                        else -> "API error: ${response.code}"
                     }
                     trySend(StreamChunk.Error(errorMsg))
                     close()
@@ -396,6 +447,9 @@ class AiRepositoryImpl(
 
                 try {
                     response.body?.source()?.let { source ->
+                        // Collect all function call parts from the stream (preserving thoughtSignature)
+                        val pendingFunctionCallParts = mutableListOf<GeminiPart>()
+
                         while (!source.exhausted()) {
                             val line = source.readUtf8Line() ?: continue
                             if (line.startsWith("data: ")) {
@@ -403,23 +457,224 @@ class AiRepositoryImpl(
                                 if (jsonData.isNotEmpty()) {
                                     try {
                                         val chunk = json.decodeFromString<GeminiResponse>(jsonData)
-                                        val text = chunk.candidates?.firstOrNull()
-                                            ?.content?.parts?.firstOrNull()?.text
-                                        if (!text.isNullOrEmpty()) {
-                                            trySend(StreamChunk.Text(text))
+                                        val parts = chunk.candidates?.firstOrNull()?.content?.parts
+
+                                        parts?.forEach { part ->
+                                            // Handle text response
+                                            if (!part.text.isNullOrEmpty()) {
+                                                trySend(StreamChunk.Text(part.text))
+                                            }
+                                            // Collect full part with functionCall (preserves thoughtSignature)
+                                            if (part.functionCall != null) {
+                                                pendingFunctionCallParts.add(part)
+                                            }
                                         }
                                     } catch (e: Exception) {
-                                        // Skip
+                                        // Skip malformed chunks
                                     }
                                 }
                             }
                         }
-                        trySend(StreamChunk.Done)
+
+                        // If there are pending function calls, execute them and continue
+                        if (pendingFunctionCallParts.isNotEmpty() && toolHandler != null) {
+                            handleFunctionCalls(
+                                pendingFunctionCallParts,
+                                contents,
+                                systemInstruction,
+                                apiKey,
+                                model,
+                            )
+                        } else {
+                            trySend(StreamChunk.Done)
+                        }
                     } ?: trySend(StreamChunk.Error("Empty response body"))
                 } catch (e: Exception) {
                     trySend(StreamChunk.Error(e.message ?: "Stream parsing error"))
                 } finally {
                     close()
+                }
+            }
+
+            /**
+             * Handle function calls by executing them and sending results back to Gemini.
+             * @param functionCallParts The original parts containing functionCall (with thoughtSignature)
+             */
+            private fun handleFunctionCalls(
+                functionCallParts: List<GeminiPart>,
+                originalContents: List<GeminiContent>,
+                systemInstruction: String,
+                apiKey: String,
+                model: String,
+            ) {
+                kotlinx.coroutines.runBlocking {
+                    try {
+                        // Execute each function call and build responses
+                        val functionResponseParts = functionCallParts.mapNotNull { part ->
+                            part.functionCall?.let { fc ->
+                                val args = fc.args.mapValues { it.value.toString().trim('"') }
+                                val result = toolHandler?.execute(fc.name, args)
+                                    ?: "Tool not available"
+
+                                GeminiPart(
+                                    functionResponse = GeminiFunctionResponse(
+                                        id = fc.id, // Match the id from the function call
+                                        name = fc.name,
+                                        response = mapOf(
+                                            "result" to kotlinx.serialization.json.JsonPrimitive(result),
+                                        ),
+                                    ),
+                                )
+                            }
+                        }
+
+                        // Build new request with function responses
+                        val newContents = originalContents.toMutableList()
+
+                        // Add the model's function call with ORIGINAL parts (preserves thoughtSignature)
+                        newContents.add(
+                            GeminiContent(
+                                role = "model",
+                                parts = functionCallParts, // Use original parts, not recreated ones
+                            ),
+                        )
+
+                        // Add function responses (role = "user" for Gemini)
+                        newContents.add(
+                            GeminiContent(
+                                role = "user",
+                                parts = functionResponseParts,
+                            ),
+                        )
+
+                        // Make follow-up request (non-streaming for simplicity)
+                        val followUpBody = GeminiRequest(
+                            contents = newContents,
+                            systemInstruction = if (systemInstruction.isNotBlank()) {
+                                GeminiSystemInstruction(
+                                    parts = listOf(GeminiPart(text = systemInstruction)),
+                                )
+                            } else {
+                                null
+                            },
+                            tools = buildGeminiTools().ifEmpty { null },
+                        )
+
+                        val followUpUrl =
+                            "${AiProvider.GEMINI.baseUrl}/$model:generateContent?key=$apiKey"
+                        val followUpRequest = Request.Builder()
+                            .url(followUpUrl)
+                            .addHeader("Content-Type", "application/json")
+                            .post(
+                                json.encodeToString(followUpBody)
+                                    .toRequestBody("application/json".toMediaType()),
+                            )
+                            .build()
+
+                        // Loop to handle chained function calls (max 5 iterations for safety)
+                        var currentRequest = followUpRequest
+                        var currentContents = newContents.toMutableList()
+                        var iterations = 0
+                        val maxIterations = 5
+
+                        while (iterations < maxIterations) {
+                            iterations++
+                            val response = client.newCall(currentRequest).execute()
+
+                            if (!response.isSuccessful) {
+                                val errorBody = response.body?.string()?.take(300) ?: ""
+                                trySend(
+                                    StreamChunk.Error(
+                                        "Request failed (${response.code}): $errorBody",
+                                    ),
+                                )
+                                break
+                            }
+
+
+                            val body = response.body?.string() ?: break
+
+                            val parsed = json.decodeFromString<GeminiResponse>(body)
+                            val responseParts = parsed.candidates?.firstOrNull()?.content?.parts
+                                ?: break
+
+                            // Check if we have text response
+                            val textResponse = responseParts
+                                .mapNotNull { it.text }
+                                .joinToString("")
+
+                            if (textResponse.isNotEmpty()) {
+                                trySend(StreamChunk.Text(textResponse))
+                                break
+                            }
+
+                            // Check if there are more function calls to execute
+                            val newFunctionParts = responseParts.filter { it.functionCall != null }
+                            if (newFunctionParts.isEmpty()) {
+                                break // No text and no functions, stop
+                            }
+
+                            // Execute the new function calls
+                            val newFunctionResponses = newFunctionParts.mapNotNull { part ->
+                                part.functionCall?.let { fc ->
+                                    val args = fc.args.mapValues {
+                                        it.value.toString().trim('"')
+                                    }
+                                    val result = toolHandler?.execute(fc.name, args)
+                                        ?: "Tool not available"
+                                    GeminiPart(
+                                        functionResponse = GeminiFunctionResponse(
+                                            id = fc.id,
+                                            name = fc.name,
+                                            response = mapOf(
+                                                "result" to kotlinx.serialization.json
+                                                    .JsonPrimitive(result),
+                                            ),
+                                        ),
+                                    )
+                                }
+                            }
+
+                            // Add model response and our function responses to conversation
+                            currentContents.add(
+                                GeminiContent(
+                                    role = "model",
+                                    parts = responseParts, // Preserve thoughtSignature
+                                ),
+                            )
+                            currentContents.add(
+                                GeminiContent(
+                                    role = "user",
+                                    parts = newFunctionResponses,
+                                ),
+                            )
+
+                            // Build next request
+                            val nextBody = GeminiRequest(
+                                contents = currentContents,
+                                systemInstruction = if (systemInstruction.isNotBlank()) {
+                                    GeminiSystemInstruction(
+                                        parts = listOf(GeminiPart(text = systemInstruction)),
+                                    )
+                                } else {
+                                    null
+                                },
+                                tools = buildGeminiTools().ifEmpty { null },
+                            )
+                            currentRequest = Request.Builder()
+                                .url(followUpUrl)
+                                .addHeader("Content-Type", "application/json")
+                                .post(
+                                    json.encodeToString(nextBody)
+                                        .toRequestBody("application/json".toMediaType()),
+                                )
+                                .build()
+                        }
+
+                        trySend(StreamChunk.Done)
+                    } catch (e: Exception) {
+                        trySend(StreamChunk.Error("Function call error: ${e.message}"))
+                    }
                 }
             }
         })
@@ -554,10 +809,33 @@ class AiRepositoryImpl(
     @Serializable
     private data class GeminiTool(
         @SerialName("google_search") val googleSearch: GeminiGoogleSearch? = null,
+        @SerialName("function_declarations")
+        val functionDeclarations: List<GeminiFunctionDeclaration>? = null,
     )
 
     @Serializable
     private class GeminiGoogleSearch // Empty object enables the tool
+
+    @Serializable
+    private data class GeminiFunctionDeclaration(
+        val name: String,
+        val description: String,
+        val parameters: GeminiFunctionParameters,
+    )
+
+    @Serializable
+    private data class GeminiFunctionParameters(
+        @kotlinx.serialization.EncodeDefault
+        val type: String = "object",
+        val properties: Map<String, GeminiPropertyDef>? = null,
+        val required: List<String>? = null,
+    )
+
+    @Serializable
+    private data class GeminiPropertyDef(
+        val type: String,
+        val description: String,
+    )
 
     @Serializable
     private data class GeminiSystemInstruction(
@@ -573,7 +851,25 @@ class AiRepositoryImpl(
     @Serializable
     private data class GeminiPart(
         val text: String? = null,
+        val thought: Boolean? = null,
+        val thoughtSignature: String? = null,
         @SerialName("inline_data") val inlineData: GeminiInlineData? = null,
+        @SerialName("functionCall") val functionCall: GeminiFunctionCall? = null,
+        @SerialName("functionResponse") val functionResponse: GeminiFunctionResponse? = null,
+    )
+
+    @Serializable
+    private data class GeminiFunctionCall(
+        val id: String? = null,
+        val name: String,
+        val args: Map<String, kotlinx.serialization.json.JsonElement> = emptyMap(),
+    )
+
+    @Serializable
+    private data class GeminiFunctionResponse(
+        val id: String? = null,
+        val name: String,
+        val response: Map<String, kotlinx.serialization.json.JsonElement>,
     )
 
     @Serializable

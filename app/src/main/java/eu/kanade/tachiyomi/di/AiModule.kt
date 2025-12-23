@@ -7,6 +7,7 @@ import tachiyomi.data.ai.AiRepositoryImpl
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.repository.AiConversationRepository
 import tachiyomi.domain.ai.repository.AiRepository
+import tachiyomi.domain.ai.tools.AiToolHandler
 import uy.kohesive.injekt.api.InjektModule
 import uy.kohesive.injekt.api.InjektRegistrar
 import uy.kohesive.injekt.api.addSingletonFactory
@@ -15,6 +16,7 @@ import uy.kohesive.injekt.api.get
 class AiModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
+
         addSingletonFactory<AiRepository> {
             AiRepositoryImpl(
                 client = get<NetworkHelper>().client,
@@ -23,6 +25,7 @@ class AiModule : InjektModule {
                     ignoreUnknownKeys = true
                     isLenient = true
                 },
+                toolHandler = get<AiToolHandler>(),
             )
         }
 
@@ -81,6 +84,19 @@ class AiModule : InjektModule {
                 cloudService = get<tachiyomi.data.ai.EmbeddingServiceImpl>(),
                 localService = get<tachiyomi.data.ai.LocalEmbeddingService>(),
                 vectorStore = get(),
+            )
+        }
+
+        // Tool handler for function calling (needs SearchLibrary for find_similar_manga)
+        addSingletonFactory {
+            AiToolHandler(
+                mangaRepository = get(),
+                chapterRepository = get(),
+                historyRepository = get(),
+                trackRepository = get(),
+                readerNotesRepository = get(),
+                categoryRepository = get(),
+                searchLibrary = get(),
             )
         }
 

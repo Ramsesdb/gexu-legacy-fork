@@ -11,6 +11,8 @@ import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
 import tachiyomi.domain.track.repository.TrackRepository
 import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 class GetReadingContext(
@@ -114,17 +116,29 @@ class GetReadingContext(
         } catch (e: Exception) {
             emptyList()
         }
-        val trackerInfo = if (tracks.isNotEmpty()) {
-            val scoredTracks = tracks.filter { it.score > 0 }
-            if (scoredTracks.isNotEmpty()) {
-                val avgScore = scoredTracks.map { it.score }.average()
-                "User's score: ${String.format("%.1f", avgScore)}/10"
-            } else {
-                null
+
+        val trackerInfo = buildString {
+            if (tracks.isNotEmpty()) {
+                val scoredTracks = tracks.filter { it.score > 0 }
+                if (scoredTracks.isNotEmpty()) {
+                    val avgScore = scoredTracks.map { it.score }.average()
+                    appendLine("User's score: ${String.format("%.1f", avgScore)}/10")
+                }
+
+                // Add tracking dates
+                val dateFormatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+                tracks.forEach { track ->
+                    if (track.startDate > 0) {
+                        val startDate = dateFormatter.format(Date(track.startDate))
+                        appendLine("📅 Started reading: $startDate")
+                    }
+                    if (track.finishDate > 0) {
+                        val finishDate = dateFormatter.format(Date(track.finishDate))
+                        appendLine("🏁 Finished reading: $finishDate")
+                    }
+                }
             }
-        } else {
-            null
-        }
+        }.trim().ifEmpty { null }
 
         // Get reader notes for this manga
         val readerNotes = try {

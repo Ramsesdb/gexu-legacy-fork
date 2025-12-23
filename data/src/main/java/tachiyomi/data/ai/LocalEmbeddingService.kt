@@ -74,8 +74,17 @@ class LocalEmbeddingService(
             if (textEmbedder != null) return@withLock true
 
             try {
+                // Read model file into ByteBuffer for setModelAssetBuffer
+                // (setModelAssetPath only works for APK assets, not downloaded files)
+                val modelFile = File(modelPath)
+                val modelBuffer = java.nio.ByteBuffer.allocateDirect(modelFile.length().toInt())
+                java.io.FileInputStream(modelFile).channel.use { channel ->
+                    channel.read(modelBuffer)
+                }
+                modelBuffer.rewind()
+
                 val baseOptions = BaseOptions.builder()
-                    .setModelAssetPath(modelPath)
+                    .setModelAssetBuffer(modelBuffer)
                     .build()
 
                 val options = TextEmbedder.TextEmbedderOptions.builder()

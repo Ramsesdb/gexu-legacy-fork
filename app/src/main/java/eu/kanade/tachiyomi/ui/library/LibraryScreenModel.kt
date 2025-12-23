@@ -430,21 +430,67 @@ class LibraryScreenModel(
     }
 
     /**
-     * Checks if a manga contains NSFW genres.
+     * Checks if a manga contains NSFW genres or tags.
+     * Uses a comprehensive list to catch various adult content indicators.
      */
     private fun isMangaNsfw(manga: Manga): Boolean {
+        // Comprehensive list of NSFW genres, tags, and content indicators
+        // Organized by category for maintainability
         val nsfwGenres = listOf(
-            "Erotica",
-            "Hentai",
-            "Adult",
-            "Pornographic",
-            "Smut",
-            "Ecchi",
-            "+18",
+            // General adult content markers
+            "Erotica", "Hentai", "Adult", "Pornographic", "Smut", "Ecchi", "+18", "18+",
+            "Mature", "NSFW", "XXX", "R-18", "R18", "X-Rated",
+
+            // Sexual content types
+            "Sex", "Sexual Content", "Explicit", "Hardcore", "Softcore",
+
+            // Sexual acts
+            "Blowjob", "Oral", "Fellatio", "Cunnilingus", "Handjob", "Footjob",
+            "Anal", "Anal Sex", "Anal Fingering", "Fingering", "Masturbation",
+            "Threesome", "Foursome", "Orgy", "Gangbang", "Group Sex",
+            "Creampie", "Cumshot", "Facial", "Swallowing", "Bukkake",
+            "Deepthroat", "Titfuck", "Paizuri", "Boobjob",
+
+            // Non-consensual content (important to filter)
+            "Rape", "Non-Con", "Non-Consensual", "Forced", "Coercion",
+            "Netorare", "NTR", "Cheating", "Blackmail", "Mind Break",
+            "Mind Control", "Hypnosis", "Drugged", "Sleeping",
+
+            // Fetishes and kinks
+            "BDSM", "Bondage", "S&M", "Sadism", "Masochism", "Femdom", "Maledom",
+            "Tentacles", "Tentacle", "Monster", "Futanari", "Futa", "Dickgirl",
+            "Ahegao", "Virginity", "Defloration", "First Time",
+            "Incest", "Impregnation", "Pregnant", "Pregnancy",
+            "Lactation", "Breastfeeding", "Big Breasts", "Huge Breasts",
+            "Lolicon", "Loli", "Shotacon", "Shota", "Toddlercon",
+            "Yaoi", "Bara", "Yuri", "Girls Love", "Boys Love",
+            "Exhibitionism", "Voyeurism", "Public Sex",
+            "Prostate Massage", "Pegging", "Strap-On",
+            "Crossdressing", "Trap", "Otokonoko",
+            "Guro", "Gore", "Ryona", "Snuff",
+            "Netori", "Swinging", "Wife Sharing", "Cuckold",
+            "Harem", "Reverse Harem", "Polyamory",
+            "Slave", "Pet Play", "Humiliation", "Degradation",
+            "Watersports", "Golden Shower", "Scat",
+            "Bestiality", "Zoophilia",
+
+            // Body/appearance related adult tags
+            "Nude", "Nudity", "Topless", "Full Frontal",
+            "Uncensored", "Decensored", "Mosaic Removed",
+
+            // Context-specific adult content
+            "Prostitution", "Escort", "Sex Work", "Brothel",
+            "Teacher-Student", "Student-Teacher", "Sensei",
+            "Office Lady", "OL", "Secretary",
+            "Maid", "Cosplay Sex",
+            "Hot Spring", "Onsen", "Bath",
         )
 
         return manga.genre?.any { genre ->
-            nsfwGenres.any { it.equals(genre, ignoreCase = true) }
+            nsfwGenres.any { nsfwTag ->
+                genre.equals(nsfwTag, ignoreCase = true) ||
+                    genre.contains(nsfwTag, ignoreCase = true)
+            }
         } ?: false
     }
 

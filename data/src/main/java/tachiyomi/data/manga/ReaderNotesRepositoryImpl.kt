@@ -2,6 +2,7 @@ package tachiyomi.data.manga
 
 import kotlinx.coroutines.flow.Flow
 import tachiyomi.data.DatabaseHandler
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.manga.model.ReaderNote
 import tachiyomi.domain.manga.model.ReaderNoteWithManga
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
@@ -34,6 +35,7 @@ class ReaderNotesRepositoryImpl(
         chapterId: Long,
         pageNumber: Int,
         noteText: String,
+        tags: List<NoteTag>,
     ) {
         handler.await {
             reader_notesQueries.insertNote(
@@ -41,6 +43,7 @@ class ReaderNotesRepositoryImpl(
                 chapterId = chapterId,
                 pageNumber = pageNumber.toLong(),
                 noteText = noteText,
+                tags = NoteTag.toStorageString(tags),
                 createdAt = Date(),
             )
         }
@@ -49,6 +52,15 @@ class ReaderNotesRepositoryImpl(
     override suspend fun updateNote(noteId: Long, noteText: String) {
         handler.await {
             reader_notesQueries.updateNote(noteText = noteText, noteId = noteId)
+        }
+    }
+
+    override suspend fun updateNoteTags(noteId: Long, tags: List<NoteTag>) {
+        handler.await {
+            reader_notesQueries.updateNoteTags(
+                tags = NoteTag.toStorageString(tags),
+                noteId = noteId,
+            )
         }
     }
 
@@ -88,6 +100,18 @@ class ReaderNotesRepositoryImpl(
         }
     }
 
+    override suspend fun searchNotesInManga(mangaId: Long, query: String): List<ReaderNote> {
+        return handler.awaitList {
+            reader_notesQueries.searchNotesInManga(mangaId, query, ::mapReaderNote)
+        }
+    }
+
+    override suspend fun searchNotesByTag(mangaId: Long, tag: NoteTag): List<ReaderNote> {
+        return handler.awaitList {
+            reader_notesQueries.searchNotesByTag(mangaId, tag.name, ::mapReaderNote)
+        }
+    }
+
     private fun mapReaderNote(
         id: Long,
         mangaId: Long,
@@ -96,6 +120,7 @@ class ReaderNotesRepositoryImpl(
         chapterName: String,
         pageNumber: Long,
         noteText: String,
+        tags: String?,
         createdAt: Date?,
     ): ReaderNote = ReaderNote(
         id = id,
@@ -105,6 +130,7 @@ class ReaderNotesRepositoryImpl(
         chapterName = chapterName,
         pageNumber = pageNumber.toInt(),
         noteText = noteText,
+        tags = NoteTag.fromString(tags),
         createdAt = createdAt ?: Date(),
     )
 
@@ -117,6 +143,7 @@ class ReaderNotesRepositoryImpl(
         chapterName: String,
         pageNumber: Long,
         noteText: String,
+        tags: String?,
         createdAt: Date?,
     ): ReaderNoteWithManga = ReaderNoteWithManga(
         id = id,
@@ -127,6 +154,7 @@ class ReaderNotesRepositoryImpl(
         chapterName = chapterName,
         pageNumber = pageNumber.toInt(),
         noteText = noteText,
+        tags = NoteTag.fromString(tags),
         createdAt = createdAt ?: Date(),
     )
 }

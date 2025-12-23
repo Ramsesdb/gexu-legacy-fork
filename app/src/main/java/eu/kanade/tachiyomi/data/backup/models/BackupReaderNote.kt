@@ -13,4 +13,5 @@ data class BackupReaderNote(
     @ProtoNumber(2) var pageNumber: Int = 0,
     @ProtoNumber(3) var noteText: String,
     @ProtoNumber(4) var createdAt: Long,
+    @ProtoNumber(5) var tags: String? = null,
 )

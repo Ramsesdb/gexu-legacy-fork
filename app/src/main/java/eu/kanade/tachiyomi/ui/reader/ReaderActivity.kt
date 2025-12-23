@@ -525,7 +525,7 @@ class ReaderActivity : BaseActivity() {
                 )
             },
             onDismiss = viewModel::dismissLongPressPopup,
-            onSaveNote = viewModel::saveNoteFromContextual,
+            onSaveNote = { noteText, tags -> viewModel.saveNoteFromContextual(noteText, tags) },
             onToggleBookmark = viewModel::toggleChapterBookmark,
             onCopyPage = { /* TODO: Implement copy page */ },
             onAskAi = {

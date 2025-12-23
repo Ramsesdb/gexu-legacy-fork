@@ -10,6 +10,7 @@ data class ReaderNote(
     val chapterName: String,
     val pageNumber: Int,
     val noteText: String,
+    val tags: List<NoteTag>,
     val createdAt: Date,
 ) {
     companion object {
@@ -20,6 +21,7 @@ data class ReaderNote(
             chapterName: String,
             pageNumber: Int,
             noteText: String,
+            tags: List<NoteTag> = emptyList(),
         ) = ReaderNote(
             id = -1L,
             mangaId = mangaId,
@@ -28,6 +30,7 @@ data class ReaderNote(
             chapterName = chapterName,
             pageNumber = pageNumber,
             noteText = noteText,
+            tags = tags,
             createdAt = Date(),
         )
     }
@@ -45,5 +48,6 @@ data class ReaderNoteWithManga(
     val chapterName: String,
     val pageNumber: Int,
     val noteText: String,
+    val tags: List<NoteTag>,
     val createdAt: Date,
 )
