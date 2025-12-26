@@ -26,6 +26,7 @@ class AiChatScreenModel(
     private val aiRepository: AiRepository = Injekt.get(),
     private val conversationRepository: AiConversationRepository = Injekt.get(),
     private val getReadingContext: tachiyomi.domain.ai.GetReadingContext = Injekt.get(),
+    private val responseCache: tachiyomi.domain.ai.service.AiResponseCache = Injekt.get(),
 ) : StateScreenModel<AiChatScreenModel.State>(State()) {
 
     // Reading Buddy Provider (injected when chat opened from Reader)
@@ -130,6 +131,57 @@ class AiChatScreenModel(
 
         screenModelScope.launchIO {
             try {
+                val currentState = state.value
+
+                // === CACHE CHECK (only for text-only queries) ===
+                val isCacheEnabled = aiPreferences.enableResponseCache().get()
+                val hasImage = image != null
+                val contextHash = tachiyomi.domain.ai.service.AiResponseCache.buildContextHash(
+                    mangaId = currentState.currentMangaId,
+                    mangaTitle = currentState.currentMangaTitle,
+                    isReadingBuddyEnabled = currentState.isReadingBuddyEnabled,
+                )
+
+                if (isCacheEnabled && !hasImage) {
+                    val cachedResponse = responseCache.getCached(content, contextHash)
+                    if (cachedResponse != null) {
+                        // Use cached response immediately
+                        mutableState.update { state ->
+                            val updatedMessages = state.messages.toMutableList()
+                            if (updatedMessages.isNotEmpty()) {
+                                updatedMessages[updatedMessages.lastIndex] =
+                                    ChatMessage.assistant(cachedResponse)
+                            }
+                            state.copy(
+                                messages = updatedMessages,
+                                isLoading = false,
+                            )
+                        }
+
+                        // Persist cached response if enabled
+                        val conversationId = ensureConversationExists(content)
+                        if (shouldPersist() && conversationId != null) {
+                            conversationRepository.addMessage(
+                                AiMessageCreate(
+                                    conversationId = conversationId,
+                                    role = MessageRole.USER,
+                                    content = content,
+                                ),
+                            )
+                            conversationRepository.addMessage(
+                                AiMessageCreate(
+                                    conversationId = conversationId,
+                                    role = MessageRole.ASSISTANT,
+                                    content = cachedResponse,
+                                ),
+                            )
+                        }
+                        return@launchIO // Skip API call
+                    }
+                }
+
+                // === API CALL (cache miss or caching disabled) ===
+
                 // Persist user message if enabled (pass content for title on first message)
                 val conversationId = ensureConversationExists(content)
                 if (shouldPersist() && conversationId != null) {
@@ -167,6 +219,11 @@ class AiChatScreenModel(
                         }
                         is StreamChunk.Done -> {
                             mutableState.update { it.copy(isLoading = false) }
+
+                            // Cache the response (only for text-only queries)
+                            if (isCacheEnabled && !hasImage && fullResponse.isNotBlank()) {
+                                responseCache.cache(content, contextHash, fullResponse)
+                            }
 
                             // Persist assistant response if enabled
                             if (shouldPersist() && conversationId != null && fullResponse.isNotBlank()) {
@@ -356,8 +413,8 @@ class AiChatScreenModel(
                 )
             } else {
                 // GENERAL CHAT MODE: Minimal context, use tools for data
-                appendLine("USER'S LIBRARY ACCESS:")
-                appendLine("You have access to tools to query the user's manga library:")
+                appendLine("TOOL USAGE (CRITICAL - BE PROACTIVE):")
+                appendLine("You have IMMEDIATE access to these tools:")
                 appendLine("- get_library_stats: Get library statistics and top genres")
                 appendLine("- search_library(query): Search manga by title, genre, or author")
                 appendLine(
@@ -366,9 +423,26 @@ class AiChatScreenModel(
                 )
                 appendLine("- get_user_notes(manga_title?): Get user's reading notes")
                 appendLine("- get_reading_history(limit?): Get recent reading history")
+                appendLine(
+                    "- get_reading_time_stats(limit?): Get TOP manga by READING TIME. " +
+                        "USE THIS for 'top X manga by time spent reading'.",
+                )
+                appendLine("- get_categories: Get user's library categories (Favorites, etc.)")
+                appendLine("- get_manga_by_category(name): Get manga in a specific category")
                 appendLine()
-                appendLine("USE THESE TOOLS when you need specific information about the user's library.")
-                appendLine("Do NOT guess or make up information - call the appropriate tool.")
+                appendLine("⚠️ CRITICAL ANTI-HALLUCINATION RULES:")
+                appendLine("1. You do NOT know the user's library. You have ZERO preloaded knowledge.")
+                appendLine("2. When user asks about THEIR manga/library/favorites/history → CALL A TOOL FIRST.")
+                appendLine("3. NEVER invent manga titles, reading times, or statistics.")
+                appendLine("4. If a tool returns 5 results and user asks for 10, say 'Solo encontré 5 en tus datos'.")
+                appendLine("5. If you cannot find data or tools return empty → say 'No tengo esa información'.")
+                appendLine("6. ONLY report data that tools actually returned. NEVER extrapolate or add more.")
+                appendLine("7. If user asks for 'top 10' but tool only returns 4, show those 4 and explain that's all.")
+                appendLine()
+                appendLine("PROACTIVE BEHAVIOR (FOR LIBRARY QUESTIONS ONLY):")
+                appendLine("- NEVER say 'I can search for you' - JUST CALL THE TOOL AND ANSWER.")
+                appendLine("- For general chat like 'hola' → respond normally, no tool needed.")
+                appendLine("- For library-specific questions → ALWAYS call tools first, then answer with ONLY that data.")
 
                 if (currentState.isReadingBuddyEnabled) {
                     appendLine()
@@ -428,7 +502,9 @@ class AiChatScreenModel(
         appendLine("Guidelines:")
         appendLine("- Keep responses concise unless asked for detail")
         appendLine("- Always avoid spoilers unless explicitly asked")
-        appendLine("- If you don't know something, use tools to look it up or say so honestly")
+        appendLine("- BE PROACTIVE: Use tools IMMEDIATELY when needed, never ask permission")
+        appendLine("- Give DIRECT answers, not 'I can look that up for you'")
+        appendLine("- If you have tools available, USE THEM to answer questions accurately")
     }
 
     data class State(

@@ -181,6 +181,11 @@ class AiPreferences(
     /** Check if web search CAN be enabled (key exists, regardless of toggle state) */
     fun canEnableWebSearch() = getGeminiKeyForSearch() != null
 
+    // ========== Response Cache ==========
+
+    /** Whether to cache AI responses for repeated queries (saves tokens) */
+    fun enableResponseCache() = preferenceStore.getBoolean("ai_response_cache_enabled", true)
+
     // ========== Reading Buddy ==========
 
     /**

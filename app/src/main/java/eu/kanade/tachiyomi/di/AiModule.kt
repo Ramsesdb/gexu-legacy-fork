@@ -28,6 +28,10 @@ class AiModule : InjektModule {
             )
         }
 
+        addSingletonFactory {
+            tachiyomi.domain.ai.service.AiResponseCache()
+        }
+
         addSingletonFactory<AiConversationRepository> {
             AiConversationRepositoryImpl(
                 handler = get(),

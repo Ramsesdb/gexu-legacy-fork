@@ -357,6 +357,15 @@ object SettingsGexuAiScreen : SearchableSettings {
 
     @Composable
     private fun getBehaviorGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val responseCache = remember { Injekt.get<tachiyomi.domain.ai.service.AiResponseCache>() }
+        val context = LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        // State to track cache size for display
+        val cacheSize = produceState(initialValue = 0) {
+            value = responseCache.size()
+        }
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_behavior_title),
             preferenceItems = persistentListOf(
@@ -384,6 +393,25 @@ object SettingsGexuAiScreen : SearchableSettings {
                     preference = aiPreferences.persistConversations(),
                     title = stringResource(MR.strings.ai_persist_conversations),
                     subtitle = stringResource(MR.strings.ai_persist_conversations_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.enableResponseCache(),
+                    title = "Caché de respuestas",
+                    subtitle = "Reutiliza respuestas previas para consultas repetidas (ahorra tokens)",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Limpiar caché de respuestas",
+                    subtitle = "${cacheSize.value} respuestas en caché",
+                    onClick = {
+                        scope.launch {
+                            responseCache.clear()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Caché de respuestas limpiado",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
                 ),
             ),
         )

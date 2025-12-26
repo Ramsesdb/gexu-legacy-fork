@@ -15,8 +15,9 @@ object AiToolDefinitions {
     val allTools: List<FunctionDeclaration> = listOf(
         FunctionDeclaration(
             name = "get_library_stats",
-            description = "Get statistics about the user's manga/manhwa/novel library " +
-                "including total count, read chapters, completion rate, and top genres.",
+            description = "Get GENERAL statistics about the user's library: " +
+                "total manga count, chapters read, completion rate, and top genres. " +
+                "NOTE: This does NOT include reading time. Use get_reading_time_stats for that.",
             parameters = FunctionParameters(
                 properties = emptyMap(),
                 required = emptyList(),
@@ -67,7 +68,9 @@ object AiToolDefinitions {
         ),
         FunctionDeclaration(
             name = "get_reading_history",
-            description = "Get the user's recent reading history showing what they've been reading.",
+            description = "Get RECENT reading activity (what chapters were read recently). " +
+                "Shows the last N chapters the user opened. " +
+                "NOTE: For time spent reading each manga, use get_reading_time_stats instead.",
             parameters = FunctionParameters(
                 properties = mapOf(
                     "limit" to PropertyDef(
@@ -104,14 +107,14 @@ object AiToolDefinitions {
         ),
         FunctionDeclaration(
             name = "get_reading_time_stats",
-            description = "Get reading time statistics showing how much time " +
-                "the user has spent reading each manga. " +
-                "Useful to determine favorites based on engagement.",
+            description = "IMPORTANT: Get manga ranked by TOTAL READING TIME (hours/minutes spent). " +
+                "USE THIS when user asks: 'top X manga by time', 'most read manga', 'favorites by engagement', " +
+                "'series with most reading time'. Returns ranked list with exact hours:minutes.",
             parameters = FunctionParameters(
                 properties = mapOf(
                     "limit" to PropertyDef(
                         type = "integer",
-                        description = "Maximum number of manga to return (default 10)",
+                        description = "How many top manga to return (default 10, max 20)",
                     ),
                 ),
                 required = emptyList(),
@@ -134,8 +137,9 @@ object AiToolDefinitions {
         ),
         FunctionDeclaration(
             name = "get_tracker_scores",
-            description = "Get the user's personal scores and ratings from tracking services " +
-                "(like MyAnimeList, AniList). Shows what the user has rated highest.",
+            description = "Get the user's PERSONAL RATINGS from tracking services " +
+                "(MyAnimeList, AniList, etc). Shows what the user has rated 8+, 9+, or 10. " +
+                "Use for: 'what did I rate highest?', 'my favorite rated series'.",
             parameters = FunctionParameters(
                 properties = emptyMap(),
                 required = emptyList(),
@@ -185,8 +189,9 @@ object AiToolDefinitions {
         ),
         FunctionDeclaration(
             name = "get_completed_series",
-            description = "Get manga/manhwa/novels that the user has finished reading. " +
-                "Shows series where all chapters have been read.",
+            description = "Get manga/manhwa/novels the user has FINISHED reading. " +
+                "Series where ALL available chapters have been read. " +
+                "Use for: 'what have I completed?', 'finished series'.",
             parameters = FunctionParameters(
                 properties = mapOf(
                     "limit" to PropertyDef(
