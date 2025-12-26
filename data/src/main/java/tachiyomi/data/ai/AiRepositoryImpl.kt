@@ -163,6 +163,10 @@ class AiRepositoryImpl(
             } else {
                 null
             },
+            generationConfig = GeminiGenerationConfig(
+                maxOutputTokens = aiPreferences.maxTokens().get(),
+                temperature = aiPreferences.temperature().get(),
+            ),
         )
 
         val request = Request.Builder()
@@ -411,12 +415,26 @@ class AiRepositoryImpl(
                 null
             },
             tools = tools.ifEmpty { null },
+            generationConfig = GeminiGenerationConfig(
+                maxOutputTokens = aiPreferences.maxTokens().get(),
+                temperature = aiPreferences.temperature().get(),
+            ),
+            // Enable function calling with AUTO mode when tools are available
+            toolConfig = if (tools.isNotEmpty()) {
+                GeminiToolConfig(
+                    functionCallingConfig = GeminiFunctionCallingConfig(mode = "AUTO"),
+                )
+            } else {
+                null
+            },
         )
+
+        val requestJson = json.encodeToString(requestBody)
 
         val request = Request.Builder()
             .url(url)
             .addHeader("Content-Type", "application/json")
-            .post(json.encodeToString(requestBody).toRequestBody("application/json".toMediaType()))
+            .post(requestJson.toRequestBody("application/json".toMediaType()))
             .build()
 
         val call = client.newCall(request)
@@ -461,8 +479,17 @@ class AiRepositoryImpl(
 
                                         parts?.forEach { part ->
                                             // Handle text response
-                                            if (!part.text.isNullOrEmpty()) {
-                                                trySend(StreamChunk.Text(part.text))
+                                            // Filter out "thought signature" (code-like text before function calls)
+                                            val text = part.text
+                                            if (!text.isNullOrEmpty()) {
+                                                // Skip if it looks like Gemini's internal function call code
+                                                val isThoughtSignature = text.trimStart().startsWith("def ") ||
+                                                    text.contains("default_api.") ||
+                                                    text.contains("print(ret)") ||
+                                                    text.trimStart().startsWith("```python")
+                                                if (!isThoughtSignature) {
+                                                    trySend(StreamChunk.Text(text))
+                                                }
                                             }
                                             // Collect full part with functionCall (preserves thoughtSignature)
                                             if (part.functionCall != null) {
@@ -803,6 +830,31 @@ class AiRepositoryImpl(
         val contents: List<GeminiContent>,
         @SerialName("system_instruction") val systemInstruction: GeminiSystemInstruction? = null,
         val tools: List<GeminiTool>? = null,
+        @SerialName("generation_config")
+        val generationConfig: GeminiGenerationConfig? = null,
+        @SerialName("tool_config")
+        val toolConfig: GeminiToolConfig? = null,
+    )
+
+    @Serializable
+    private data class GeminiGenerationConfig(
+        @SerialName("max_output_tokens") val maxOutputTokens: Int? = null,
+        val temperature: Float? = null,
+    )
+
+    /**
+     * Tool configuration to control function calling behavior.
+     * mode: "AUTO" (default), "ANY" (force tool use), "NONE" (disable)
+     */
+    @Serializable
+    private data class GeminiToolConfig(
+        @SerialName("function_calling_config")
+        val functionCallingConfig: GeminiFunctionCallingConfig,
+    )
+
+    @Serializable
+    private data class GeminiFunctionCallingConfig(
+        val mode: String = "AUTO", // AUTO, ANY, or NONE
     )
 
     @Serializable
