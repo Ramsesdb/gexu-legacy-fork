@@ -19,10 +19,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Anti-Spoiler Mode** — AI respects reading progress and won't reveal future chapters
 - **Text Mode Toggle** — Switch between images and extracted/reflowed text on-the-fly
 - **PDF Table of Contents** — Caching and navigation support for PDF files
+- **Function Calling (Agent Tools)** — 26 AI tools for library queries, stats, and insights
+- **Visual Selection (Circle-to-Search)** — Select image regions for AI analysis
+- **Response Cache** — LRU cache with TTL for AI responses
+- **Reading Time Stats** — Track and query time spent reading per manga
 
 ### Improved
 - **VectorStore Cache Limit** — Increased from 2,000 to 10,000 embeddings (~30MB RAM)
 - **TextChunker Size** — Increased from 1,500 to 2,500 characters for better single-chunk coverage
+- **Tool Descriptions** — Enhanced descriptions for better AI tool selection
 
 ### Changed
 - **Application ID** — `com.ramsesbr.gexu` (distinct from Mihon)
@@ -33,6 +38,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - **Type-Safe Queries** — SQLDelight for compile-time SQL verification
 - **Reactive Flows** — All database queries exposed as Kotlin Flows
 - **Efficient Caching** — LRU caches for images, embeddings, and query results
+- **Function Calling** — Full support for Gemini function calls with thought signature filtering
 
 ---
 
@@ -48,6 +54,7 @@ When Gexu has its first official release, versions will follow this format:
 
 ## Upstream Sync
 
-Gexu is based on **Mihon v0.19.3** (as of December 2024).
+Gexu is based on **Mihon v0.19.3** (as of December 2025).
 
 Upstream changes from Mihon are tracked in [CHANGELOG.md](./CHANGELOG.md).
+

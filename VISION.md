@@ -204,7 +204,8 @@ A privacy-focused, client-side AI architecture where users bring their own API k
 - [x] Settings & Key Management
 - [x] AI Tab Implementation
 - [x] Local RAG (Vector Search)
-- [ ] Visual Context (Multimodal input)
+- [x] **Visual Context (Multimodal input)** — Circle-to-Search implemented
+- [x] **Function Calling (26 tools)** — Library queries, stats, recommendations
 - [ ] Automatic Chapter Summaries
 
 ---

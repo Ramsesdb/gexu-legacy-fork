@@ -95,7 +95,7 @@ Utiliza el patrón `SearchableSettings` del proyecto para integración nativa.
 
 ---
 
-## 5. Estado Actual
+## 5. Estado Actual (Diciembre 2025)
 
 ### Funcionalidades Completadas
 - [x] **Rebranding Completo**: "AI Chat" -> "Gexu AI" en toda la app.
@@ -106,6 +106,17 @@ Utiliza el patrón `SearchableSettings` del proyecto para integración nativa.
 - [x] **RAG Local**: Indexado vectorial de la biblioteca para consultas offline.
     - Implementación de `VectorStore` con búsquedas paraleas.
     - Soporte híbrido: Embeddings Gemini (768-dim) + Local (MediaPipe 100-dim).
+- [x] **Function Calling (Agent Tools)**: 26 herramientas para consultas de biblioteca.
+    - `AiToolDefinitions.kt`: Definiciones de todas las tools.
+    - `AiToolHandler.kt`: Ejecutor con 1200+ líneas de lógica.
+    - Incluye: stats, búsqueda, historial, trackers, predicciones, etc.
+- [x] **Visual Selection**: Circle-to-Search para análisis de imágenes.
+    - `VisualSelectionScreen.kt`: UI de selección de región.
+    - Soporte multimodal con Gemini `inline_data`.
+- [x] **Response Cache**: LRU (50 entries) + TTL (24h) para respuestas AI.
 
 ### Próximos Pasos
-- [ ] **Visión**: Soporte para modelos multimodales (enviar imagen de página actual).
+- [ ] **Resúmenes Automáticos de Arcos**: Generación de recaps por capítulos.
+- [ ] **Feedback Loop**: Thumbs up/down en respuestas del AI.
+- [ ] **Memoria Semántica**: Recordar preferencias entre sesiones.
+
