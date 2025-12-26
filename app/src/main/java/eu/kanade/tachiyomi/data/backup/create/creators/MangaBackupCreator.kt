@@ -104,7 +104,6 @@ class MangaBackupCreator(
             }
         }
 
-
         return mangaObject
     }
 }

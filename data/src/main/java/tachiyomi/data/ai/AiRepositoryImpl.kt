@@ -591,7 +591,6 @@ class AiRepositoryImpl(
                                 break
                             }
 
-
                             val body = response.body?.string() ?: break
 
                             val parsed = json.decodeFromString<GeminiResponse>(body)
@@ -845,7 +844,7 @@ class AiRepositoryImpl(
     @Serializable
     private data class GeminiContent(
         val role: String,
-        val parts: List<GeminiPart>,
+        val parts: List<GeminiPart> = emptyList(),
     )
 
     @Serializable

@@ -42,6 +42,7 @@ import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.data.manga.ReaderNotesRepositoryImpl
+import tachiyomi.data.novelcontext.NovelContextRepositoryImpl
 import tachiyomi.data.pdftoc.PdfTocRepositoryImpl
 import tachiyomi.data.release.ReleaseServiceImpl
 import tachiyomi.data.source.SourceRepositoryImpl
@@ -88,6 +89,7 @@ import tachiyomi.domain.manga.interactor.UpdateMangaNotes
 import tachiyomi.domain.manga.interactor.UpsertReaderNote
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
+import tachiyomi.domain.novelcontext.repository.NovelContextRepository
 import tachiyomi.domain.pdftoc.interactor.GetPdfToc
 import tachiyomi.domain.pdftoc.interactor.SavePdfToc
 import tachiyomi.domain.pdftoc.repository.PdfTocRepository
@@ -184,6 +186,9 @@ class DomainModule : InjektModule {
         addSingletonFactory<PdfTocRepository> { PdfTocRepositoryImpl(get()) }
         addFactory { GetPdfToc(get()) }
         addFactory { SavePdfToc(get()) }
+
+        // Novel Context (Reading Buddy)
+        addSingletonFactory<NovelContextRepository> { NovelContextRepositoryImpl(get()) }
 
         addSingletonFactory<HistoryRepository> { HistoryRepositoryImpl(get()) }
         addFactory { GetHistory(get()) }

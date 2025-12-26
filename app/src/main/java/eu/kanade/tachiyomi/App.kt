@@ -110,6 +110,9 @@ class App : Application(), DefaultLifecycleObserver, SingletonImageLoader.Factor
         Injekt.importModule(DomainModule())
         Injekt.importModule(AiModule())
 
+        // Migrate legacy AI API key to per-provider storage
+        Injekt.get<tachiyomi.domain.ai.AiPreferences>().migrateToMultiProvider()
+
         setupNotificationChannels()
 
         ProcessLifecycleOwner.get().lifecycle.addObserver(this)

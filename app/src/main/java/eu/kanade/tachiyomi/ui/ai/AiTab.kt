@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.rememberScreenModel
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
@@ -15,13 +14,17 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import cafe.adriel.voyager.navigator.tab.LocalTabNavigator
 import cafe.adriel.voyager.navigator.tab.TabOptions
 import eu.kanade.presentation.ai.AiChatScreen
-import eu.kanade.presentation.ai.components.ApiKeySetupDialog
+import eu.kanade.presentation.ai.components.ApiKeyWizardDialog
+import eu.kanade.presentation.more.settings.screen.SettingsGexuAiScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
+import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import uy.kohesive.injekt.Injekt
+import uy.kohesive.injekt.api.get
 
 /**
  * Gexu AI Tab for bottom navigation.
@@ -56,9 +59,9 @@ data object AiTab : Tab {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val context = LocalContext.current
         val screenModel = rememberScreenModel { AiChatScreenModel() }
         val state by screenModel.state.collectAsState()
+        val aiPreferences = Injekt.get<AiPreferences>()
 
         // Listen for manga context from reader
         LaunchedEffect(Unit) {
@@ -67,9 +70,9 @@ data object AiTab : Tab {
             }
         }
 
-        // Show API key setup dialog if not configured
+        // Show API key wizard ONLY if no providers are configured at all
         if (state.showApiKeySetup) {
-            ApiKeySetupDialog(
+            ApiKeyWizardDialog(
                 currentProvider = state.selectedProvider,
                 currentApiKey = state.apiKey,
                 onProviderChange = screenModel::setProvider,
@@ -83,13 +86,23 @@ data object AiTab : Tab {
             state = state,
             onSendMessage = screenModel::sendMessage,
             onClearConversation = screenModel::clearConversation,
-            onOpenSettings = screenModel::showApiKeySetup,
+            onOpenSettings = {
+                // If at least one provider is configured, navigate to full settings
+                // Otherwise show the wizard for initial setup
+                val configuredProviders = aiPreferences.getConfiguredProviders()
+                if (configuredProviders.isNotEmpty()) {
+                    navigator.push(SettingsGexuAiScreen)
+                } else {
+                    screenModel.showApiKeySetup()
+                }
+            },
             onToggleHistory = screenModel::toggleHistoryDrawer,
             onCloseHistory = screenModel::closeHistoryDrawer,
             onSelectConversation = screenModel::loadConversation,
             onDeleteConversation = screenModel::deleteConversationFromHistory,
             onNewConversation = screenModel::startNewConversation,
             onToggleWebSearch = screenModel::toggleWebSearch,
+            onToggleReadingBuddy = screenModel::toggleReadingBuddy,
         )
     }
 }

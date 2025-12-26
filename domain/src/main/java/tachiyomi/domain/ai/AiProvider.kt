@@ -7,12 +7,14 @@ package tachiyomi.domain.ai
 enum class AiProvider(
     val displayName: String,
     val baseUrl: String,
+    val apiKeyUrl: String,
     val models: List<String>,
     val defaultModel: String,
 ) {
     OPENAI(
         displayName = "OpenAI",
         baseUrl = "https://api.openai.com/v1/chat/completions",
+        apiKeyUrl = "https://platform.openai.com/api-keys",
         models = listOf(
             // GPT-5 Series (Dec 2025)
             "gpt-5.2",
@@ -37,24 +39,26 @@ enum class AiProvider(
     GEMINI(
         displayName = "Google Gemini",
         baseUrl = "https://generativelanguage.googleapis.com/v1beta/models",
+        apiKeyUrl = "https://aistudio.google.com/app/apikey",
         models = listOf(
-            // Gemini 3 Series (Preview - Dec 2025)
-            "gemini-3-pro-preview",
-            "gemini-3-flash-preview",
-            // Gemini 2.5 Series (Stable)
-            "gemini-2.5-pro",
-            "gemini-2.5-flash",
+            // Free Tier (prioritized for new users)
             "gemini-2.5-flash-lite",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
             // Gemini 2.0 Series
             "gemini-2.0-flash",
             "gemini-2.0-flash-lite",
+            // Experimental/Preview (may require payment)
             "gemini-2.0-flash-exp",
+            "gemini-3-flash-preview",
+            "gemini-3-pro-preview",
         ),
-        defaultModel = "gemini-2.5-flash",
+        defaultModel = "gemini-2.5-flash-lite",
     ),
     ANTHROPIC(
         displayName = "Anthropic Claude",
         baseUrl = "https://api.anthropic.com/v1/messages",
+        apiKeyUrl = "https://console.anthropic.com/settings/keys",
         models = listOf(
             // Claude 4.5 Series (Dec 2025)
             "claude-opus-4.5-20251124",
@@ -72,6 +76,7 @@ enum class AiProvider(
     OPENROUTER(
         displayName = "OpenRouter (Multi-provider)",
         baseUrl = "https://openrouter.ai/api/v1/chat/completions",
+        apiKeyUrl = "https://openrouter.ai/keys",
         models = listOf(
             // DeepSeek (Popular Chinese models)
             "deepseek/deepseek-r1",
@@ -98,6 +103,7 @@ enum class AiProvider(
     CUSTOM(
         displayName = "Custom (OpenAI-compatible)",
         baseUrl = "", // User provides their own URL
+        apiKeyUrl = "",
         models = emptyList(),
         defaultModel = "",
     ),

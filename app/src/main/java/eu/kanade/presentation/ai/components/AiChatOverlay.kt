@@ -47,6 +47,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DeleteOutline
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.RemoveRedEye
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -94,6 +95,10 @@ fun AiChatOverlay(
     onClearAttachedImage: () -> Unit = {},
     isWebSearchEnabled: Boolean = false,
     onToggleWebSearch: () -> Unit,
+    // Reading Buddy Args
+    isReadingBuddyEnabled: Boolean = false,
+    onToggleReadingBuddy: () -> Unit = {},
+    canShowReadingBuddy: Boolean = false, // Only true when accessed from NovelViewer
     onDismiss: () -> Unit,
 ) {
     AnimatedVisibility(
@@ -143,6 +148,9 @@ fun AiChatOverlay(
                     onClearAttachedImage = onClearAttachedImage,
                     isWebSearchEnabled = isWebSearchEnabled,
                     onToggleWebSearch = onToggleWebSearch,
+                    isReadingBuddyEnabled = isReadingBuddyEnabled,
+                    onToggleReadingBuddy = onToggleReadingBuddy,
+                    canShowReadingBuddy = canShowReadingBuddy,
                     onDismiss = onDismiss,
                 )
             }
@@ -165,6 +173,10 @@ private fun AiChatContent(
     onClearAttachedImage: () -> Unit,
     isWebSearchEnabled: Boolean,
     onToggleWebSearch: () -> Unit,
+    // Reading Buddy Args
+    isReadingBuddyEnabled: Boolean,
+    onToggleReadingBuddy: () -> Unit,
+    canShowReadingBuddy: Boolean,
     onDismiss: () -> Unit,
 ) {
     val listState = rememberLazyListState()
@@ -228,6 +240,25 @@ private fun AiChatContent(
             }
 
             Row {
+                // Reading Buddy Toggle
+                if (canShowReadingBuddy) {
+                    IconButton(onClick = onToggleReadingBuddy) {
+                        Icon(
+                            imageVector = if (isReadingBuddyEnabled) {
+                                Icons.Default.AutoAwesome
+                            } else {
+                                Icons.Default.MenuBook
+                            }, // Use MenuBook for Reader mode
+                            contentDescription = "Modo Reading Buddy",
+                            tint = if (isReadingBuddyEnabled) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            },
+                        )
+                    }
+                }
+
                 if (messages.isNotEmpty()) {
                     IconButton(onClick = onClearConversation) {
                         Icon(

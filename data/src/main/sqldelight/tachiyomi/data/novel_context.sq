@@ -1,0 +1,36 @@
+-- novel_context.sq
+-- Stores AI-generated summaries and context for local PDFs/novels
+
+CREATE TABLE novel_context (
+    _id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manga_id INTEGER NOT NULL UNIQUE,
+    summary_text TEXT,
+    summary_last_page INTEGER DEFAULT 0,
+    summary_chapter_number REAL DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (manga_id) REFERENCES mangas(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX novel_context_manga_id_index ON novel_context(manga_id);
+
+getByMangaId:
+SELECT *
+FROM novel_context
+WHERE manga_id = :mangaId;
+
+upsert:
+INSERT INTO novel_context(manga_id, summary_text, summary_last_page, summary_chapter_number, updated_at)
+VALUES (:mangaId, :summaryText, :lastPage, :chapterNumber, :updatedAt)
+ON CONFLICT(manga_id) DO UPDATE SET
+    summary_text = :summaryText,
+    summary_last_page = :lastPage,
+    summary_chapter_number = :chapterNumber,
+    updated_at = :updatedAt;
+
+
+delete:
+DELETE FROM novel_context
+WHERE manga_id = :mangaId;
+
+deleteAll:
+DELETE FROM novel_context;

@@ -18,6 +18,7 @@ import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.tachiyomi.data.ai.NovelSummaryJob
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -45,12 +46,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
-import logcat.LogPriority
-import logcat.logcat
 import okhttp3.Request
 import okio.buffer
 import okio.sink
 import org.jsoup.Jsoup
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
@@ -60,7 +60,7 @@ import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
 import java.io.File
 
-class NovelViewer(private val activity: ReaderActivity) : Viewer {
+class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.domain.ai.TextContentProvider {
 
     private val composeView = ComposeView(activity)
 
@@ -68,8 +68,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private val getManga: GetManga by injectLazy()
     private val getPdfToc: tachiyomi.domain.pdftoc.interactor.GetPdfToc by injectLazy()
     private val savePdfToc: tachiyomi.domain.pdftoc.interactor.SavePdfToc by injectLazy()
+    private val novelContextRepository: tachiyomi.domain.novelcontext.repository.NovelContextRepository
+        by injectLazy()
     private val scope = MainScope()
     private val pdfMutex = kotlinx.coroutines.sync.Mutex()
+    private val aiPreferences: tachiyomi.domain.ai.AiPreferences by injectLazy()
 
     // State
     private val prefs = mutableStateOf(NovelPrefs())
@@ -93,6 +96,8 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
     private var virtualPages: List<ReaderPage> = emptyList()
     private var preloadRequested = false // Prevent duplicate preload requests
     private var savedPagePosition = 0 // Saved position for text extraction ordering
+    private var lastSummaryPage = -1 // Track last page where Tier 1 summary was generated (-1 = not loaded)
+    private var summaryJobPending = false // Prevent duplicate summary jobs
 
     // PDF Document for lazy rendering
     private var pdfDocument: com.artifex.mupdf.fitz.Document? = null
@@ -208,6 +213,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         }
                         activity.requestPreloadChapter(nextChapter!!)
                     }
+
+                    // Check if we should generate Tier 1 summary (every 30 pages)
+                    checkSummaryTrigger(listIndex)
                 }
             },
             onLoadPage = { page ->
@@ -240,6 +248,10 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             visible = showAiChat,
             mangaTitle = readerState.manga?.title,
             onDismiss = { showAiChat = false },
+            mangaId = readerState.manga?.id,
+            textContentProvider = this,
+            currentPage = lastUserVisiblePage.value + 1, // 1-indexed for display
+            totalPages = images.value.size.coerceAtLeast(virtualPages.size),
         )
     }
 
@@ -270,7 +282,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 }
             }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "Error rendering PDF page $index: ${e.message}" }
+            logcat { "NovelViewer: Error rendering PDF page $index: ${e.message}" }
             null
         }
     }
@@ -328,7 +340,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     try {
                         eu.kanade.tachiyomi.util.MuPdfUtil.openDocument(localPdfFile!!.absolutePath)
                     } catch (e: Exception) {
-                        logcat(LogPriority.ERROR) { "OCR: Failed to open private PDF doc: ${e.message}" }
+                        logcat { "OCR: Failed to open private PDF doc: ${e.message}" }
                         null
                     }
                 } else {
@@ -416,7 +428,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                         android.graphics.BitmapFactory.decodeStream(inputStream)
                                     }
                                 } catch (e: Exception) {
-                                    logcat(LogPriority.WARN) {
+                                    logcat {
                                         "OCR: Failed to decode stream for page $pageIndex: ${e.message}"
                                     }
                                     null
@@ -443,7 +455,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                             }
                                         }
                                     } catch (e: Exception) {
-                                        logcat(LogPriority.WARN) {
+                                        logcat {
                                             "OCR: Failed to load page $pageIndex: ${e.message}"
                                         }
                                         null
@@ -511,7 +523,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                                     yield()
                                 }
                             } catch (e: Exception) {
-                                logcat(LogPriority.ERROR) { "OCR: Error page $index: ${e.message}" }
+                                logcat { "OCR: Error page $index: ${e.message}" }
                                 pageResults[index] = "[Error OCR]"
                             }
                         } else {
@@ -537,7 +549,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 }
             }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "OCR: Critical error: ${e.message}" }
+            logcat { "OCR: Critical error: ${e.message}" }
             withContext(Dispatchers.Main) {
                 ocrProgress.value = null
                 // Attempt to show whatever we got
@@ -573,6 +585,59 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             } catch (e: Exception) {
                 // Ignore
             }
+        }
+    }
+
+    /**
+     * Check if we should trigger Tier 1 summary generation.
+     * Triggers when user has read 30+ pages beyond the last summary checkpoint.
+     */
+    private fun checkSummaryTrigger(currentPage: Int) {
+        // Only trigger for PDF mode with valid pdfFile
+        val localPdfFile = pdfFile ?: return
+        val chapter = currentChapter ?: return
+        val mangaId = chapter.chapter.manga_id ?: return
+
+        // Don't trigger if job is already pending
+        if (summaryJobPending) return
+
+        // Check if Reading Buddy is enabled
+        if (!aiPreferences.readingBuddyEnabled().get()) return
+
+        // Load last summary page from DB on first access
+        if (lastSummaryPage == -1) {
+            scope.launch(Dispatchers.IO) {
+                val existingContext = novelContextRepository.getByMangaId(mangaId)
+                lastSummaryPage = existingContext?.summaryLastPage ?: 0
+                logcat { "NovelViewer: Loaded lastSummaryPage from DB: $lastSummaryPage" }
+            }
+            return // Wait for next page change after loading
+        }
+
+        // Trigger if user has read 30+ pages beyond last summary
+        val pagesSinceLastSummary = currentPage - lastSummaryPage
+        if (pagesSinceLastSummary >= 30) {
+            summaryJobPending = true
+            val fromPage = lastSummaryPage
+            val toPage = currentPage
+            val chapterNumber = chapter.chapter.chapter_number.toDouble()
+
+            logcat {
+                "NovelViewer: Triggering summary generation for pages $fromPage-$toPage (chapter $chapterNumber)"
+            }
+
+            NovelSummaryJob.enqueue(
+                context = activity,
+                mangaId = mangaId,
+                fromPage = fromPage,
+                toPage = toPage,
+                pdfPath = localPdfFile.absolutePath,
+                chapterNumber = chapterNumber,
+            )
+
+            // Optimistically update lastSummaryPage to prevent duplicate triggers
+            lastSummaryPage = toPage
+            summaryJobPending = false
         }
     }
 
@@ -868,7 +933,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             }
                         }
                     } catch (e: Exception) {
-                        logcat(LogPriority.WARN) { "NovelViewer: Readability4J failed: ${e.message}" }
+                        logcat { "NovelViewer: Readability4J failed: ${e.message}" }
                     }
 
                     // 2. Fallback to manual Jsoup heuristic if Readability4J failed or returned little text
@@ -1007,7 +1072,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     isLoading.value = false
-                    logcat(LogPriority.ERROR) { "NovelViewer: Error loading chapter: ${e.message}" }
+                    logcat { "NovelViewer: Error loading chapter: ${e.message}" }
                     content.value = listOf("Error al cargar el capítulo.")
                 }
             }
@@ -1269,6 +1334,38 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 originalImages.value = virtualImages
             }
 
+            // Check if Reading Buddy is enabled
+            val readingBuddyEnabled = aiPreferences.readingBuddyEnabled().get()
+            val apiKey = aiPreferences.apiKey().get()
+
+            if (!readingBuddyEnabled) {
+                logcat { "NovelViewer: Reading Buddy disabled, skipping text extraction" }
+                withContext(Dispatchers.Main) {
+                    isLoading.value = false
+                    showTextMode.value = false // Fallback to PDF mode
+                    content.value = emptyList()
+                    // Jump to page
+                    if (virtualPages.isNotEmpty()) {
+                        moveToPage(virtualPages[savedPagePosition.coerceIn(0, virtualPages.lastIndex)])
+                    }
+                }
+                return
+            }
+
+            if (apiKey.isBlank()) {
+                logcat { "NovelViewer: No API key for Reading Buddy, skipping extraction" }
+                withContext(Dispatchers.Main) {
+                    isLoading.value = false
+                    showTextMode.value = false
+                    content.value = emptyList()
+                    activity.toast("Reading Buddy disabled: Missing Gemini API Key")
+                    if (virtualPages.isNotEmpty()) {
+                        moveToPage(virtualPages[savedPagePosition.coerceIn(0, virtualPages.lastIndex)])
+                    }
+                }
+                return
+            }
+
             scope.launch(Dispatchers.IO) {
                 try {
                     val muPdfDoc = MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
@@ -1329,7 +1426,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                         }
                     }
                 } catch (e: Exception) {
-                    logcat(LogPriority.WARN) { "NovelViewer: Text extraction failed: ${e.message}" }
+                    logcat { "NovelViewer: Text extraction failed: ${e.message}" }
                     withContext(Dispatchers.Main) {
                         isLoading.value = false
                         loadingMessage.value = null
@@ -1342,7 +1439,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                 }
             }
         } catch (e: Exception) {
-            logcat(LogPriority.ERROR) { "Error handling local PDF: ${e.message}" }
+            logcat { "Error handling local PDF: ${e.message}" }
             withContext(Dispatchers.Main) {
                 isLoading.value = false
                 loadingMessage.value = null
@@ -1475,37 +1572,43 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
         visible: Boolean,
         mangaTitle: String?,
         onDismiss: () -> Unit,
+        mangaId: Long? = null,
+        textContentProvider: tachiyomi.domain.ai.TextContentProvider? = null,
+        currentPage: Int = 0,
+        totalPages: Int = 0,
     ) {
-        var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
+        var messages by remember { mutableStateOf<List<tachiyomi.domain.ai.model.ChatMessage>>(emptyList()) }
         var isLoading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
         var attachedImage by remember { mutableStateOf<String?>(null) }
-        var showVisualSelection by remember { mutableStateOf(false) }
         var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
+        var showVisualSelection by remember { mutableStateOf(false) }
+        val isCapturingVision = remember { mutableStateOf(false) }
 
-        val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
-            uy.kohesive.injekt.Injekt.get()
-        }
-        val aiPreferences: tachiyomi.domain.ai.AiPreferences = remember {
-            uy.kohesive.injekt.Injekt.get()
-        }
-        val isWebSearchEnabled by aiPreferences.enableWebSearch().changes()
-            .collectAsState(initial = aiPreferences.enableWebSearch().get())
+        // Reading Buddy State
+        var isReadingBuddyEnabled by remember { mutableStateOf(true) } // Default ON
+
         val context = androidx.compose.ui.platform.LocalContext.current
+        val activity = context as? eu.kanade.tachiyomi.ui.reader.ReaderActivity
+
+        // Lazy injection of repositories (since this is a composable function, not a class)
+        // We use Injekt directly here as we are inside a Viewer class, not a proper ScreenModel
+        val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember { uy.kohesive.injekt.Injekt.get() }
+        val getReadingContext: tachiyomi.domain.ai.GetReadingContext = remember { uy.kohesive.injekt.Injekt.get() }
+        val aiPreferences: tachiyomi.domain.ai.AiPreferences = remember { uy.kohesive.injekt.Injekt.get() }
+        val novelContextRepository: tachiyomi.domain.novelcontext.repository.NovelContextRepository =
+            remember { uy.kohesive.injekt.Injekt.get() }
+
         val webSearchUnavailableMsg = stringResource(MR.strings.ai_web_search_unavailable)
 
-        // Visual Selection Screen (fullscreen overlay)
         if (showVisualSelection && capturedBitmap != null) {
             eu.kanade.presentation.ai.components.VisualSelectionScreen(
                 bitmap = capturedBitmap!!,
-                onConfirm = { selectedBitmap ->
-                    // Convert to Base64
+                onConfirm = { bitmap ->
                     val stream = java.io.ByteArrayOutputStream()
-                    selectedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
-                    attachedImage = android.util.Base64.encodeToString(
-                        stream.toByteArray(),
-                        android.util.Base64.NO_WRAP,
-                    )
+                    bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+                    val base64 = android.util.Base64.encodeToString(stream.toByteArray(), android.util.Base64.NO_WRAP)
+                    attachedImage = base64
                     showVisualSelection = false
                     capturedBitmap = null
                 },
@@ -1514,115 +1617,140 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                     capturedBitmap = null
                 },
             )
-            return
-        }
-
-        eu.kanade.presentation.ai.components.AiChatOverlay(
-            visible = visible,
-            messages = messages,
-            isLoading = isLoading,
-            error = error,
-            mangaTitle = mangaTitle,
-            isWebSearchEnabled = isWebSearchEnabled,
-            onToggleWebSearch = {
-                if (!aiPreferences.canEnableWebSearch()) {
+        } else {
+            eu.kanade.presentation.ai.components.AiChatOverlay(
+                visible = visible,
+                messages = messages,
+                isLoading = isLoading,
+                error = error,
+                mangaTitle = mangaTitle,
+                isWebSearchEnabled = false, // Not supported in viewer yet
+                onToggleWebSearch = {
                     context.toast(webSearchUnavailableMsg)
-                } else {
-                    aiPreferences.enableWebSearch().set(!isWebSearchEnabled)
-                }
-            },
-            onSendMessage = { content ->
-                if (content.isBlank()) return@AiChatOverlay
+                },
+                // Reading Buddy Args
+                isReadingBuddyEnabled = isReadingBuddyEnabled,
+                onToggleReadingBuddy = { isReadingBuddyEnabled = !isReadingBuddyEnabled },
+                canShowReadingBuddy = textContentProvider != null,
+                // Actions
+                onSendMessage = { text ->
+                    if (text.isBlank()) return@AiChatOverlay
 
-                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content, attachedImage)
-                messages = messages + userMessage
-                attachedImage = null // Clear after sending
-                isLoading = true
-                error = null
+                    isLoading = true
+                    error = null
 
-                scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-                    try {
-                        val manga = activity.viewModel.manga
-                        val currentState = activity.viewModel.state.value
-                        val systemPrompt = buildString {
-                            // LANGUAGE INSTRUCTION FIRST - most important
-                            appendLine(
-                                "CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. " +
-                                    "Si el usuario escribe en español, responde en español. " +
-                                    "If the user writes in English, respond in English.",
-                            )
-                            appendLine()
-                            appendLine(
-                                "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
-                            )
-                            appendLine()
-                            manga?.let { m ->
-                                appendLine("=== CURRENT READING CONTEXT ===")
-                                appendLine("Title: ${m.title}")
-                                m.genre?.take(5)?.let { genres ->
-                                    appendLine("Genres: ${genres.joinToString(", ")}")
+                    // Add user message to list immediately
+                    val userMsg = tachiyomi.domain.ai.model.ChatMessage.user(text, attachedImage)
+                    messages = messages + userMsg
+                    attachedImage = null // Clear image after sending
+
+                    // Launch AI request
+                    // Use a proper scope that survives recomposition but is tied to the overlay lifecycle
+                    val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.IO)
+                    scope.launch {
+                        try {
+                            val systemPrompt = buildString {
+                                // Tone
+                                val tone = tachiyomi.domain.ai.AiTone.fromName(aiPreferences.tone().get())
+                                appendLine("You are Gexu AI.")
+
+                                // Reading Buddy Context Injection
+                                if (isReadingBuddyEnabled && textContentProvider != null && mangaId != null) {
+                                    // Tier 3: Full text of last 10 pages
+                                    val tier3Text = textContentProvider.getRecentText(10)
+
+                                    // Tier 2: Key extracts from intermediate pages
+                                    // Range: from summaryLastPage to 10 pages before current
+                                    val novelContext = novelContextRepository.getByMangaId(mangaId)
+                                    val tier2Start = novelContext?.summaryLastPage ?: 0
+                                    val tier2End = (currentPage - 10).coerceAtLeast(0)
+                                    val tier2Text = if (tier2End > tier2Start + 5) {
+                                        textContentProvider.getFirstParagraphs(tier2Start, tier2End, skipEvery = 5)
+                                    } else {
+                                        null
+                                    }
+
+                                    // Combine all tiers into context
+                                    append(
+                                        getReadingContext.getContextForNovel(
+                                            mangaId,
+                                            tier3Text.ifBlank { "[No recent text available]" },
+                                            tier2Text,
+                                            currentPage,
+                                            totalPages,
+                                        ),
+                                    )
+                                } else if (mangaId != null) {
+                                    // Standard Reader Context (Minimally invasive)
+                                    append(getReadingContext.getContextForManga(mangaId, null))
                                 }
-                                m.description?.take(300)?.let { desc ->
-                                    appendLine("Synopsis: $desc...")
+
+                                appendLine()
+                                val customInstructions = aiPreferences.customInstructions().get()
+                                if (customInstructions.isNotBlank()) {
+                                    appendLine("USER'S CUSTOM INSTRUCTIONS:")
+                                    appendLine(customInstructions)
+                                    appendLine()
                                 }
-                                appendLine()
-                                appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
-                                appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
-                                appendLine("===============================")
-                                appendLine()
+
+                                appendLine("GUIDELINES:")
+                                appendLine(tone.systemPrompt)
                                 appendLine(
-                                    "IMPORTANT: The user is actively reading this content. You have full context.",
+                                    "- Apply this rule to ALL responses without exception: ALWAYS respond in the SAME LANGUAGE as the user's message.",
                                 )
-                                appendLine("- Answer questions about the current chapter and characters")
-                                appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
-                                appendLine("- Be helpful and friendly")
-                                appendLine("- If the user sends an image, describe and analyze it in detail.")
-                                appendLine("- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.")
+                                appendLine("- Keep responses concise and conversational.")
+                                appendLine("- Avoid spoilers unless explicitly asked.")
+
+                                if (isReadingBuddyEnabled) {
+                                    appendLine("- Act as a Reading Buddy: react to the plot, share excitement.")
+                                }
+
+                                if (attachedImage != null) {
+                                    appendLine("--- VISION CAPABILITY ENABLED ---")
+                                    appendLine("The user has attached an image from the current page.")
+                                    appendLine("- Analyze the visual details, art style, and text in the image.")
+                                }
+                            }
+
+                            val allMessages = listOf(
+                                tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt),
+                            ) + messages
+
+                            val result = aiRepository.sendMessage(allMessages)
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                result.fold(
+                                    onSuccess = { response ->
+                                        messages = messages + response
+                                        isLoading = false
+                                    },
+                                    onFailure = { e ->
+                                        isLoading = false
+                                        error = e.message ?: "Error desconocido"
+                                    },
+                                )
+                            }
+                        } catch (e: Exception) {
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                isLoading = false
+                                error = e.message ?: "Error de conexión"
                             }
                         }
-
-                        val allMessages = listOf(
-                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt),
-                        ) + messages
-
-                        val result = aiRepository.sendMessage(allMessages)
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            result.fold(
-                                onSuccess = { response ->
-                                    messages = messages + response
-                                    isLoading = false
-                                },
-                                onFailure = { e ->
-                                    isLoading = false
-                                    error = e.message ?: "Error desconocido"
-                                },
-                            )
-                        }
-                    } catch (e: Exception) {
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            isLoading = false
-                            error = e.message ?: "Error de conexión"
-                        }
                     }
-                }
-            },
-            onClearConversation = {
-                messages = emptyList()
-                error = null
-            },
-            onCaptureVision = {
-                // Set capture mode - this will trigger immediate menu hide via Compose state
-                isCapturingVision.value = true
+                },
+                onClearConversation = {
+                    messages = emptyList()
+                    error = null
+                },
+                onCaptureVision = {
+                    if (isCapturingVision.value) return@AiChatOverlay
+                    isCapturingVision.value = true
 
-                // Wait for menu to be hidden (3 frames for recomposition + layout + draw)
-                activity.window.decorView.postOnAnimation {
-                    activity.window.decorView.postOnAnimation {
-                        activity.window.decorView.postOnAnimation {
-                            // Capture using Activity's method which handles Activity overlays
-                            activity.captureViewportAsync { bitmap ->
-                                // Exit capture mode
+                    // Trigger capture via activity
+                    activity?.let { act ->
+                        // Wait for UI update
+                        act.window.decorView.post {
+                            act.captureViewportAsync { bitmap ->
                                 isCapturingVision.value = false
-
                                 if (bitmap != null) {
                                     capturedBitmap = bitmap
                                     showVisualSelection = true
@@ -1630,12 +1758,87 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer {
                             }
                         }
                     }
-                }
-            },
-            hasAttachedImage = attachedImage != null,
-            attachedImageBase64 = attachedImage,
-            onClearAttachedImage = { attachedImage = null },
-            onDismiss = onDismiss,
-        )
+                },
+                hasAttachedImage = attachedImage != null,
+                attachedImageBase64 = attachedImage,
+                onClearAttachedImage = { attachedImage = null },
+                onDismiss = onDismiss,
+            )
+        }
     }
+
+    override suspend fun getRecentText(pagesToExtract: Int): String {
+        return withContext(Dispatchers.IO) {
+            val document = pdfMutex.withLock { pdfDocument }
+            if (document == null) return@withContext ""
+
+            val currentPage = lastUserVisiblePage.value
+            // Calculate range: from (current - pages) to current, clamped to 0
+            val startPage = (currentPage - pagesToExtract).coerceAtLeast(0)
+
+            val textBuilder = StringBuilder()
+            // Ensure thread safety with pdfMutex
+            // Ensure thread safety with pdfMutex, but lock PER PAGE to allow rendering to interleave
+            for (i in startPage..currentPage) {
+                try {
+                    val pageText = pdfMutex.withLock {
+                        eu.kanade.tachiyomi.util.MuPdfUtil.extractPageText(document, i)
+                    }
+                    if (pageText.isNotBlank()) {
+                        textBuilder.appendLine("--- Page ${i + 1} ---")
+                        textBuilder.appendLine(pageText)
+                    }
+
+                    // CRITICAL: Delay to ensure the UI/Rendering thread has ample time to acquire the lock and render
+                    // yield() might not be enough if the lock is contested heavily.
+                    kotlinx.coroutines.delay(50)
+                } catch (_: Exception) {
+                    // Ignore extraction errors for individual pages
+                }
+            }
+            textBuilder.toString()
+        }
+    }
+
+    /**
+     * Tier 2: Extract first paragraph (~500 chars) from every Nth page in a range.
+     * This provides context from older pages without using too many tokens.
+     */
+    override suspend fun getFirstParagraphs(startPage: Int, endPage: Int, skipEvery: Int): String {
+        return withContext(Dispatchers.IO) {
+            val document = pdfMutex.withLock { pdfDocument }
+            if (document == null) return@withContext ""
+
+            val textBuilder = StringBuilder()
+            val safeStart = startPage.coerceAtLeast(0)
+            val safeEnd = endPage.coerceAtMost(virtualPages.size)
+
+            for (i in safeStart until safeEnd step skipEvery) {
+                try {
+                    val pageText = pdfMutex.withLock {
+                        eu.kanade.tachiyomi.util.MuPdfUtil.extractPageText(document, i)
+                    }
+                    if (pageText.isNotBlank()) {
+                        // Extract first ~500 chars or until double newline (first paragraph)
+                        val firstParagraph = pageText.take(500)
+                            .substringBefore("\n\n")
+                            .trim()
+                        if (firstParagraph.isNotBlank()) {
+                            textBuilder.appendLine("--- Page ${i + 1} (excerpt) ---")
+                            textBuilder.appendLine(firstParagraph)
+                        }
+                    }
+                    // Yield to UI thread
+                    kotlinx.coroutines.delay(10)
+                } catch (_: Exception) {
+                    // Ignore extraction errors
+                }
+            }
+            textBuilder.toString()
+        }
+    }
+
+    override fun getCurrentPage(): Int = lastUserVisiblePage.value
+
+    override fun getTotalPages(): Int = virtualPages.size
 }

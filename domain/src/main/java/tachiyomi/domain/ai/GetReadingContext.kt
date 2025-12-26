@@ -9,6 +9,7 @@ import tachiyomi.domain.history.model.HistoryWithRelations
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
+import tachiyomi.domain.novelcontext.repository.NovelContextRepository
 import tachiyomi.domain.track.repository.TrackRepository
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -23,6 +24,7 @@ class GetReadingContext(
     private val searchLibrary: tachiyomi.domain.ai.interactor.SearchLibrary,
     private val trackRepository: TrackRepository,
     private val readerNotesRepository: ReaderNotesRepository,
+    private val novelContextRepository: NovelContextRepository,
 ) {
 
     // Cache for global context (invalidates after 5 minutes)
@@ -203,6 +205,74 @@ class GetReadingContext(
             appendLine()
             appendLine("CRITICAL INSTRUCTION: Do NOT spoil anything beyond chapter $maxChapterRead.")
             appendLine("--- CONTEXT END ---")
+        }
+    }
+
+    /**
+     * Specialized context for Novels/PDFs (Reading Buddy Mode).
+     * Uses a 3-tier hybrid context system:
+     * - Tier 1: AI-generated summary from DB (oldest content)
+     * - Tier 2: Key extracts (first paragraphs from intermediate pages)
+     * - Tier 3: Full text of recent pages (freshest content)
+     *
+     * @param tier3Text The full text of the last ~10 pages (extracted via TextContentProvider).
+     * @param tier2Text Key extracts from intermediate pages (first paragraph every 5 pages).
+     * @param currentPage Current page number (0-indexed internally, displayed as 1-indexed).
+     * @param totalPages Total pages in document.
+     */
+    suspend fun getContextForNovel(
+        mangaId: Long,
+        tier3Text: String,
+        tier2Text: String? = null,
+        currentPage: Int,
+        totalPages: Int,
+    ): String {
+        val manga = mangaRepository.getMangaById(mangaId)
+        val novelContext = novelContextRepository.getByMangaId(mangaId)
+
+        return buildString {
+            // System Persona & Constraints
+            appendLine("You are Gexu, the user's reading buddy for \"${manga.title}\".")
+            appendLine("📖 USER IS ON PAGE ${currentPage + 1} of $totalPages.")
+            appendLine("Author: ${manga.author ?: "Unknown"}")
+            appendLine()
+
+            // Tier 1: Summary (from DB)
+            if (novelContext?.summaryText != null) {
+                appendLine("═══ TIER 1: STORY SUMMARY (pages 1-${novelContext.summaryLastPage}) ═══")
+                appendLine(novelContext.summaryText)
+                appendLine()
+            } else {
+                appendLine("Synopsis: ${manga.description?.take(500) ?: "(No synopsis available)"}")
+                appendLine()
+            }
+
+            // Tier 2: Key Extracts (intermediate pages)
+            if (!tier2Text.isNullOrBlank()) {
+                appendLine("═══ TIER 2: KEY EXCERPTS (intermediate pages) ═══")
+                appendLine(tier2Text)
+                appendLine()
+            }
+
+            // Tier 3: Recent Text (Passed from UI layer)
+            if (tier3Text.isNotBlank()) {
+                appendLine("═══ TIER 3: FULL TEXT (last ~10 pages) ═══")
+                appendLine(tier3Text)
+                appendLine()
+                appendLine(
+                    "The user is currently on PAGE ${currentPage + 1}. " +
+                        "When they say 'here' or 'this part', refer to the end of the text above.",
+                )
+                appendLine()
+            }
+
+            // Rules
+            appendLine("RULES:")
+            appendLine("1. When user asks 'what's happening here?' - refer to Tier 3 (recent text).")
+            appendLine("2. You have ONLY read up to page ${currentPage + 1}. NO SPOILERS beyond this.")
+            appendLine("3. CRITICAL: Do NOT use outside knowledge to predict future events.")
+            appendLine("4. React emotionally to plot events. Be an engaged reading buddy!")
+            appendLine("5. Keep responses conversational, like texting a friend about the book.")
         }
     }
 

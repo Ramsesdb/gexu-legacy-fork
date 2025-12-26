@@ -7,6 +7,7 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.manga.repository.ReaderNotesRepository
+import tachiyomi.domain.novelcontext.repository.NovelContextRepository
 import tachiyomi.domain.track.repository.TrackRepository
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -25,6 +26,7 @@ class AiToolHandler(
     private val trackRepository: TrackRepository,
     private val readerNotesRepository: ReaderNotesRepository,
     private val categoryRepository: CategoryRepository,
+    private val novelContextRepository: NovelContextRepository,
     private val searchLibrary: SearchLibrary,
 ) {
 
@@ -190,6 +192,12 @@ class AiToolHandler(
             0.0
         }
 
+        val novelContext = try {
+            novelContextRepository.getByMangaId(mangaId)
+        } catch (e: Exception) {
+            null
+        }
+
         return buildString {
             appendLine("📖 FULL CONTEXT: ${manga.title}")
             appendLine()
@@ -222,6 +230,13 @@ class AiToolHandler(
             appendLine("- Max chapter reached: ${maxChapterRead.toInt()}")
             appendLine("- Unread: ${match.unreadCount}")
             appendLine()
+
+            // Novel Context (Reading Buddy)
+            if (novelContext?.summaryText?.isNotBlank() == true) {
+                appendLine("📚 READING BUDDY SUMMARY (Plot so far):")
+                appendLine(novelContext.summaryText)
+                appendLine()
+            }
 
             // Tracker scores
             if (tracks.isNotEmpty()) {
@@ -1038,7 +1053,7 @@ class AiToolHandler(
                 eveningReads >= maxOf(morningReads, afternoonReads, nightReads) -> "🌆 Evening reader!"
                 else -> "☀️ Daytime reader!"
             }
-            appendLine("Peak reading time: ${peakHour}:00 - $peakTime")
+            appendLine("Peak reading time: $peakHour:00 - $peakTime")
             appendLine()
             appendLine("📆 FAVORITE DAYS:")
             topDays.forEach { (day, count) ->
@@ -1048,7 +1063,9 @@ class AiToolHandler(
     }
 
     private suspend fun getNotesByTag(tagName: String, limit: Int): String {
-        if (tagName.isBlank()) return "Please provide a tag name (THEORY, IMPORTANT, QUESTION, FAVORITE, SPOILER, FUNNY)"
+        if (tagName.isBlank()) {
+            return "Please provide a tag name (THEORY, IMPORTANT, QUESTION, FAVORITE, SPOILER, FUNNY)"
+        }
 
         val tag = try {
             tachiyomi.domain.manga.model.NoteTag.valueOf(tagName.uppercase())
