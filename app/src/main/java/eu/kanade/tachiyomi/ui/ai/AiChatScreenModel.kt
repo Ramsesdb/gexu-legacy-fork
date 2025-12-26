@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.AiProvider
 import tachiyomi.domain.ai.model.AiConversation
@@ -27,19 +28,26 @@ class AiChatScreenModel(
     private val getReadingContext: tachiyomi.domain.ai.GetReadingContext = Injekt.get(),
 ) : StateScreenModel<AiChatScreenModel.State>(State()) {
 
+    // Reading Buddy Provider (injected when chat opened from Reader)
+    private var textContentProvider: tachiyomi.domain.ai.TextContentProvider? = null
+
     init {
-        // Check if API key is configured on init
+        // Check if ANY provider has an API key configured
+        // Only show wizard if NO providers are configured at all
         screenModelScope.launch {
-            val isConfigured = aiRepository.isConfigured()
-            mutableState.update { it.copy(showApiKeySetup = !isConfigured) }
+            val configuredProviders = aiPreferences.getConfiguredProviders()
+            val shouldShowWizard = configuredProviders.isEmpty()
 
             // Load saved preferences
+            val currentProvider = AiProvider.fromName(aiPreferences.provider().get())
             mutableState.update { state ->
                 state.copy(
-                    selectedProvider = AiProvider.fromName(aiPreferences.provider().get()),
-                    apiKey = aiPreferences.apiKey().get(),
+                    showApiKeySetup = shouldShowWizard,
+                    selectedProvider = currentProvider,
+                    apiKey = aiPreferences.getApiKeyForProvider(currentProvider),
                     selectedModel = aiPreferences.model().get(),
                     persistEnabled = aiPreferences.persistConversations().get(),
+                    isReadingBuddyGloballyEnabled = aiPreferences.readingBuddyEnabled().get(),
                 )
             }
         }
@@ -121,72 +129,90 @@ class AiChatScreenModel(
         }
 
         screenModelScope.launchIO {
-            // Persist user message if enabled (pass content for title on first message)
-            val conversationId = ensureConversationExists(content)
-            if (shouldPersist() && conversationId != null) {
-                conversationRepository.addMessage(
-                    AiMessageCreate(
-                        conversationId = conversationId,
-                        role = MessageRole.USER,
-                        content = content,
-                    ),
-                )
-            }
+            try {
+                // Persist user message if enabled (pass content for title on first message)
+                val conversationId = ensureConversationExists(content)
+                if (shouldPersist() && conversationId != null) {
+                    conversationRepository.addMessage(
+                        AiMessageCreate(
+                            conversationId = conversationId,
+                            role = MessageRole.USER,
+                            content = content,
+                        ),
+                    )
+                }
 
-            // Build messages with system context (includes RAG search based on query)
-            val systemPrompt = buildSystemPrompt(content)
-            // Exclude the empty placeholder from messages sent to API
-            val messagesForApi = state.value.messages.dropLast(1)
-            val allMessages = listOf(ChatMessage.system(systemPrompt)) + messagesForApi
+                // Build messages with system context (includes RAG search based on query)
+                val systemPrompt = buildSystemPrompt(content)
+                // Exclude the empty placeholder from messages sent to API
+                val messagesForApi = state.value.messages.dropLast(1)
+                val allMessages = listOf(ChatMessage.system(systemPrompt)) + messagesForApi
 
-            var fullResponse = ""
+                var fullResponse = ""
 
-            // Use streaming for real-time response display
-            aiRepository.streamMessage(allMessages).collect { chunk ->
-                when (chunk) {
-                    is StreamChunk.Text -> {
-                        fullResponse += chunk.delta
-                        // Update the last message (assistant placeholder) with accumulated text
-                        mutableState.update { state ->
-                            val updatedMessages = state.messages.toMutableList()
-                            if (updatedMessages.isNotEmpty()) {
-                                updatedMessages[updatedMessages.lastIndex] =
-                                    ChatMessage.assistant(fullResponse)
+                // Use streaming for real-time response display
+                aiRepository.streamMessage(allMessages).collect { chunk ->
+                    when (chunk) {
+                        is StreamChunk.Text -> {
+                            fullResponse += chunk.delta
+                            // Update the last message (assistant placeholder) with accumulated text
+                            mutableState.update { state ->
+                                val updatedMessages = state.messages.toMutableList()
+                                if (updatedMessages.isNotEmpty()) {
+                                    updatedMessages[updatedMessages.lastIndex] =
+                                        ChatMessage.assistant(fullResponse)
+                                }
+                                state.copy(messages = updatedMessages)
                             }
-                            state.copy(messages = updatedMessages)
                         }
-                    }
-                    is StreamChunk.Done -> {
-                        mutableState.update { it.copy(isLoading = false) }
+                        is StreamChunk.Done -> {
+                            mutableState.update { it.copy(isLoading = false) }
 
-                        // Persist assistant response if enabled
-                        if (shouldPersist() && conversationId != null && fullResponse.isNotBlank()) {
-                            conversationRepository.addMessage(
-                                AiMessageCreate(
-                                    conversationId = conversationId,
-                                    role = MessageRole.ASSISTANT,
-                                    content = fullResponse,
-                                ),
-                            )
-                        }
-                    }
-                    is StreamChunk.Error -> {
-                        // Remove the empty placeholder on error
-                        mutableState.update { state ->
-                            val messagesWithoutPlaceholder = if (state.messages.isNotEmpty() &&
-                                state.messages.last().content.isEmpty()
-                            ) {
-                                state.messages.dropLast(1)
-                            } else {
-                                state.messages
+                            // Persist assistant response if enabled
+                            if (shouldPersist() && conversationId != null && fullResponse.isNotBlank()) {
+                                conversationRepository.addMessage(
+                                    AiMessageCreate(
+                                        conversationId = conversationId,
+                                        role = MessageRole.ASSISTANT,
+                                        content = fullResponse,
+                                    ),
+                                )
                             }
-                            state.copy(
-                                messages = messagesWithoutPlaceholder,
-                                isLoading = false,
-                                error = chunk.message,
-                            )
+                        }
+                        is StreamChunk.Error -> {
+                            // Remove the empty placeholder on error
+                            mutableState.update { state ->
+                                val messagesWithoutPlaceholder = if (state.messages.isNotEmpty() &&
+                                    state.messages.last().content.isEmpty()
+                                ) {
+                                    state.messages.dropLast(1)
+                                } else {
+                                    state.messages
+                                }
+                                state.copy(
+                                    messages = messagesWithoutPlaceholder,
+                                    isLoading = false,
+                                    error = chunk.message,
+                                )
+                            }
                         }
                     }
+                }
+            } catch (e: Exception) {
+                // Catch any other exceptions (e.g. from buildSystemPrompt or cancellation)
+                mutableState.update { state ->
+                    val messagesWithoutPlaceholder = if (state.messages.isNotEmpty() &&
+                        state.messages.last().content.isEmpty()
+                    ) {
+                        state.messages.dropLast(1)
+                    } else {
+                        state.messages
+                    }
+                    state.copy(
+                        messages = messagesWithoutPlaceholder,
+                        isLoading = false,
+                        error = e.localizedMessage ?: "Unknown error",
+                    )
                 }
             }
         }
@@ -279,8 +305,11 @@ class AiChatScreenModel(
     fun saveApiKey() {
         val currentState = state.value
         screenModelScope.launch {
+            // Save provider as primary
             aiPreferences.provider().set(currentState.selectedProvider.name)
-            aiPreferences.apiKey().set(currentState.apiKey)
+
+            // Save API key for this specific provider (multi-provider support)
+            aiPreferences.setApiKeyForProvider(currentState.selectedProvider, currentState.apiKey)
 
             // Set default model for the provider
             val defaultModel = currentState.selectedProvider.models.firstOrNull() ?: ""
@@ -340,6 +369,44 @@ class AiChatScreenModel(
                 appendLine()
                 appendLine("USE THESE TOOLS when you need specific information about the user's library.")
                 appendLine("Do NOT guess or make up information - call the appropriate tool.")
+
+                if (currentState.isReadingBuddyEnabled) {
+                    appendLine()
+                    appendLine("READING BUDDY MODE ACTIVE:")
+                    appendLine(
+                        "The user wants to discuss a specific story. " +
+                            "IMMEDIATELY check if their message mentions a story title.",
+                    )
+                    appendLine(
+                        "If yes, use `get_full_manga_context(title)` " +
+                            "to retrieve its plot summary and details.",
+                    )
+                    appendLine("If no title is clear, ask them which story they want to talk about.")
+                }
+            }
+
+            // Reading Buddy Context Injection (If toggle ON and provider available)
+            // This injects Tier 3 (recent pages) context when in PDF/novel reader
+            if (
+                state.value.isReadingBuddyEnabled &&
+                textContentProvider != null &&
+                currentState.currentMangaId != null
+            ) {
+                logcat { "AiChatScreenModel: Requesting recent text from provider..." }
+                val tier3Text = textContentProvider?.getRecentText(4) ?: ""
+                logcat { "AiChatScreenModel: Received tier3Text length: ${tier3Text.length}" }
+
+                if (tier3Text.isNotBlank()) {
+                    append(
+                        getReadingContext.getContextForNovel(
+                            mangaId = currentState.currentMangaId,
+                            tier3Text = tier3Text,
+                            currentPage = 0, // Page info not available in main chat screen
+                            totalPages = 0,
+                        ),
+                    )
+                    appendLine()
+                }
             }
             appendLine()
         }
@@ -384,7 +451,22 @@ class AiChatScreenModel(
         val attachedImage: String? = null, // Base64 encoded image
         val showVisualSelection: Boolean = false,
         val capturedBitmap: android.graphics.Bitmap? = null,
+        // Reading Buddy State
+        val isReadingBuddyEnabled: Boolean = false, // Session toggle
+        val isReadingBuddyGloballyEnabled: Boolean = false, // Preference toggle
     )
+
+    fun setTextContentProvider(provider: tachiyomi.domain.ai.TextContentProvider?) {
+        this.textContentProvider = provider
+        // Auto-enable buddy mode if provider is available (Reader Overlay)
+        if (provider != null) {
+            mutableState.update { it.copy(isReadingBuddyEnabled = true) }
+        }
+    }
+
+    fun toggleReadingBuddy() {
+        mutableState.update { it.copy(isReadingBuddyEnabled = !it.isReadingBuddyEnabled) }
+    }
 
     fun attachImage(base64Image: String) {
         mutableState.update { it.copy(attachedImage = base64Image) }

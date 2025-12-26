@@ -40,8 +40,43 @@ object SettingsGexuAiScreen : SearchableSettings {
             getProviderGroup(aiPreferences),
             getWebSearchGroup(aiPreferences),
             getPersonalityGroup(aiPreferences),
+            getReadingBuddyGroup(aiPreferences),
             getRagGroup(aiPreferences),
             getBehaviorGroup(aiPreferences),
+        )
+    }
+
+    @Composable
+    private fun getReadingBuddyGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val novelContextRepository = remember {
+            Injekt.get<tachiyomi.domain.novelcontext.repository.NovelContextRepository>()
+        }
+        val context = LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        return Preference.PreferenceGroup(
+            title = "Reading Buddy",
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.readingBuddyEnabled(),
+                    title = "Activar Reading Buddy",
+                    subtitle = "Genera resúmenes automáticos mientras lees PDFs/novelas",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Resetear Todos los Resúmenes",
+                    subtitle = "Elimina todos los resúmenes de IA generados para novelas",
+                    onClick = {
+                        scope.launch {
+                            novelContextRepository.deleteAll()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Resúmenes eliminados",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                ),
+            ),
         )
     }
 
@@ -202,6 +237,48 @@ object SettingsGexuAiScreen : SearchableSettings {
         val currentProvider by aiPreferences.provider().collectAsState()
         val provider = AiProvider.fromName(currentProvider)
 
+        // Track configured providers for subtitle
+        val configuredProviders = remember(currentProvider) {
+            aiPreferences.getConfiguredProviders()
+        }
+
+        // State for managing the dialog
+        var showManageKeysDialog by remember { mutableStateOf(false) }
+
+        // State for showing the wizard
+        var showApiKeyWizard by remember { mutableStateOf(false) }
+
+        // Show ManageApiKeysDialog when state is true
+        if (showManageKeysDialog) {
+            eu.kanade.presentation.ai.components.ManageApiKeysDialog(
+                aiPreferences = aiPreferences,
+                onDismiss = { showManageKeysDialog = false },
+            )
+        }
+
+        // Show API Key Wizard when state is true
+        if (showApiKeyWizard) {
+            eu.kanade.presentation.ai.components.ApiKeyWizardDialog(
+                currentProvider = provider,
+                currentApiKey = aiPreferences.getApiKeyForProvider(provider),
+                onProviderChange = { newProvider ->
+                    aiPreferences.provider().set(newProvider.name)
+                },
+                onApiKeyChange = { newKey ->
+                    aiPreferences.setApiKeyForProvider(provider, newKey)
+                },
+                onDismiss = { showApiKeyWizard = false },
+                onConfirm = { showApiKeyWizard = false },
+            )
+        }
+
+        // Build subtitle for "Manage API Keys" button
+        val manageKeysSubtitle = if (configuredProviders.isNotEmpty()) {
+            configuredProviders.joinToString(", ") { it.displayName }
+        } else {
+            stringResource(MR.strings.ai_no_providers)
+        }
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_providers_title),
             preferenceItems = persistentListOf(
@@ -213,16 +290,15 @@ object SettingsGexuAiScreen : SearchableSettings {
                         .toImmutableMap(),
                     title = stringResource(MR.strings.ai_provider),
                 ),
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = aiPreferences.apiKey(),
-                    title = stringResource(MR.strings.ai_api_key),
-                    subtitle = when (provider) {
-                        AiProvider.OPENAI -> stringResource(MR.strings.ai_help_openai)
-                        AiProvider.GEMINI -> stringResource(MR.strings.ai_help_gemini)
-                        AiProvider.ANTHROPIC -> stringResource(MR.strings.ai_help_anthropic)
-                        AiProvider.OPENROUTER -> stringResource(MR.strings.ai_help_openrouter)
-                        AiProvider.CUSTOM -> stringResource(MR.strings.ai_help_custom)
-                    },
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.ai_manage_api_keys),
+                    subtitle = manageKeysSubtitle,
+                    onClick = { showManageKeysDialog = true },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.ai_wizard_welcome_title),
+                    subtitle = stringResource(MR.strings.ai_wizard_welcome_desc),
+                    onClick = { showApiKeyWizard = true },
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     preference = aiPreferences.model(),

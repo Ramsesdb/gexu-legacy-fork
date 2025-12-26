@@ -16,7 +16,6 @@ import uy.kohesive.injekt.api.get
 class AiModule : InjektModule {
 
     override fun InjektRegistrar.registerInjectables() {
-
         addSingletonFactory<AiRepository> {
             AiRepositoryImpl(
                 client = get<NetworkHelper>().client,
@@ -96,6 +95,7 @@ class AiModule : InjektModule {
                 trackRepository = get(),
                 readerNotesRepository = get(),
                 categoryRepository = get(),
+                novelContextRepository = get(),
                 searchLibrary = get(),
             )
         }
@@ -109,6 +109,14 @@ class AiModule : InjektModule {
                 searchLibrary = get(),
                 trackRepository = get(),
                 readerNotesRepository = get(),
+                novelContextRepository = get(),
+            )
+        }
+
+        addSingletonFactory {
+            tachiyomi.domain.ai.interactor.GenerateNovelSummary(
+                aiRepository = get(),
+                novelContextRepository = get(),
             )
         }
 

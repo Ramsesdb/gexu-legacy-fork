@@ -1,0 +1,12 @@
+-- Migration 20: Add novel_context table for Reading Buddy feature
+
+CREATE TABLE novel_context (
+    _id INTEGER PRIMARY KEY AUTOINCREMENT,
+    manga_id INTEGER NOT NULL UNIQUE,
+    summary_text TEXT,
+    summary_last_page INTEGER DEFAULT 0,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (manga_id) REFERENCES mangas(_id) ON DELETE CASCADE
+);
+
+CREATE INDEX novel_context_manga_id_index ON novel_context(manga_id);

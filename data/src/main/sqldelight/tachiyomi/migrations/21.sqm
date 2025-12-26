@@ -1,0 +1,4 @@
+-- Migration 21: Add chapter number tracking to novel_context
+-- Used to prevent overwriting summaries when re-reading older chapters
+
+ALTER TABLE novel_context ADD COLUMN summary_chapter_number REAL DEFAULT 0;

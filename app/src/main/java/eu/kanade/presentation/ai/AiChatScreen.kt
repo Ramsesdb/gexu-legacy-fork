@@ -40,6 +40,7 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.DeleteOutline
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Badge
@@ -91,6 +92,7 @@ fun AiChatScreen(
     onDeleteConversation: (Long) -> Unit = {},
     onNewConversation: () -> Unit = {},
     onToggleWebSearch: () -> Unit,
+    onToggleReadingBuddy: () -> Unit,
 ) {
     val listState = rememberLazyListState()
     var inputText by remember { mutableStateOf("") }
@@ -280,6 +282,25 @@ fun AiChatScreen(
                                         MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
                                     },
                                 )
+                            }
+
+                            // Reading Buddy Toggle (Global)
+                            if (state.isReadingBuddyGloballyEnabled) {
+                                IconButton(
+                                    onClick = onToggleReadingBuddy,
+                                    modifier = Modifier.size(40.dp),
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.MenuBook,
+                                        contentDescription = "Reading Buddy",
+                                        tint = if (state.isReadingBuddyEnabled) {
+                                            MaterialTheme.colorScheme.primary
+                                        } else {
+                                            MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f)
+                                        },
+                                        modifier = Modifier.size(20.dp),
+                                    )
+                                }
                             }
 
                             // Send button

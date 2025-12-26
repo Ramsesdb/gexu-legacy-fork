@@ -118,6 +118,22 @@ fun LibraryPager(
                     onGlobalSearchClicked = onGlobalSearchClicked,
                 )
             }
+            else -> {
+                // Fallback to CompactGrid for any unknown display mode
+                // This prevents NoWhenBranchMatchedException crashes
+                LibraryCompactGrid(
+                    items = items,
+                    showTitle = true,
+                    columns = columns,
+                    contentPadding = contentPadding,
+                    selection = selection,
+                    onClick = onClickManga,
+                    onLongClick = onLongClickManga,
+                    onClickContinueReading = onClickContinueReading,
+                    searchQuery = searchQuery,
+                    onGlobalSearchClicked = onGlobalSearchClicked,
+                )
+            }
         }
     }
 }

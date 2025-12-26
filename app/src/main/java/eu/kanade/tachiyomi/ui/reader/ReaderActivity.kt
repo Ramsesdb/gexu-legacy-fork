@@ -1300,6 +1300,9 @@ class ReaderActivity : BaseActivity() {
                     try {
                         // Build system prompt with manga context
                         val currentState = viewModel.state.value
+                        val viewer = currentState.viewer
+                        val textContentProvider = viewer as? tachiyomi.domain.ai.TextContentProvider
+
                         val systemPrompt = buildString {
                             // LANGUAGE INSTRUCTION FIRST - most important
                             appendLine(
@@ -1311,27 +1314,73 @@ class ReaderActivity : BaseActivity() {
                             )
                             appendLine()
                             viewModel.manga?.let { manga ->
-                                appendLine("=== CURRENT READING CONTEXT ===")
-                                appendLine("Title: ${manga.title}")
-                                manga.genre?.take(5)?.let { genres ->
-                                    appendLine("Genres: ${genres.joinToString(", ")}")
+                                // Check if we can use Reading Buddy mode (TextContentProvider available)
+                                if (textContentProvider != null && aiPreferences.readingBuddyEnabled().get()) {
+                                    // READING BUDDY MODE: Use full 3-tier context
+                                    try {
+                                        // Tier 3: Full text of last 10 pages
+                                        val tier3Text = textContentProvider.getRecentText(10)
+
+                                        // Tier 2: Key extracts from intermediate pages
+                                        val currentPage = textContentProvider.getCurrentPage()
+                                        val tier2End = (currentPage - 10).coerceAtLeast(0)
+                                        val tier2Text = if (tier2End > 5) {
+                                            textContentProvider.getFirstParagraphs(0, tier2End, skipEvery = 5)
+                                        } else {
+                                            null
+                                        }
+
+                                        val novelContext = getReadingContext.getContextForNovel(
+                                            manga.id,
+                                            tier3Text.ifBlank { "[No recent text available]" },
+                                            tier2Text,
+                                            currentPage,
+                                            textContentProvider.getTotalPages(),
+                                        )
+                                        append(novelContext)
+                                    } catch (_: Exception) {
+                                        // Fallback to basic context
+                                        appendLine("=== CURRENT READING CONTEXT ===")
+                                        appendLine("Title: ${manga.title}")
+                                        manga.genre?.take(5)?.let { genres ->
+                                            appendLine("Genres: ${genres.joinToString(", ")}")
+                                        }
+                                        manga.description?.take(300)?.let { desc ->
+                                            appendLine("Synopsis: $desc...")
+                                        }
+                                        appendLine()
+                                        appendLine(
+                                            "Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}",
+                                        )
+                                        appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                        appendLine("===============================")
+                                    }
+                                } else {
+                                    // STANDARD MODE: Only metadata (for manga images)
+                                    appendLine("=== CURRENT READING CONTEXT ===")
+                                    appendLine("Title: ${manga.title}")
+                                    manga.genre?.take(5)?.let { genres ->
+                                        appendLine("Genres: ${genres.joinToString(", ")}")
+                                    }
+                                    manga.description?.take(300)?.let { desc ->
+                                        appendLine("Synopsis: $desc...")
+                                    }
+                                    appendLine()
+                                    appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
+                                    appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                    appendLine("===============================")
+                                    appendLine()
+                                    appendLine(
+                                        "IMPORTANT: The user is actively reading this manga. You have full context of what they're reading.",
+                                    )
+                                    appendLine("- Answer questions about the current chapter and characters")
+                                    appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
+                                    appendLine("- Be helpful and friendly")
+                                    appendLine("- If the user sends an image, describe and analyze it in detail.")
+                                    appendLine(
+                                        "- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.",
+                                    )
                                 }
-                                manga.description?.take(300)?.let { desc ->
-                                    appendLine("Synopsis: $desc...")
-                                }
-                                appendLine()
-                                appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
-                                appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
-                                appendLine("===============================")
-                                appendLine()
-                                appendLine(
-                                    "IMPORTANT: The user is actively reading this manga. You have full context of what they're reading.",
-                                )
-                                appendLine("- Answer questions about the current chapter and characters")
-                                appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
-                                appendLine("- Be helpful and friendly")
-                                appendLine("- If the user sends an image, describe and analyze it in detail.")
-                                appendLine("- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.")
                             }
                         }
 
