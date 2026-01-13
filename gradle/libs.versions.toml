@@ -11,10 +11,11 @@ spotless = "8.1.0"
 ktlint-core = "1.8.0"
 firebase-bom = "34.7.0"
 markdown = "0.39.0"
-junit = "6.0.1"
+junit = "6.0.2"
 litert = "1.0.1"
 mediapipe_tasks = "0.10.14"
 tflite_support = "0.4.4"
+materialKolor = "5.0.0-alpha04"
 
 [libraries]
 desugar = "com.android.tools:desugar_jdk_libs:2.1.5"
@@ -32,7 +33,7 @@ conscrypt-android = "org.conscrypt:conscrypt-android:2.5.3"
 
 quickjs-android = { group = "com.github.zhanghai.quickjs-java", name = "quickjs-android", version = "547f5b1597" }
 
-jsoup = "org.jsoup:jsoup:1.21.2"
+jsoup = "org.jsoup:jsoup:1.22.1"
 
 disklrucache = "com.jakewharton:disklrucache:2.0.2"
 unifile = "com.github.tachiyomiorg:unifile:e0def6b3dc"
@@ -112,6 +113,8 @@ litert = { module = "org.tensorflow:tensorflow-lite", version = "2.16.1" }
 litert-gpu = { module = "org.tensorflow:tensorflow-lite-gpu", version = "2.16.1" }
 mediapipe-tasks-text = { module = "com.google.mediapipe:tasks-text", version.ref = "mediapipe_tasks" }
 tflite-support = { module = "org.tensorflow:tensorflow-lite-support", version = "0.4.4" }
+
+materialKolor = { module = "com.materialkolor:material-kolor", version.ref = "materialKolor" }
 
 [plugins]
 google-services = { id = "com.google.gms.google-services", version = "4.4.4" }
