@@ -442,7 +442,9 @@ class AiChatScreenModel(
                 appendLine("PROACTIVE BEHAVIOR (FOR LIBRARY QUESTIONS ONLY):")
                 appendLine("- NEVER say 'I can search for you' - JUST CALL THE TOOL AND ANSWER.")
                 appendLine("- For general chat like 'hola' → respond normally, no tool needed.")
-                appendLine("- For library-specific questions → ALWAYS call tools first, then answer with ONLY that data.")
+                appendLine(
+                    "- For library-specific questions → ALWAYS call tools first, then answer with ONLY that data.",
+                )
 
                 if (currentState.isReadingBuddyEnabled) {
                     appendLine()
