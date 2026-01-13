@@ -35,6 +35,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
@@ -79,6 +80,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
     private val content = MutableStateFlow<List<String>>(emptyList())
     private val images = MutableStateFlow<List<String>>(emptyList())
     private val originalImages = MutableStateFlow<List<String>>(emptyList()) // Preserve original images for toggle
+    private val items = MutableStateFlow<List<NovelUiItem>>(emptyList()) // Unified item list for UI
     private val currentUrl = MutableStateFlow<String?>(null)
     private val isLoading = MutableStateFlow(true)
     private val loadingMessage = MutableStateFlow<String?>(null)
@@ -96,8 +98,15 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
     private var virtualPages: List<ReaderPage> = emptyList()
     private var preloadRequested = false // Prevent duplicate preload requests
     private var savedPagePosition = 0 // Saved position for text extraction ordering
+    private var initialPositionSet = false // Flag to set initial position only ONCE per chapter
     private var lastSummaryPage = -1 // Track last page where Tier 1 summary was generated (-1 = not loaded)
     private var summaryJobPending = false // Prevent duplicate summary jobs
+
+    // Navigation Debounce & Lifecycle
+    private var isNavigating = false
+    private var isNavigatingBackwards = false // Track direction for smart landing (Next=0, Prev=End)
+    private var lastNavTime = 0L // Timestamp of last navigation event
+    private var textExtractionJob: Job? = null
 
     // PDF Document for lazy rendering
     private var pdfDocument: com.artifex.mupdf.fitz.Document? = null
@@ -123,6 +132,109 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
     }
 
     // Position restore is now handled by initialPageIndex - no need for the old approach
+
+    /**
+     * Syncs the unified items flow with the current content/images.
+     * Simple structure: [Prev Transition] -> [Current Content] -> [Next Transition]
+     * No preserved items from adjacent chapters - clean chapter boundaries.
+     */
+    private fun syncItemsFlow() {
+        val chapter = currentChapter ?: return
+        val textList = content.value
+        val imageList = if (showTextMode.value) images.value else originalImages.value
+
+        // Build list from scratch - clean and simple
+        val newItems = mutableListOf<NovelUiItem>()
+
+        // 1. Add Prev transition if there's a previous chapter
+        if (prevChapter != null) {
+            newItems.add(
+                NovelUiItem.Transition(
+                    eu.kanade.tachiyomi.ui.reader.model.ChapterTransition.Prev(
+                        chapter,
+                        prevChapter!!,
+                    ),
+                ),
+            )
+        }
+
+        // 2. Add current chapter content (Hybrid Mode)
+        if (showTextMode.value && textList.isNotEmpty()) {
+            textList.forEachIndexed { index, text ->
+                if (text.isNotEmpty()) {
+                    newItems.add(NovelUiItem.Content(text, chapter, index))
+                } else {
+                    // Fallback to image if text not ready yet (Progressive OCR)
+                    // Use originalImages as consistent source if images.value is cleared
+                    val url = originalImages.value.getOrNull(index) ?: ""
+                    val page = virtualPages.getOrNull(index)
+                    if (url.isNotEmpty()) {
+                        newItems.add(NovelUiItem.Image(url, chapter, index, page))
+                    }
+                }
+            }
+        } else if (imageList.isNotEmpty()) {
+            imageList.forEachIndexed { index, url ->
+                val page = virtualPages.getOrNull(index)
+                newItems.add(NovelUiItem.Image(url, chapter, index, page))
+            }
+        }
+
+        // 3. Add Next transition if there's a next chapter
+        if (nextChapter != null) {
+            newItems.add(
+                NovelUiItem.Transition(
+                    eu.kanade.tachiyomi.ui.reader.model.ChapterTransition.Next(
+                        chapter,
+                        nextChapter!!,
+                    ),
+                ),
+            )
+        }
+
+        // 4. Calculate correct initial position based on navigation direction
+        // ONLY set once per chapter load - prevents jumping on recomposition
+        val contentSize = if (showTextMode.value && textList.isNotEmpty()) {
+            textList.size
+        } else {
+            imageList.size
+        }
+
+        // Offset for prev transition (if present)
+        val prevTransitionOffset = if (prevChapter != null) 1 else 0
+
+        if (!initialPositionSet && contentSize > 0) {
+            if (savedPagePosition == -1) {
+                // Backward navigation: go to LAST page of current chapter
+                val lastContentIndex = prevTransitionOffset + contentSize - 1
+                savedPagePosition = contentSize - 1 // Update for OCR priority
+                // Use targetPageIndex for guaranteed jump (more reliable than initialPageIndex)
+                targetPageIndex.value = lastContentIndex
+                initialPositionSet = true
+                logcat {
+                    "NovelViewer: Backward nav -> last page: list[$lastContentIndex], content[${contentSize - 1}]"
+                }
+            } else if (savedPagePosition == 0) {
+                // Forward navigation OR fresh open: start at FIRST page of chapter
+                val firstContentIndex = prevTransitionOffset
+                targetPageIndex.value = firstContentIndex
+                initialPositionSet = true
+                logcat {
+                    "NovelViewer: Forward nav -> first page of chapter: list[$firstContentIndex]"
+                }
+            } else {
+                // Manual open with saved position (restore progress)
+                val targetIndex = prevTransitionOffset + savedPagePosition
+                targetPageIndex.value = targetIndex
+                initialPositionSet = true
+                logcat {
+                    "NovelViewer: Restoring position: list[$targetIndex], content[$savedPagePosition]"
+                }
+            }
+        }
+
+        items.value = newItems.toList()
+    }
 
     override fun getView(): View = composeView
 
@@ -158,10 +270,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
             { index, width -> renderPdfPage(index, width) }
         }
 
+        // Use unified items flow (includes Transitions from syncItemsFlow)
+        val itemsList by items.collectAsState()
+
         NovelReaderScreen(
-            textPages = if (textMode) textList else emptyList(),
-            images = if (textMode) imageList else originalImageList,
-            pages = virtualPages, // Pass ReaderPage objects for cached image loading
+            items = itemsList,
             url = url,
             isLoading = loading,
             loadingMessage = loadMsg,
@@ -182,11 +295,43 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
             onBack = {
                 activity.onBackPressedDispatcher.onBackPressed()
             },
+            onTransitionClick = { transition ->
+                if (isNavigating) return@NovelReaderScreen
+
+                // Time-based debounce (2 seconds) to prevent double-skipping
+                val currentTime = System.currentTimeMillis()
+                if (currentTime - lastNavTime < 2000) {
+                    logcat { "NovelViewer: Navigation ignored (debounce active)" }
+                    return@NovelReaderScreen
+                }
+
+                when (transition) {
+                    is eu.kanade.tachiyomi.ui.reader.model.ChapterTransition.Next -> {
+                        if (transition.to != null) {
+                            isNavigating = true
+                            isNavigatingBackwards = false
+                            lastNavTime = currentTime
+                            logcat { "NovelViewer: Overscroll navigating to next chapter" }
+                            scope.launch { activity.viewModel.loadNextChapter() }
+                        }
+                    }
+                    is eu.kanade.tachiyomi.ui.reader.model.ChapterTransition.Prev -> {
+                        if (transition.to != null) {
+                            isNavigating = true
+                            isNavigatingBackwards = true
+                            lastNavTime = currentTime
+                            logcat { "NovelViewer: Overscroll navigating to previous chapter" }
+                            scope.launch { activity.viewModel.loadPreviousChapter() }
+                        }
+                    }
+                }
+            },
             onToggleMenu = {
                 activity.toggleMenu()
             },
             onToggleTextMode = {
                 showTextMode.value = !showTextMode.value
+                syncItemsFlow()
             },
             onExtractOcr = {
                 scope.launch {
@@ -198,24 +343,37 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                 // Update user position for Lazy OCR
                 lastUserVisiblePage.value = listIndex
 
-                // Notify activity and check preload
-                if (listIndex >= 0 && listIndex < virtualPages.size) {
-                    val page = virtualPages[listIndex]
+                // Check if current item is a Transition - don't process transitions
+                val currentItems = items.value
+                val currentItem = currentItems.getOrNull(listIndex)
+
+                // Extract actual page index from the item (not list index)
+                // This is critical because list may contain items from multiple chapters
+                val actualPageIndex = when (currentItem) {
+                    is NovelUiItem.Content -> currentItem.index
+                    is NovelUiItem.Image -> currentItem.index
+                    else -> return@NovelReaderScreen // Ignore transitions
+                }
+
+                // Use actualPageIndex for page operations
+                if (actualPageIndex >= 0 && actualPageIndex < virtualPages.size) {
+                    val page = virtualPages[actualPageIndex]
                     activity.onPageSelected(page)
 
                     // Check if we should preload next chapter (within last 5 pages)
                     val totalPages = virtualPages.size
-                    val pagesRemaining = totalPages - listIndex - 1
+                    val pagesRemaining = totalPages - actualPageIndex - 1
                     if (pagesRemaining < 5 && !preloadRequested && nextChapter != null) {
                         preloadRequested = true
                         logcat {
-                            "NovelViewer: Requesting preload of next chapter ($pagesRemaining pages remaining)"
+                            "NovelViewer: Requesting preload of next chapter " +
+                                "($pagesRemaining pages remaining)"
                         }
                         activity.requestPreloadChapter(nextChapter!!)
                     }
 
                     // Check if we should generate Tier 1 summary (every 30 pages)
-                    checkSummaryTrigger(listIndex)
+                    checkSummaryTrigger(actualPageIndex)
                 }
             },
             onLoadPage = { page ->
@@ -228,10 +386,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
             tocItems = toc,
             onTocNavigate = { pageNumber ->
                 // Navigate to the specified page
-                // Use images.value.size for validation (reactive) instead of virtualPages.size (not reactive in Compose)
+                // Use images.value.size for validation (reactive) instead of virtualPages.size
                 val totalPages = images.value.size.coerceAtLeast(virtualPages.size)
                 if (pageNumber >= 0 && pageNumber < totalPages) {
-                    targetPageIndex.value = pageNumber
+                    // Account for prev transition offset (if prevChapter exists, list has +1 item)
+                    val prevTransitionOffset = if (prevChapter != null) 1 else 0
+                    targetPageIndex.value = pageNumber + prevTransitionOffset
                 }
             },
             onAiClick = {
@@ -288,22 +448,31 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
     }
 
     private suspend fun extractTextFromImages(startPagePriority: Int? = null) {
-        val currentImages = images.value.toList()
+        // Always use originalImages as source of truth if available,
+        // because images.value is cleared when Text Mode is active.
+        val currentImages = if (originalImages.value.isNotEmpty()) {
+            originalImages.value.toList()
+        } else {
+            images.value.toList()
+        }
         // Determine priority start page: passed arg -> saved position -> or 0
         val priorityStart = startPagePriority ?: savedPagePosition.coerceIn(0, currentImages.lastIndex)
 
-        logcat { "OCR: Starting prioritized extraction with ${currentImages.size} images, priority: $priorityStart" }
-
         if (currentImages.isEmpty()) {
-            logcat { "OCR: No images to process" }
             return
         }
 
-        // DON'T clear images - keep them visible while OCR runs in background
+        // CLEAR images to force loading state
         withContext(Dispatchers.Main) {
-            content.value = emptyList() // Clear text content initially
-            showTextMode.value = true // Switch to text mode container
+            // Safeguard: Ensure originalImages is populated before we clear images
+            if (originalImages.value.isEmpty() && currentImages.isNotEmpty()) {
+                originalImages.value = currentImages
+            }
+            content.value = emptyList()
+            images.value = emptyList() // Hide images to show loader
+            showTextMode.value = true
             ocrProgress.value = 0 to currentImages.size
+            syncItemsFlow() // Sync to show empty state/loader
         }
 
         // Initialize user-facing list with empty placeholders
@@ -331,7 +500,6 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
         val isPdfMode = localPdfFile != null && currentImages.firstOrNull()?.startsWith("pdf://") == true
 
         try {
-            logcat { "OCR: Creating TextRecognition client" }
             val recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS)
 
             withContext(Dispatchers.IO) {
@@ -348,23 +516,47 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                 }
 
                 try {
+                    // PRE-LOAD PHASE: Trigger downloads for ALL pages before processing
+                    // This is critical for remote images - the pageLoader will queue them
+                    // and process according to its internal limits (typically 2-3 concurrent)
+                    if (!isPdfMode && virtualPages.isNotEmpty()) {
+                        val loader = virtualPages.firstOrNull()?.chapter?.pageLoader
+                        if (loader != null) {
+                            var preloadCount = 0
+                            virtualPages.forEachIndexed { idx, page ->
+                                if (page.stream == null &&
+                                    page.status !is eu.kanade.tachiyomi.source.model.Page.State.Error
+                                ) {
+                                    // Reset to Queue to ensure loadPage actually triggers
+                                    if (page.status != eu.kanade.tachiyomi.source.model.Page.State.Queue &&
+                                        page.status != eu.kanade.tachiyomi.source.model.Page.State.Ready
+                                    ) {
+                                        page.status = eu.kanade.tachiyomi.source.model.Page.State.Queue
+                                    }
+                                    // Fire-and-forget: launch each load in its own coroutine
+                                    // This is how WebtoonViewer does it - loadPage is async
+                                    scope.launch {
+                                        try {
+                                            loader.loadPage(page)
+                                        } catch (_: Exception) {
+                                        }
+                                    }
+                                    preloadCount++
+                                }
+                            }
+
+                            // Brief pause to let the loader queue all requests
+                            delay(300)
+                        }
+                    }
+
                     var processedCount = 0
                     var isFirstBatch = true
                     val processedIndices = java.util.concurrent.ConcurrentHashMap.newKeySet<Int>()
 
                     // DYNAMIC OCR LOOP - OPTIMIZED
+
                     while (isActive && processedCount < total) {
-                        // 1. Determine next best page based on WHERE THE USER IS NOW
-                        val center = lastUserVisiblePage.value
-
-                        // Priority Ranges:
-                        // A: Immediate View: Center -> Center + 2
-                        // B: Preload Forward: Center + 3 -> Center + 10
-                        // C: Preload Backward: Center - 1 -> Center - 5
-                        // D: Rest of book (Slower)
-
-                        var nextIndex = -1
-
                         // Local helper to find unprocessed index in range
                         fun findUnprocessed(range: IntProgression): Int? {
                             for (i in range) {
@@ -373,18 +565,50 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                             return null
                         }
 
-                        // Search in strict priority order
-                        val pA = findUnprocessed(center..minOf(center + 2, total - 1))
-                        val pB = findUnprocessed((center + 3)..minOf(center + 10, total - 1))
-                        val pC = findUnprocessed((center - 1) downTo maxOf(0, center - 5))
+                        // Dynamic Priority: Always prioritize the page the user is currently looking at
+                        val currentCenter = targetPageIndex.value ?: -1
+                        val fallback: Int = if (processedIndices.isEmpty()) {
+                            0
+                        } else {
+                            (
+                                processedIndices.iterator().next()
+                                    ?: 0
+                                )
+                        }
+                        val center: Int = if (currentCenter in 0 until total) currentCenter else fallback
 
-                        nextIndex = pA ?: pB ?: pC ?: -1
+                        // 1. Find the next best page to process
+                        // Priority: Current page -> Immediate neighbors -> Next few pages -> Prev few pages
+                        var nextIndex = -1
 
-                        // If nothing immediate, check distant pages but throttling
+                        // Check current page first
+                        if (center !in processedIndices) {
+                            nextIndex = center
+                        } else {
+                            // Check +1, -1, +2, -2
+                            val neighbors = listOf(1, -1, 2, -2)
+                            for (offset in neighbors) {
+                                val p = center + offset
+                                if (p in 0 until total && p !in processedIndices) {
+                                    nextIndex = p
+                                    break
+                                }
+                            }
+                        }
+
                         if (nextIndex == -1) {
-                            val pD = findUnprocessed((center + 11) until total)
-                            val pE = findUnprocessed((center - 6) downTo 0)
-                            nextIndex = pD ?: pE ?: -1
+                            // If no immediate neighbors, check +3 to +10, then -1 to -5
+                            val pA = findUnprocessed((center + 3)..minOf(center + 10, total - 1))
+                            val pC = findUnprocessed((center - 1) downTo maxOf(0, center - 5))
+
+                            nextIndex = pA ?: pC ?: -1
+
+                            // If nothing immediate, check distant pages but throttling
+                            if (nextIndex == -1) {
+                                val pD = findUnprocessed((center + 11) until total)
+                                val pE = findUnprocessed((center - 6) downTo 0)
+                                nextIndex = pD ?: pE ?: -1
+                            }
                         }
 
                         if (nextIndex == -1) break
@@ -434,30 +658,112 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                                     null
                                 }
                             } else {
-                                // Stream not available yet - page might not be loaded
-                                // Try to load it via pageLoader first
                                 val loader = page?.chapter?.pageLoader
-                                if (loader != null &&
-                                    page.status == eu.kanade.tachiyomi.source.model.Page.State.Queue
-                                ) {
+                                if (loader != null && page != null) {
                                     try {
-                                        // Trigger loading and wait for it
-                                        loader.loadPage(page)
-                                        // Wait for stream to become available (with timeout)
-                                        var attempts = 0
-                                        while (page.stream == null && attempts < 50 && isActive) {
-                                            delay(100)
-                                            attempts++
-                                        }
-                                        page.stream?.let { s ->
-                                            s().use { inputStream ->
-                                                android.graphics.BitmapFactory.decodeStream(inputStream)
+                                        // FAST PATH: If imageUrl is already available, use Coil immediately
+                                        // Don't waste time waiting for stream if we can load via URL
+                                        val existingImageUrl = page.imageUrl
+                                        if (existingImageUrl?.startsWith("http") == true) {
+                                            val request = ImageRequest.Builder(activity)
+                                                .data(existingImageUrl)
+                                                .memoryCachePolicy(CachePolicy.ENABLED)
+                                                .size(1080, 1920)
+                                                .build()
+                                            val result = imageLoader.execute(request)
+                                            var bmp = (result.image as? coil3.BitmapImage)?.bitmap
+                                            if (bmp != null &&
+                                                bmp.config == android.graphics.Bitmap.Config.HARDWARE
+                                            ) {
+                                                bmp = bmp.copy(
+                                                    android.graphics.Bitmap.Config.ARGB_8888,
+                                                    false,
+                                                )
+                                            }
+                                            bmp
+                                        } else {
+                                            // No imageUrl yet - trigger load and wait briefly, then null
+                                            // The page will be picked up on a subsequent pass
+                                            val isError =
+                                                page.status is eu.kanade.tachiyomi.source.model.Page.State.Error
+
+                                            if (!isError && page.stream == null) {
+                                                // Trigger load in background
+                                                scope.launch { loader.loadPage(page) }
+                                            }
+
+                                            // Wait a bit for stream to appear (max 5s for this pass)
+                                            var attempts = 0
+                                            while (page.stream == null &&
+                                                page.imageUrl?.startsWith("http") != true &&
+                                                attempts < 50 && isActive
+                                            ) {
+                                                delay(100)
+                                                attempts++
+                                            }
+
+                                            // Check if imageUrl became available during wait
+                                            val resolvedUrl = page.imageUrl
+                                            if (resolvedUrl?.startsWith("http") == true) {
+                                                val request = ImageRequest.Builder(activity)
+                                                    .data(resolvedUrl)
+                                                    .memoryCachePolicy(CachePolicy.ENABLED)
+                                                    .size(1080, 1920)
+                                                    .build()
+                                                val result = imageLoader.execute(request)
+                                                var bmp = (result.image as? coil3.BitmapImage)?.bitmap
+                                                if (bmp != null &&
+                                                    bmp.config == android.graphics.Bitmap.Config.HARDWARE
+                                                ) {
+                                                    bmp = bmp.copy(
+                                                        android.graphics.Bitmap.Config.ARGB_8888,
+                                                        false,
+                                                    )
+                                                }
+                                                bmp
+                                            } else if (page.stream != null) {
+                                                // Stream appeared
+                                                page.stream?.let { s ->
+                                                    s().use { inputStream ->
+                                                        android.graphics.BitmapFactory.decodeStream(
+                                                            inputStream,
+                                                        )
+                                                    }
+                                                }
+                                            } else {
+                                                null
                                             }
                                         }
                                     } catch (e: Exception) {
-                                        logcat {
-                                            "OCR: Failed to load page $pageIndex: ${e.message}"
+                                        val errorMsg = if (e.javaClass.simpleName.contains("UnknownHost") ||
+                                            e.message?.contains("Unable to resolve host") == true
+                                        ) {
+                                            "Network Error (UnknownHostException)"
+                                        } else {
+                                            e.message
                                         }
+                                        logcat {
+                                            "OCR: Failed to load page $pageIndex: $errorMsg"
+                                        }
+                                        null
+                                    }
+                                } else if (page?.imageUrl?.startsWith("http") == true) {
+                                    // Fallback: Page is resolved/Ready but stream missing? Load URL directly
+                                    if (!isActive) break
+                                    try {
+                                        val request = ImageRequest.Builder(activity)
+                                            .data(page.imageUrl)
+                                            .memoryCachePolicy(CachePolicy.ENABLED)
+                                            .size(1080, 1920)
+                                            .build()
+                                        val result = imageLoader.execute(request)
+                                        var bmp = (result.image as? coil3.BitmapImage)?.bitmap
+                                        if (bmp != null && bmp.config == android.graphics.Bitmap.Config.HARDWARE) {
+                                            bmp = bmp.copy(android.graphics.Bitmap.Config.ARGB_8888, false)
+                                        }
+                                        bmp
+                                    } catch (e: Exception) {
+                                        logcat { "OCR: Failed to load fallback url for $pageIndex: ${e.message}" }
                                         null
                                     }
                                 } else {
@@ -506,6 +812,17 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                                         val currentList = (0 until total).map { pageResults[it] ?: "" }
                                         content.value = currentList
                                         ocrProgress.value = processedCount to total
+                                        syncItemsFlow() // Force UI update with new content
+
+                                        // Enable Text Mode early to show progressive updates
+                                        if (!showTextMode.value && extracted.isNotEmpty()) {
+                                            showTextMode.value = true
+                                        }
+
+                                        // Enable Text Mode early to show progressive updates
+                                        if (!showTextMode.value && extracted.isNotEmpty()) {
+                                            showTextMode.value = true
+                                        }
 
                                         // Initial Jump logic
                                         if (isFirstBatch && index == center && extracted.isNotEmpty()) {
@@ -524,10 +841,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                                 }
                             } catch (e: Exception) {
                                 logcat { "OCR: Error page $index: ${e.message}" }
-                                pageResults[index] = "[Error OCR]"
+                                pageResults[index] = "[Error: OCR falló - ${e.message}]"
+                                processedCount++ // Maintain progress
                             }
                         } else {
-                            pageResults[index] = ""
+                            pageResults[index] = "[Error: No se pudo cargar la imagen]"
+                            processedCount++ // Maintain progress
                         }
                     }
                 } finally {
@@ -544,8 +863,12 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                 if (finalList.any { it.isNotEmpty() }) {
                     content.value = finalList
                     images.value = emptyList() // Hide images only if we have text
+                    showTextMode.value = true // Switch to text mode to display extracted text
+                    syncItemsFlow() // Sync unified items list
                 } else {
-                    logcat { "OCR: No text extracted, keeping images visible" }
+                    logcat { "OCR: No text extracted, reverting to image mode" }
+                    showTextMode.value = false
+                    syncItemsFlow()
                 }
             }
         } catch (e: Exception) {
@@ -557,6 +880,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                 if (finalList.any { it.isNotEmpty() }) {
                     content.value = finalList
                     images.value = emptyList()
+                    syncItemsFlow() // Sync unified items list
                 }
             }
         }
@@ -675,10 +999,32 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
 
     override fun setChapters(chapters: ViewerChapters) {
         val chapter = chapters.currChapter
+
+        // Guard: Don't reset if same chapter is already loaded (prevents preload from resetting position)
+        if (currentChapter?.chapter?.id == chapter.chapter.id && initialPositionSet) {
+            logcat { "NovelViewer: Same chapter already loaded, skipping setChapters reset" }
+            // Still update next/prev references for navigation
+            nextChapter = chapters.nextChapter
+            prevChapter = chapters.prevChapter
+            return
+        }
+
         currentChapter = chapter
         nextChapter = chapters.nextChapter
         prevChapter = chapters.prevChapter
         preloadRequested = false // Reset preload flag for new chapter
+        initialPositionSet = false // Reset so position is calculated fresh for new chapter
+
+        // Reset navigation flag but capture state to conditionally restore history
+        val wasNavigating = isNavigating
+        val wasBackwards = isNavigatingBackwards
+        isNavigating = false
+        isNavigatingBackwards = false
+        textExtractionJob?.cancel()
+        textExtractionJob = null
+
+        // Clear previous content to prevent visual superposition
+        content.value = emptyList()
 
         // Check if Activity has a requested page in Intent (overrides history)
         // This fixes TOC navigation where we want to jump to a specific page, not resume history
@@ -690,20 +1036,53 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
 
         // IMPORTANT: For NovelViewer, we handle loading ourselves (not using ChapterLoader)
         // So we need to set requestedPage from last_page_read, same as ChapterLoader does
-        // Note: We always restore position for novels, even for "read" chapters
-        if (chapter.requestedPage == 0 && chapter.chapter.last_page_read > 0) {
-            chapter.requestedPage = chapter.chapter.last_page_read
-            logcat { "NovelViewer: Set requestedPage from last_page_read: ${chapter.requestedPage}" }
+
+        // --- SMART NAVIGATION LOGIC ---
+        // 1. Seamless Navigation (Next) -> Start at Page 0
+        // 2. Seamless Navigation (Prev) -> Start at LAST Page (continuity)
+        // 3. Library/Manual Open (READ) -> Start at Page 0 (Restart)
+        // 4. Library/Manual Open (UNREAD) -> Restore Position
+
+        if (wasNavigating) {
+            if (wasBackwards) {
+                // Request Int.MAX_VALUE to indicate "End of Chapter"
+                // This will be handled by coerceIn when pages are known
+                chapter.requestedPage = Int.MAX_VALUE
+                logcat { "NovelViewer: Seamless BACK navigation, requesting LAST page" }
+            } else {
+                chapter.requestedPage = 0
+                logcat { "NovelViewer: Seamless NEXT navigation, forcing start at page 0" }
+            }
+        } else if (intentPage == -1) {
+            // Standard loading (Library/Menu) - only if no explicit page was requested
+            if (chapter.chapter.read) {
+                chapter.requestedPage = 0
+                logcat { "NovelViewer: Chapter READ, restarting at page 0" }
+            } else if (chapter.requestedPage == 0 && chapter.chapter.last_page_read > 0) {
+                chapter.requestedPage = chapter.chapter.last_page_read
+                logcat { "NovelViewer: Restoring progress: ${chapter.requestedPage}" }
+            }
+        } else {
+            // Intent page was set - keep it (already set at line 989)
+            logcat { "NovelViewer: Using intent page: ${chapter.requestedPage}" }
         }
 
         // Save the starting position - this is used for:
         // 1. Initializing the UI at this position directly (no scroll needed)
         // 2. Prioritizing text extraction around this position
-        savedPagePosition = chapter.requestedPage.coerceAtLeast(0)
-        initialPageIndex.value = savedPagePosition
+        // Note: For backward navigation, requestedPage is Int.MAX_VALUE (sentinel for "last page")
+        // This will be resolved to actual last page index when content size is known in syncItemsFlow
+        savedPagePosition = if (chapter.requestedPage == Int.MAX_VALUE) {
+            -1 // Sentinel for "go to last page" - resolved in syncItemsFlow
+        } else {
+            chapter.requestedPage.coerceAtLeast(0)
+        }
+        // DON'T set initialPageIndex here - it will be calculated in syncItemsFlow
+        // after knowing the actual preserved item counts (offset)
 
         logcat {
-            "NovelViewer: setChapters - savedPagePosition=$savedPagePosition, requestedPage=${chapter.requestedPage}, last_page_read=${chapter.chapter.last_page_read}"
+            "NovelViewer: setChapters - savedPagePosition=$savedPagePosition, " +
+                "requestedPage=${chapter.requestedPage}, last_page_read=${chapter.chapter.last_page_read}"
         }
 
         // If chapter already has pages loaded (from ChapterLoader), use them
@@ -716,10 +1095,17 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
         scope.launch(Dispatchers.IO) {
             try {
                 isLoading.value = true
+
+                // Clear items - syncItemsFlow will rebuild with clean structure
+                withContext(Dispatchers.Main) {
+                    items.value = emptyList()
+                }
+
+                // Reset legacy flows (still used for some logic)
                 content.value = emptyList()
-                images.value = emptyList() // Reset images
-                originalImages.value = emptyList() // Reset original images
-                showTextMode.value = true // Reset to text mode
+                images.value = emptyList()
+                originalImages.value = emptyList()
+                showTextMode.value = true
                 // Reset state safely and cleanup old PDF cache files
                 pdfMutex.withLock {
                     pdfDocument?.let {
@@ -765,6 +1151,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                         "NovelViewer: FAST PATH - Using ${existingPages.size} pages with pageLoader (like WebtoonViewer)"
                     }
 
+                    // Store virtualPages for page.stream access during OCR and for OptimizedReaderImage
+                    virtualPages = existingPages
+
                     // Create placeholder URLs - OptimizedReaderImage will use page.stream after loading
                     // The actual imageUrl will be fetched by HttpPageLoader.loadPage()
                     val placeholderUrls = existingPages.mapIndexed { index, page ->
@@ -777,6 +1166,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                         originalImages.value = placeholderUrls
                         showTextMode.value = false // Show images immediately
                         isLoading.value = false
+                        syncItemsFlow() // Sync unified items list
                     }
                     // NO auto-OCR - user must request it via button
                     return@launch
@@ -792,6 +1182,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                     withContext(Dispatchers.Main) {
                         showTextMode.value = false
                         isLoading.value = false
+                        syncItemsFlow() // Sync unified items list
                     }
                     // NO auto-OCR - user must request it via button
                     return@launch
@@ -1044,6 +1435,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                             isLoading.value = false
                             content.value = extractedText
                             images.value = emptyList()
+                            syncItemsFlow() // Sync unified items list
                         }
                         return@launch
                     } else {
@@ -1199,8 +1591,10 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
             }
 
             // Copy PDF to cache first (needed for both text extraction and MuPDF)
+            // Use unique filename per chapter to prevent race conditions during rapid navigation
             val cacheDir = activity.cacheDir
-            val pdfCacheFile = java.io.File(cacheDir, PDF_CACHE_FILENAME)
+            val uniqueChapterId = currentChapter?.chapter?.id ?: System.currentTimeMillis()
+            val pdfCacheFile = java.io.File(cacheDir, "current_pdf_$uniqueChapterId.pdf")
 
             withContext(Dispatchers.Main) {
                 loadingMessage.value = "Preparando PDF..."
@@ -1366,7 +1760,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                 return
             }
 
-            scope.launch(Dispatchers.IO) {
+            textExtractionJob = scope.launch(Dispatchers.IO) {
                 try {
                     val muPdfDoc = MuPdfUtil.openDocument(pdfCacheFile.absolutePath)
                     if (muPdfDoc != null) {
@@ -1374,7 +1768,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
 
                         val extractedPages = MuPdfUtil.extractTextWithPriority(
                             muPdfDoc,
-                            savedPagePosition,
+                            savedPagePosition.coerceIn(0, (MuPdfUtil.getPageCount(muPdfDoc) - 1).coerceAtLeast(0)),
                         ) { page: Int, total: Int, pages: List<String> ->
                             withContext(Dispatchers.Main) {
                                 // CRITICAL: As soon as we have the priority text (first batch), open the reader
@@ -1392,9 +1786,11 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
 
                                     isFirstPriorityBatch = false
                                     logcat { "NovelViewer: Priority text loaded. Opened at page $targetPage" }
+                                    syncItemsFlow() // Sync unified items list
                                 } else if (!isFirstPriorityBatch) {
                                     // Progressive update for remaining pages
                                     content.value = pages
+                                    syncItemsFlow() // Sync unified items list
                                 }
                             }
                         }
@@ -1406,6 +1802,7 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
                                 if (content.value.isEmpty()) {
                                     content.value = extractedPages
                                     showTextMode.value = true
+                                    syncItemsFlow() // Sync unified items list
                                 }
                                 updateOcrPageCounter(1, extractedPages.size, updatePosition = false)
                                 logcat { "NovelViewer: Full extraction complete (${extractedPages.size} pages)" }
@@ -1488,7 +1885,9 @@ class NovelViewer(private val activity: ReaderActivity) : Viewer, tachiyomi.doma
     override fun moveToPage(page: ReaderPage) {
         val position = virtualPages.indexOf(page)
         if (position != -1) {
-            targetPageIndex.value = position
+            // Account for prev transition offset (list has +1 item at start if prevChapter exists)
+            val prevTransitionOffset = if (prevChapter != null) 1 else 0
+            targetPageIndex.value = position + prevTransitionOffset
         } else {
             logcat { "NovelViewer: Page $page not found in virtualPages" }
         }
