@@ -144,6 +144,9 @@ fun OptimizedReaderImage(
                     }
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Ignore cancellation
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.WARN) { "OptimizedReaderImage: Loading failed: ${e.message}" }
             useCoilFallback = true

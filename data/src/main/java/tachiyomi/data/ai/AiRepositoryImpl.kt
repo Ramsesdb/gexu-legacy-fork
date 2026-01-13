@@ -272,20 +272,22 @@ class AiRepositoryImpl(
 
     /**
      * Build the list of tools to include in Gemini requests.
-     * Includes google_search and custom function declarations when enabled.
+     * NOTE: Gemini does NOT support using google_search with function calling together.
+     * When web search is enabled, function calling is disabled.
      */
     private fun buildGeminiTools(): List<GeminiTool> {
         val tools = mutableListOf<GeminiTool>()
 
-        // Add web search if enabled
+        // Check if web search should be used
         val useWebSearch = aiPreferences.enableWebSearch().get() &&
             aiPreferences.getGeminiKeyForSearch() != null
-        if (useWebSearch) {
-            tools.add(GeminiTool(googleSearch = GeminiGoogleSearch()))
-        }
 
-        // Add function calling tools if handler is available
-        if (toolHandler != null) {
+        if (useWebSearch) {
+            // Web search mode - ONLY google_search, no function calling
+            // (Gemini API returns "Tool use with function calling is unsupported" if both are used)
+            tools.add(GeminiTool(googleSearch = GeminiGoogleSearch()))
+        } else if (toolHandler != null) {
+            // Function calling mode - only when web search is disabled
             val functionDeclarations = AiToolDefinitions.allTools.map { tool ->
                 val props = tool.parameters.properties
                 val reqs = tool.parameters.required
