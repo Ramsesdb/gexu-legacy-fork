@@ -1,3 +1,7 @@
+> [!WARNING]
+> **THIS REPOSITORY IS LEGACY/ARCHIVED.** 
+> Use the main repository: **[Ramsesdb/gexu](https://github.com/Ramsesdb/gexu)** for the latest updates.
+
 <div align="center">
 
 <img src="./logo.png" alt="Gexu logo" title="Gexu logo" width="180"/>
