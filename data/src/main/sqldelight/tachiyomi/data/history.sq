@@ -72,8 +72,27 @@ getReadDuration:
 SELECT coalesce(sum(time_read), 0)
 FROM history;
 
--- Optimized query for AI Anti-Spoiler: Get max chapter number read in a single query
--- Replaces N individual chapter lookups with one efficient JOIN
+getReadDurationByManga:
+SELECT C.manga_id, SUM(H.time_read) AS total_time
+FROM history H
+JOIN chapters C ON H.chapter_id = C._id
+WHERE H.time_read > 0
+GROUP BY C.manga_id
+ORDER BY total_time DESC
+LIMIT :limit;
+
+getDaysReadLastWeek:
+SELECT COUNT(DISTINCT date(H.last_read / 1000, 'unixepoch'))
+FROM history H
+WHERE H.last_read > :weekAgo;
+
+getDistinctReadingDays:
+SELECT DISTINCT COALESCE(date(last_read / 1000, 'unixepoch'), '') AS read_date
+FROM history
+WHERE last_read > 0
+ORDER BY read_date DESC
+LIMIT 30;
+
 getMaxChapterReadForManga:
 SELECT coalesce(MAX(C.chapter_number), 0.0) AS maxChapterNumber
 FROM history H

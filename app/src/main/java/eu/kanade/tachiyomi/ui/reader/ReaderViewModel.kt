@@ -71,7 +71,9 @@ import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.interactor.UpsertReaderNote
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.NoteTag
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 import uy.kohesive.injekt.Injekt
@@ -101,6 +103,8 @@ class ReaderViewModel @JvmOverloads constructor(
     private val setMangaViewerFlags: SetMangaViewerFlags = Injekt.get(),
     private val getIncognitoState: GetIncognitoState = Injekt.get(),
     private val libraryPreferences: LibraryPreferences = Injekt.get(),
+    private val updateMangaNotes: tachiyomi.domain.manga.interactor.UpdateMangaNotes = Injekt.get(),
+    private val upsertReaderNote: UpsertReaderNote = Injekt.get(),
 ) : ViewModel() {
 
     private val mutableState = MutableStateFlow(State())
@@ -274,7 +278,7 @@ class ReaderViewModel @JvmOverloads constructor(
      * Initializes this presenter with the given [mangaId] and [initialChapterId]. This method will
      * fetch the manga from the database and initialize the initial chapter.
      */
-    suspend fun init(mangaId: Long, initialChapterId: Long): Result<Boolean> {
+    suspend fun init(mangaId: Long, initialChapterId: Long, initialPage: Int? = null): Result<Boolean> {
         if (!needsInit()) return Result.success(true)
         return withIOContext {
             try {
@@ -283,6 +287,9 @@ class ReaderViewModel @JvmOverloads constructor(
                     sourceManager.isInitialized.first { it }
                     mutableState.update { it.copy(manga = manga) }
                     if (chapterId == -1L) chapterId = initialChapterId
+                    if (initialPage != null && chapterPageIndex == -1) {
+                        chapterPageIndex = initialPage - 1
+                    }
 
                     val context = Injekt.get<Application>()
                     val source = sourceManager.getOrStub(manga.source)
@@ -346,7 +353,7 @@ class ReaderViewModel @JvmOverloads constructor(
         viewModelScope.launchIO {
             logcat { "Loading ${chapter.chapter.url}" }
 
-            flushReadTimer()
+            updateHistory()
             restartReadTimer()
 
             try {
@@ -585,26 +592,20 @@ class ReaderViewModel @JvmOverloads constructor(
         chapterReadStartTime = Instant.now().toEpochMilli()
     }
 
-    fun flushReadTimer() {
-        getCurrentChapter()?.let {
-            viewModelScope.launchNonCancellable {
-                updateHistory(it)
-            }
-        }
-    }
-
     /**
      * Saves the chapter last read history if incognito mode isn't on.
      */
-    private suspend fun updateHistory(readerChapter: ReaderChapter) {
-        if (incognitoMode) return
+    suspend fun updateHistory() {
+        getCurrentChapter()?.let { readerChapter ->
+            if (incognitoMode) return@let
 
-        val chapterId = readerChapter.chapter.id!!
-        val endTime = Date()
-        val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
+            val chapterId = readerChapter.chapter.id!!
+            val endTime = Date()
+            val sessionReadDuration = chapterReadStartTime?.let { endTime.time - it } ?: 0
 
-        upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
-        chapterReadStartTime = null
+            upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
+            chapterReadStartTime = null
+        }
     }
 
     /**
@@ -789,8 +790,103 @@ class ReaderViewModel @JvmOverloads constructor(
         mutableState.update { it.copy(dialog = Dialog.Settings) }
     }
 
+    fun openNotesDialog() {
+        mutableState.update { it.copy(dialog = Dialog.Notes) }
+    }
+
+    fun updateMangaNotes(notes: String) {
+        val manga = manga ?: return
+        viewModelScope.launchIO {
+            updateMangaNotes(manga.id, notes)
+            // Refresh manga to update local state
+            val updatedManga = getManga.await(manga.id)
+            if (updatedManga != null) {
+                mutableState.update { it.copy(manga = updatedManga) }
+            }
+        }
+    }
+
+    fun openQuickNoteDialog() {
+        val chapter = state.value.currentChapter?.chapter ?: return
+        val page = state.value.currentPage.coerceAtLeast(1)
+        mutableState.update {
+            it.copy(
+                dialog = Dialog.QuickNote(
+                    chapterId = chapter.id!!,
+                    chapterNumber = chapter.chapter_number.toDouble(),
+                    chapterName = chapter.name,
+                    pageNumber = page,
+                ),
+            )
+        }
+    }
+
+    fun saveReaderNote(noteText: String) {
+        val manga = manga ?: return
+        val dialog = state.value.dialog as? Dialog.QuickNote ?: return
+        viewModelScope.launchIO {
+            upsertReaderNote.insert(
+                mangaId = manga.id,
+                chapterId = dialog.chapterId,
+                pageNumber = dialog.pageNumber,
+                noteText = noteText,
+            )
+            withUIContext {
+                closeDialog()
+            }
+        }
+    }
+
     fun closeDialog() {
         mutableState.update { it.copy(dialog = null) }
+    }
+
+    /**
+     * Called when a long press is detected in the viewer.
+     * Shows the contextual popup at the given position.
+     */
+    fun onLongPress(x: Float, y: Float) {
+        val chapter = state.value.currentChapter?.chapter ?: return
+        val page = state.value.currentPage.coerceAtLeast(1)
+        mutableState.update {
+            it.copy(
+                longPressContext = LongPressContext(
+                    x = x,
+                    y = y,
+                    chapterId = chapter.id!!,
+                    chapterNumber = chapter.chapter_number.toDouble(),
+                    chapterName = chapter.name,
+                    pageNumber = page,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Dismisses the contextual popup.
+     */
+    fun dismissLongPressPopup() {
+        mutableState.update { it.copy(longPressContext = null) }
+    }
+
+    /**
+     * Saves a note from the contextual popup.
+     */
+    fun saveNoteFromContextual(noteText: String, tags: List<NoteTag>) {
+        val manga = manga ?: return
+        val context = state.value.longPressContext ?: return
+        viewModelScope.launchIO {
+            upsertReaderNote.insert(
+                mangaId = manga.id,
+                chapterId = context.chapterId,
+                pageNumber = context.pageNumber,
+                noteText = noteText,
+                tags = tags,
+            )
+            withUIContext {
+                dismissLongPressPopup()
+            }
+        }
     }
 
     fun setBrightnessOverlayValue(value: Int) {
@@ -838,6 +934,46 @@ class ReaderViewModel @JvmOverloads constructor(
             } catch (e: Throwable) {
                 notifier.onError(e.message)
                 eventChannel.send(Event.SavedImage(SaveImageResult.Error(e)))
+            }
+        }
+    }
+
+    /**
+     * Captures the CURRENT page as a Bitmap suitable for AI analysis.
+     * Returns null if no page is ready.
+     * The bitmap is resized for efficiency (max 1024px).
+     */
+    suspend fun captureCurrentPage(): android.graphics.Bitmap? {
+        val page = getCurrentChapter()?.pages?.getOrNull(chapterPageIndex)
+            ?: state.value.viewerChapters?.currChapter?.pages?.getOrNull(0)
+
+        // If specific page not found, try getting current page from state
+        val targetPage = page ?: return null
+
+        if (targetPage.status != Page.State.Ready) return null
+
+        return withIOContext {
+            try {
+                // Reuse ImageSaver logic but return bitmap instead of saving
+                val stream = targetPage.stream?.invoke() ?: return@withIOContext null
+                val originalBitmap = android.graphics.BitmapFactory.decodeStream(stream)
+
+                // Resize if too large (e.g. > 1024px width/height) to save bandwidth/latency
+                val maxDim = 1024
+                if (originalBitmap.width > maxDim || originalBitmap.height > maxDim) {
+                    val ratio = kotlin.math.min(
+                        maxDim.toDouble() / originalBitmap.width,
+                        maxDim.toDouble() / originalBitmap.height,
+                    )
+                    val width = (originalBitmap.width * ratio).toInt()
+                    val height = (originalBitmap.height * ratio).toInt()
+                    android.graphics.Bitmap.createScaledBitmap(originalBitmap, width, height, true)
+                } else {
+                    originalBitmap
+                }
+            } catch (e: Exception) {
+                logcat(LogPriority.ERROR, e)
+                null
             }
         }
     }
@@ -965,6 +1101,12 @@ class ReaderViewModel @JvmOverloads constructor(
         val dialog: Dialog? = null,
         val menuVisible: Boolean = false,
         @IntRange(from = -100, to = 100) val brightnessOverlayValue: Int = 0,
+
+        /**
+         * Context for the long press contextual popup.
+         * When not null, shows the contextual note/bookmark/copy popup.
+         */
+        val longPressContext: LongPressContext? = null,
     ) {
         val currentChapter: ReaderChapter?
             get() = viewerChapters?.currChapter
@@ -973,12 +1115,31 @@ class ReaderViewModel @JvmOverloads constructor(
             get() = currentChapter?.pages?.size ?: -1
     }
 
+    /**
+     * Data class for long press contextual popup.
+     */
+    data class LongPressContext(
+        val x: Float,
+        val y: Float,
+        val chapterId: Long,
+        val chapterNumber: Double,
+        val chapterName: String,
+        val pageNumber: Int,
+    )
+
     sealed interface Dialog {
         data object Loading : Dialog
         data object Settings : Dialog
         data object ReadingModeSelect : Dialog
         data object OrientationModeSelect : Dialog
         data class PageActions(val page: ReaderPage) : Dialog
+        data object Notes : Dialog
+        data class QuickNote(
+            val chapterId: Long,
+            val chapterNumber: Double,
+            val chapterName: String,
+            val pageNumber: Int,
+        ) : Dialog
     }
 
     sealed interface Event {

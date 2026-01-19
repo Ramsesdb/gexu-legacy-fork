@@ -1,10 +1,5 @@
 package eu.kanade.presentation.reader.appbars
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material.icons.Icons
@@ -17,12 +12,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
-import eu.kanade.tachiyomi.util.system.activeNetworkState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -36,12 +29,9 @@ fun ReaderBottomBar(
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
     onAiClick: () -> Unit = {},
+    isOnline: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
-    // Check network connectivity for AI button visibility
-    val context = LocalContext.current
-    val isOnline = context.activeNetworkState().isOnline
-
     Row(
         modifier = modifier
             .pointerInput(Unit) {},
@@ -76,12 +66,8 @@ fun ReaderBottomBar(
             )
         }
 
-        // AI Button - Only visible when online with smooth animation
-        AnimatedVisibility(
-            visible = isOnline,
-            enter = fadeIn() + scaleIn(),
-            exit = fadeOut() + scaleOut(),
-        ) {
+        // AI Button - Only show when online (requires cloud API for chat)
+        if (isOnline) {
             IconButton(onClick = onAiClick) {
                 Icon(
                     imageVector = Icons.Filled.AutoAwesome,

@@ -1,23 +1,32 @@
 package eu.kanade.presentation.manga.components
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material.icons.filled.FormatListBulleted
 import androidx.compose.material.icons.outlined.BookmarkAdd
 import androidx.compose.material.icons.outlined.BookmarkRemove
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Done
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FileDownloadOff
+import androidx.compose.material.icons.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.RemoveDone
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
@@ -39,21 +48,11 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.DISABLED_ALPHA
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.i18n.stringResource
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-
-import androidx.compose.material.icons.outlined.FormatListBulleted
-import androidx.compose.material.icons.filled.FormatListBulleted
-import androidx.compose.material3.IconButton
-import tachiyomi.domain.pdftoc.model.PdfTocEntry
 import tachiyomi.presentation.core.util.selectedBackground
 
 @Composable
@@ -194,12 +193,22 @@ fun MangaChapterListItem(
                 // Phase 2: Expand Button (Redesigned - List Icon with Animation)
                 if (hasSubItems || tocEntries.isNotEmpty()) {
                     val containerColor by androidx.compose.animation.animateColorAsState(
-                        targetValue = if (expanded) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f) else Color.Transparent,
-                        label = "containerColor"
+                        targetValue = if (expanded) {
+                            MaterialTheme.colorScheme.primary.copy(
+                                alpha = 0.12f,
+                            )
+                        } else {
+                            Color.Transparent
+                        },
+                        label = "containerColor",
                     )
                     val contentColor by androidx.compose.animation.animateColorAsState(
-                        targetValue = if (expanded) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        label = "contentColor"
+                        targetValue = if (expanded) {
+                            MaterialTheme.colorScheme.primary
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        label = "contentColor",
                     )
 
                     androidx.compose.material3.FilledTonalIconButton(
@@ -207,13 +216,17 @@ fun MangaChapterListItem(
                         modifier = Modifier.size(32.dp),
                         colors = androidx.compose.material3.IconButtonDefaults.filledTonalIconButtonColors(
                             containerColor = containerColor,
-                            contentColor = contentColor
-                        )
+                            contentColor = contentColor,
+                        ),
                     ) {
                         Icon(
-                            imageVector = if (expanded) Icons.Filled.FormatListBulleted else Icons.Outlined.FormatListBulleted,
+                            imageVector = if (expanded) {
+                                Icons.Filled.FormatListBulleted
+                            } else {
+                                Icons.Outlined.FormatListBulleted
+                            },
                             contentDescription = null, // decorative
-                            modifier = Modifier.size(18.dp)
+                            modifier = Modifier.size(18.dp),
                         )
                     }
                 }
@@ -237,7 +250,7 @@ fun MangaChapterListItem(
                     .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp),
                 color = MaterialTheme.colorScheme.surfaceContainer, // Premium feel
-                tonalElevation = 2.dp
+                tonalElevation = 2.dp,
             ) {
                 // Use LazyColumn with max height for large lists - fixes click issues
                 val maxHeight = if (tocEntries.size > 20) 400.dp else (tocEntries.size * 44).dp.coerceAtMost(400.dp)
@@ -245,11 +258,11 @@ fun MangaChapterListItem(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(maxHeight)
-                        .padding(vertical = 8.dp)
+                        .padding(vertical = 8.dp),
                 ) {
                     items(
                         count = tocEntries.size,
-                        key = { index -> "${tocEntries[index].pageNumber}_${tocEntries[index].title}" }
+                        key = { index -> "${tocEntries[index].pageNumber}_${tocEntries[index].title}" },
                     ) { index ->
                         val item = tocEntries[index]
                         Row(
@@ -257,11 +270,11 @@ fun MangaChapterListItem(
                                 .fillMaxWidth()
                                 .clickable { onTocItemClick(item) }
                                 .padding(vertical = 8.dp, horizontal = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
                         ) {
                             // Tree Indentation & Line
                             if (item.level > 1) {
-                               Spacer(modifier = Modifier.width(((item.level - 1) * 12).dp))
+                                Spacer(modifier = Modifier.width(((item.level - 1) * 12).dp))
                             }
 
                             // Tree Connector
@@ -270,8 +283,8 @@ fun MangaChapterListItem(
                                     .size(8.dp)
                                     .background(
                                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.6f),
-                                        shape = androidx.compose.foundation.shape.CircleShape
-                                    )
+                                        shape = androidx.compose.foundation.shape.CircleShape,
+                                    ),
                             )
 
                             Spacer(modifier = Modifier.width(12.dp))
@@ -280,26 +293,26 @@ fun MangaChapterListItem(
                                 text = item.title,
                                 style = MaterialTheme.typography.bodyMedium.copy(
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                                 ),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.weight(1f),
                             )
 
                             // Page Number Badge
                             androidx.compose.material3.Surface(
                                 color = MaterialTheme.colorScheme.secondaryContainer,
                                 shape = androidx.compose.foundation.shape.RoundedCornerShape(4.dp),
-                                modifier = Modifier.padding(start = 8.dp)
+                                modifier = Modifier.padding(start = 8.dp),
                             ) {
                                 Text(
                                     text = "Pg. ${item.pageNumber}",
                                     style = MaterialTheme.typography.labelSmall.copy(
-                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                                     ),
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                                 )
                             }
                         }

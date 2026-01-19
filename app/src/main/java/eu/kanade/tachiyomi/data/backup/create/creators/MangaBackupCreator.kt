@@ -4,13 +4,17 @@ import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
+import eu.kanade.tachiyomi.data.backup.models.BackupReaderNote
 import eu.kanade.tachiyomi.data.backup.models.backupChapterMapper
 import eu.kanade.tachiyomi.data.backup.models.backupTrackMapper
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import kotlinx.coroutines.flow.first
 import tachiyomi.data.DatabaseHandler
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.NoteTag
+import tachiyomi.domain.manga.repository.ReaderNotesRepository
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 
@@ -18,6 +22,7 @@ class MangaBackupCreator(
     private val handler: DatabaseHandler = Injekt.get(),
     private val getCategories: GetCategories = Injekt.get(),
     private val getHistory: GetHistory = Injekt.get(),
+    private val readerNotesRepository: ReaderNotesRepository = Injekt.get(),
 ) {
 
     suspend operator fun invoke(mangas: List<Manga>, options: BackupOptions): List<BackupManga> {
@@ -71,6 +76,30 @@ class MangaBackupCreator(
                 }
                 if (history.isNotEmpty()) {
                     mangaObject.history = history
+                }
+            }
+        }
+
+        // Backup reader notes (uses same condition as history)
+        if (options.history) {
+            val readerNotes = readerNotesRepository.getNotesByMangaId(manga.id).first()
+            if (readerNotes.isNotEmpty()) {
+                val backupNotes = readerNotes.mapNotNull { note ->
+                    val chapter = handler.awaitOneOrNull {
+                        chaptersQueries.getChapterById(note.chapterId)
+                    }
+                    chapter?.let {
+                        BackupReaderNote(
+                            chapterUrl = it.url,
+                            pageNumber = note.pageNumber,
+                            noteText = note.noteText,
+                            createdAt = note.createdAt.time,
+                            tags = NoteTag.toStorageString(note.tags),
+                        )
+                    }
+                }
+                if (backupNotes.isNotEmpty()) {
+                    mangaObject.readerNotes = backupNotes
                 }
             }
         }

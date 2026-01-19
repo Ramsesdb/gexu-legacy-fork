@@ -9,5 +9,7 @@ class UpsertHistory(
 
     suspend fun await(historyUpdate: HistoryUpdate) {
         historyRepository.upsertHistory(historyUpdate)
+        // Invalidate AI cache since history affects context
+        tachiyomi.domain.ai.AiCacheInvalidator.onHistoryChanged()
     }
 }

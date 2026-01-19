@@ -25,19 +25,25 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.getSystemService
 import androidx.core.graphics.Insets
@@ -52,8 +58,10 @@ import com.google.android.material.transition.platform.MaterialContainerTransfor
 import com.hippo.unifile.UniFile
 import eu.kanade.core.util.ifSourcesLoaded
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.presentation.reader.ContextualNotePopup
 import eu.kanade.presentation.reader.DisplayRefreshHost
 import eu.kanade.presentation.reader.OrientationSelectDialog
+import eu.kanade.presentation.reader.QuickNoteDialog
 import eu.kanade.presentation.reader.ReaderContentOverlay
 import eu.kanade.presentation.reader.ReaderPageActionsDialog
 import eu.kanade.presentation.reader.ReaderPageIndicator
@@ -101,11 +109,15 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import java.io.ByteArrayOutputStream
+import eu.kanade.presentation.reader.LongPressContext as ComposeLongPressContext
 
 class ReaderActivity : BaseActivity() {
 
@@ -147,7 +159,126 @@ class ReaderActivity : BaseActivity() {
         private set
 
     // Flag to prevent key events from navigating the reader when AI chat is open
-    var isAiChatOpen = false
+    // Using MutableStateFlow so NovelViewer can observe it reactively
+    val isAiChatOpenFlow = kotlinx.coroutines.flow.MutableStateFlow(false)
+    var isAiChatOpen: Boolean
+        get() = isAiChatOpenFlow.value
+        set(value) {
+            isAiChatOpenFlow.value = value
+        }
+
+    /**
+     * Capture the currently visible viewport of the reader as a Bitmap asynchronously.
+     * Hides all overlays, waits for the next frame to be drawn, then captures with PixelCopy.
+     * The callback is invoked on the main thread with the result.
+     */
+    fun captureViewportAsync(callback: (android.graphics.Bitmap?) -> Unit) {
+        val view = binding.viewerContainer
+        if (view.width == 0 || view.height == 0) {
+            callback(null)
+            return
+        }
+
+        // For older devices, use simple synchronous capture
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.O) {
+            val bitmap = try {
+                val bmp = android.graphics.Bitmap.createBitmap(
+                    view.width,
+                    view.height,
+                    android.graphics.Bitmap.Config.ARGB_8888,
+                )
+                val canvas = android.graphics.Canvas(bmp)
+                view.draw(canvas)
+                bmp
+            } catch (e: Exception) {
+                null
+            }
+            callback(bitmap)
+            return
+        }
+
+        // Save overlay visibility states
+        val composeOverlay = binding.composeOverlay
+        val navigationOverlay = binding.navigationOverlay
+        val wasComposeVisible = composeOverlay.visibility == android.view.View.VISIBLE
+        val wasNavVisible = navigationOverlay.visibility == android.view.View.VISIBLE
+
+        // Hide all overlays
+        composeOverlay.visibility = android.view.View.GONE
+        navigationOverlay.visibility = android.view.View.GONE
+
+        // Request layout immediately
+        composeOverlay.requestLayout()
+        window.decorView.requestLayout()
+
+        // Wait for THREE frames to ensure visibility change is fully rendered
+        // Frame 1: Layout pass happens
+        // Frame 2: Draw pass happens
+        // Frame 3: Buffer swap complete
+        window.decorView.postOnAnimation {
+            window.decorView.postOnAnimation {
+                window.decorView.postOnAnimation {
+                    // Now the visibility change should be rendered
+                    performPixelCopy(view) { bitmap ->
+                        // Restore overlays on main thread
+                        if (wasComposeVisible) {
+                            composeOverlay.visibility = android.view.View.VISIBLE
+                        }
+                        if (wasNavVisible) {
+                            navigationOverlay.visibility = android.view.View.VISIBLE
+                        }
+                        callback(bitmap)
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Perform PixelCopy asynchronously. Callback is invoked on main thread.
+     */
+    @androidx.annotation.RequiresApi(android.os.Build.VERSION_CODES.O)
+    private fun performPixelCopy(
+        view: android.view.View,
+        callback: (android.graphics.Bitmap?) -> Unit,
+    ) {
+        try {
+            val bitmap = android.graphics.Bitmap.createBitmap(
+                view.width,
+                view.height,
+                android.graphics.Bitmap.Config.ARGB_8888,
+            )
+
+            val locationOnScreen = IntArray(2)
+            view.getLocationOnScreen(locationOnScreen)
+
+            val rect = android.graphics.Rect(
+                locationOnScreen[0],
+                locationOnScreen[1],
+                locationOnScreen[0] + view.width,
+                locationOnScreen[1] + view.height,
+            )
+
+            // Use main handler for callback - no blocking needed
+            val mainHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+            android.view.PixelCopy.request(
+                window,
+                rect,
+                bitmap,
+                { copyResult ->
+                    if (copyResult == android.view.PixelCopy.SUCCESS) {
+                        callback(bitmap)
+                    } else {
+                        callback(null)
+                    }
+                },
+                mainHandler,
+            )
+        } catch (e: Exception) {
+            callback(null)
+        }
+    }
 
     /**
      * Called when the activity is created. Initializes the presenter and configuration.
@@ -187,7 +318,8 @@ class ReaderActivity : BaseActivity() {
             NotificationReceiver.dismissNotification(this, manga.hashCode(), Notifications.ID_NEW_CHAPTERS)
 
             lifecycleScope.launchNonCancellable {
-                val initResult = viewModel.init(manga, chapter)
+                val page = intent.extras?.getInt("page")
+                val initResult = viewModel.init(manga, chapter, page)
                 if (!initResult.getOrDefault(false)) {
                     val exception = initResult.exceptionOrNull() ?: IllegalStateException("Unknown err")
                     withUIContext {
@@ -280,10 +412,15 @@ class ReaderActivity : BaseActivity() {
 
             ContentOverlay(state = state)
 
-            AppBars(state = state, onOpenAiChat = {
-                showAiChat = true
-                isAiChatOpen = true
-            })
+            AppBars(
+                state = state,
+                onOpenAiChat = {
+                    showAiChat = true
+                    isAiChatOpen = true
+                },
+                onEditNotes = viewModel::openNotesDialog,
+                onAddQuickNote = viewModel::openQuickNoteDialog,
+            )
         }
 
         // Gexu AI Overlay - Separated from main content to avoid recomposition issues
@@ -293,7 +430,7 @@ class ReaderActivity : BaseActivity() {
             onDismiss = {
                 showAiChat = false
                 isAiChatOpen = false
-            }
+            },
         )
 
         val onDismissRequest = viewModel::closeDialog
@@ -351,8 +488,51 @@ class ReaderActivity : BaseActivity() {
                     onSave = viewModel::saveImage,
                 )
             }
+            is ReaderViewModel.Dialog.Notes -> {
+                ReaderNotesDialog(
+                    initialNotes = state.manga?.notes,
+                    onDismissRequest = onDismissRequest,
+                    onConfirm = { notes ->
+                        viewModel.updateMangaNotes(notes)
+                        onDismissRequest()
+                    },
+                )
+            }
+            is ReaderViewModel.Dialog.QuickNote -> {
+                val dialog = state.dialog as ReaderViewModel.Dialog.QuickNote
+                QuickNoteDialog(
+                    chapterName = dialog.chapterName,
+                    chapterNumber = dialog.chapterNumber,
+                    pageNumber = dialog.pageNumber,
+                    onDismiss = onDismissRequest,
+                    onSave = viewModel::saveReaderNote,
+                )
+            }
             null -> {}
         }
+
+        // Contextual long press popup for notes/bookmark/copy
+        val longPressContext = state.longPressContext
+        ContextualNotePopup(
+            visible = longPressContext != null,
+            context = longPressContext?.let { ctx ->
+                ComposeLongPressContext(
+                    x = ctx.x,
+                    y = ctx.y,
+                    chapterNumber = ctx.chapterNumber,
+                    chapterName = ctx.chapterName,
+                    pageNumber = ctx.pageNumber,
+                )
+            },
+            onDismiss = viewModel::dismissLongPressPopup,
+            onSaveNote = { noteText, tags -> viewModel.saveNoteFromContextual(noteText, tags) },
+            onToggleBookmark = viewModel::toggleChapterBookmark,
+            onCopyPage = { /* TODO: Implement copy page */ },
+            onAskAi = {
+                showAiChat = true
+                isAiChatOpen = true
+            },
+        )
     }
 
     /**
@@ -367,7 +547,9 @@ class ReaderActivity : BaseActivity() {
     }
 
     override fun onPause() {
-        viewModel.flushReadTimer()
+        lifecycleScope.launchNonCancellable {
+            viewModel.updateHistory()
+        }
         super.onPause()
     }
 
@@ -476,7 +658,12 @@ class ReaderActivity : BaseActivity() {
     }
 
     @Composable
-    fun AppBars(state: ReaderViewModel.State, onOpenAiChat: () -> Unit = {}) {
+    fun AppBars(
+        state: ReaderViewModel.State,
+        onOpenAiChat: () -> Unit = {},
+        onEditNotes: () -> Unit = {},
+        onAddQuickNote: () -> Unit = {},
+    ) {
         if (!ifSourcesLoaded()) {
             return
         }
@@ -487,6 +674,14 @@ class ReaderActivity : BaseActivity() {
         val cropBorderWebtoon by readerPreferences.cropBordersWebtoon().collectAsState()
         val isPagerType = ReadingMode.isPagerType(viewModel.getMangaReadingMode())
         val cropEnabled = if (isPagerType) cropBorderPaged else cropBorderWebtoon
+
+        // Check network state for AI button visibility
+        val context = LocalContext.current
+        val isOnline by produceState(initialValue = false) {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager
+            value = connectivityManager?.activeNetworkInfo?.isConnected == true
+        }
 
         ReaderAppBars(
             visible = state.menuVisible,
@@ -528,7 +723,10 @@ class ReaderActivity : BaseActivity() {
                 menuToggleToast = toast(if (enabled) MR.strings.on else MR.strings.off)
             },
             onClickSettings = viewModel::openSettingsDialog,
-            onAiClick = onOpenAiChat, // Show overlay instead of navigating
+            onAiClick = onOpenAiChat,
+            onEditNotes = onEditNotes,
+            onAddQuickNote = onAddQuickNote,
+            isOnline = isOnline,
         )
     }
 
@@ -644,15 +842,15 @@ class ReaderActivity : BaseActivity() {
             // Remove the extra so it doesn't trigger again on rotation/reload
             intent.removeExtra("page")
             lifecycleScope.launch {
-                 // TOC pages are usually 1-indexed (e.g. page 5 means the 5th page), viewer uses 0-indexed?
-                 // Usually PDF pages are 1-indexed in UI but 0-indexed in list access.
-                 // let's assume the passed 'page' is the index if it came from PDF TOC which often gives page index or label.
-                 // However, PDF TOC usually gives page index (0-based) or page number (1-based).
-                 // The 'pdfToc' model likely has 'pageNumber'.
-                 // I'll assume 0-indexed for now or verify later.
-                 // But wait, standard is often 0-indexed in code.
-                 // Let's assume the passed page is the 0-based index.
-                 moveToPageIndex(initialPage)
+                // TOC pages are usually 1-indexed (e.g. page 5 means the 5th page), viewer uses 0-indexed?
+                // Usually PDF pages are 1-indexed in UI but 0-indexed in list access.
+                // let's assume the passed 'page' is the index if it came from PDF TOC which often gives page index or label.
+                // However, PDF TOC usually gives page index (0-based) or page number (1-based).
+                // The 'pdfToc' model likely has 'pageNumber'.
+                // I'll assume 0-indexed for now or verify later.
+                // But wait, standard is often 0-indexed in code.
+                // Let's assume the passed page is the 0-based index.
+                moveToPageIndex(initialPage)
             }
         }
     }
@@ -1024,6 +1222,9 @@ class ReaderActivity : BaseActivity() {
         var messages by remember { mutableStateOf(emptyList<tachiyomi.domain.ai.model.ChatMessage>()) }
         var isLoading by remember { mutableStateOf(false) }
         var error by remember { mutableStateOf<String?>(null) }
+        var attachedImage by remember { mutableStateOf<String?>(null) }
+        var showVisualSelection by remember { mutableStateOf(false) }
+        var capturedBitmap by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
 
         // Get AI repository
         val aiRepository: tachiyomi.domain.ai.repository.AiRepository = remember {
@@ -1032,10 +1233,39 @@ class ReaderActivity : BaseActivity() {
         val getReadingContext: tachiyomi.domain.ai.GetReadingContext = remember {
             uy.kohesive.injekt.Injekt.get()
         }
+        val aiPreferences: tachiyomi.domain.ai.AiPreferences = remember {
+            uy.kohesive.injekt.Injekt.get()
+        }
+        val isWebSearchEnabled by aiPreferences.enableWebSearch().collectAsState()
+        val context = LocalContext.current
+        val scope = rememberCoroutineScope()
 
         // Pause viewer scroll handling when chat is visible to prevent page changes
         LaunchedEffect(visible) {
             viewModel.state.value.viewer?.setPaused(visible)
+        }
+
+        // Visual Selection Screen (fullscreen overlay)
+        if (showVisualSelection && capturedBitmap != null) {
+            eu.kanade.presentation.ai.components.VisualSelectionScreen(
+                bitmap = capturedBitmap!!,
+                onConfirm = { selectedBitmap ->
+                    // Convert to Base64
+                    val stream = java.io.ByteArrayOutputStream()
+                    selectedBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, stream)
+                    attachedImage = android.util.Base64.encodeToString(
+                        stream.toByteArray(),
+                        android.util.Base64.NO_WRAP,
+                    )
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+                onCancel = {
+                    showVisualSelection = false
+                    capturedBitmap = null
+                },
+            )
+            return
         }
 
         eu.kanade.presentation.ai.components.AiChatOverlay(
@@ -1044,12 +1274,24 @@ class ReaderActivity : BaseActivity() {
             isLoading = isLoading,
             error = error,
             mangaTitle = mangaTitle,
+            isWebSearchEnabled = isWebSearchEnabled,
+            onToggleWebSearch = {
+                if (!aiPreferences.canEnableWebSearch()) {
+                    context.toast(stringResource(MR.strings.ai_web_search_unavailable))
+                } else {
+                    aiPreferences.enableWebSearch().set(!isWebSearchEnabled)
+                }
+            },
             onSendMessage = { content ->
                 if (content.isBlank()) return@AiChatOverlay
 
-                // Add user message
-                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content)
-                messages = messages + userMessage
+                // Add user message with optional image AND placeholder for assistant
+                val userMessage = tachiyomi.domain.ai.model.ChatMessage.user(content, attachedImage)
+                val placeholder = tachiyomi.domain.ai.model.ChatMessage.assistant("")
+
+                messages = messages + userMessage + placeholder
+
+                attachedImage = null // Clear after sending
                 isLoading = true
                 error = null
 
@@ -1058,51 +1300,133 @@ class ReaderActivity : BaseActivity() {
                     try {
                         // Build system prompt with manga context
                         val currentState = viewModel.state.value
+                        val viewer = currentState.viewer
+                        val textContentProvider = viewer as? tachiyomi.domain.ai.TextContentProvider
+
                         val systemPrompt = buildString {
-                            appendLine("You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.")
+                            // LANGUAGE INSTRUCTION FIRST - most important
+                            appendLine(
+                                "CRITICAL: You MUST respond in the SAME LANGUAGE as the user's message. Si el usuario escribe en español, responde en español. If the user writes in English, respond in English.",
+                            )
+                            appendLine()
+                            appendLine(
+                                "You are Gexu AI, a friendly reading companion for manga, manhwa, and light novels.",
+                            )
                             appendLine()
                             viewModel.manga?.let { manga ->
-                                appendLine("=== CURRENT READING CONTEXT ===")
-                                appendLine("Title: ${manga.title}")
-                                manga.genre?.take(5)?.let { genres ->
-                                    appendLine("Genres: ${genres.joinToString(", ")}")
+                                // Check if we can use Reading Buddy mode (TextContentProvider available)
+                                if (textContentProvider != null && aiPreferences.readingBuddyEnabled().get()) {
+                                    // READING BUDDY MODE: Use full 3-tier context
+                                    try {
+                                        // Tier 3: Full text of last 10 pages
+                                        val tier3Text = textContentProvider.getRecentText(10)
+
+                                        // Tier 2: Key extracts from intermediate pages
+                                        val currentPage = textContentProvider.getCurrentPage()
+                                        val tier2End = (currentPage - 10).coerceAtLeast(0)
+                                        val tier2Text = if (tier2End > 5) {
+                                            textContentProvider.getFirstParagraphs(0, tier2End, skipEvery = 5)
+                                        } else {
+                                            null
+                                        }
+
+                                        val novelContext = getReadingContext.getContextForNovel(
+                                            manga.id,
+                                            tier3Text.ifBlank { "[No recent text available]" },
+                                            tier2Text,
+                                            currentPage,
+                                            textContentProvider.getTotalPages(),
+                                        )
+                                        append(novelContext)
+                                    } catch (_: Exception) {
+                                        // Fallback to basic context
+                                        appendLine("=== CURRENT READING CONTEXT ===")
+                                        appendLine("Title: ${manga.title}")
+                                        manga.genre?.take(5)?.let { genres ->
+                                            appendLine("Genres: ${genres.joinToString(", ")}")
+                                        }
+                                        manga.description?.take(300)?.let { desc ->
+                                            appendLine("Synopsis: $desc...")
+                                        }
+                                        appendLine()
+                                        appendLine(
+                                            "Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}",
+                                        )
+                                        appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                        appendLine("===============================")
+                                    }
+                                } else {
+                                    // STANDARD MODE: Only metadata (for manga images)
+                                    appendLine("=== CURRENT READING CONTEXT ===")
+                                    appendLine("Title: ${manga.title}")
+                                    manga.genre?.take(5)?.let { genres ->
+                                        appendLine("Genres: ${genres.joinToString(", ")}")
+                                    }
+                                    manga.description?.take(300)?.let { desc ->
+                                        appendLine("Synopsis: $desc...")
+                                    }
+                                    appendLine()
+                                    appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
+                                    appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
+                                    appendLine("===============================")
+                                    appendLine()
+                                    appendLine(
+                                        "IMPORTANT: The user is actively reading this manga. You have full context of what they're reading.",
+                                    )
+                                    appendLine("- Answer questions about the current chapter and characters")
+                                    appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
+                                    appendLine("- Be helpful and friendly")
+                                    appendLine("- If the user sends an image, describe and analyze it in detail.")
+                                    appendLine(
+                                        "- IMPORTANT: Always respond in the SAME LANGUAGE as the user's message.",
+                                    )
                                 }
-                                manga.description?.take(300)?.let { desc ->
-                                    appendLine("Synopsis: $desc...")
-                                }
-                                appendLine()
-                                appendLine("Chapter: ${currentState.currentChapter?.chapter?.name ?: "Unknown"}")
-                                appendLine("Page: ${currentState.currentPage} of ${currentState.totalPages}")
-                                appendLine("===============================")
-                                appendLine()
-                                appendLine("IMPORTANT: The user is actively reading this manga. You have full context of what they're reading.")
-                                appendLine("- Answer questions about the current chapter and characters")
-                                appendLine("- NEVER spoil content from chapters the user hasn't reached yet")
-                                appendLine("- Be helpful and friendly")
                             }
                         }
 
+                        // Exclude placeholder from request
+                        val messagesForApi = messages.dropLast(1)
                         val allMessages = listOf(
-                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt)
-                        ) + messages
+                            tachiyomi.domain.ai.model.ChatMessage.system(systemPrompt),
+                        ) + messagesForApi
 
-                        val result = aiRepository.sendMessage(allMessages)
-                        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
-                            result.fold(
-                                onSuccess = { response ->
-                                    messages = messages + response
-                                    isLoading = false
-                                },
-                                onFailure = { e ->
-                                    isLoading = false
-                                    error = e.message ?: "Error desconocido"
+                        var fullResponse = ""
+
+                        aiRepository.streamMessage(allMessages).collect { chunk ->
+                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                when (chunk) {
+                                    is tachiyomi.domain.ai.model.StreamChunk.Text -> {
+                                        fullResponse += chunk.delta
+                                        // Update last message (placeholder)
+                                        val currentList = messages.toMutableList()
+                                        if (currentList.isNotEmpty()) {
+                                            currentList[currentList.lastIndex] =
+                                                tachiyomi.domain.ai.model.ChatMessage.assistant(fullResponse)
+                                            messages = currentList
+                                        }
+                                    }
+                                    is tachiyomi.domain.ai.model.StreamChunk.Done -> {
+                                        isLoading = false
+                                    }
+                                    is tachiyomi.domain.ai.model.StreamChunk.Error -> {
+                                        isLoading = false
+                                        error = chunk.message
+                                        // If no response generated yet, remove the empty placeholder
+                                        if (fullResponse.isEmpty()) {
+                                            messages = messages.dropLast(1)
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
                     } catch (e: Exception) {
                         kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
                             isLoading = false
                             error = e.message ?: "Error de conexión"
+                            // Remove placeholder if failed immediately
+                            if (messages.isNotEmpty() && messages.last().content.isEmpty()) {
+                                messages = messages.dropLast(1)
+                            }
                         }
                     }
                 }
@@ -1110,8 +1434,54 @@ class ReaderActivity : BaseActivity() {
             onClearConversation = {
                 messages = emptyList()
                 error = null
+                attachedImage = null
             },
+            onCaptureVision = {
+                // Capture the visible viewport (what user sees) and show visual selection
+                captureViewportAsync { bitmap ->
+                    if (bitmap != null) {
+                        capturedBitmap = bitmap
+                        showVisualSelection = true
+                    }
+                }
+            },
+            hasAttachedImage = attachedImage != null,
+            attachedImageBase64 = attachedImage,
+            onClearAttachedImage = { attachedImage = null },
             onDismiss = onDismiss,
         )
     }
+}
+
+@Composable
+private fun ReaderNotesDialog(
+    initialNotes: String?,
+    onDismissRequest: () -> Unit,
+    onConfirm: (String) -> Unit,
+) {
+    var notes by remember(initialNotes) { mutableStateOf(initialNotes ?: "") }
+
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(text = stringResource(MR.strings.action_notes)) },
+        text = {
+            OutlinedTextField(
+                value = notes,
+                onValueChange = { notes = it },
+                modifier = Modifier.fillMaxWidth(),
+                label = { Text(text = stringResource(MR.strings.action_edit_notes)) },
+                maxLines = 10,
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = { onConfirm(notes) }) {
+                Text(text = stringResource(MR.strings.action_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text(text = stringResource(MR.strings.action_cancel))
+            }
+        },
+    )
 }

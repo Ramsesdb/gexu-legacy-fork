@@ -15,6 +15,7 @@ import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.presentation.components.SEARCH_DEBOUNCE_MILLIS
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -83,6 +84,7 @@ class LibraryScreenModel(
     private val downloadManager: DownloadManager = Injekt.get(),
     private val downloadCache: DownloadCache = Injekt.get(),
     private val trackerManager: TrackerManager = Injekt.get(),
+    private val securityPreferences: SecurityPreferences = Injekt.get(),
 ) : StateScreenModel<LibraryScreenModel.State>(State()) {
 
     init {
@@ -388,33 +390,108 @@ class LibraryScreenModel(
             getLibraryManga.subscribe(),
             getLibraryItemPreferencesFlow(),
             downloadCache.changes,
-        ) { libraryManga, preferences, _ ->
-            libraryManga.map { manga ->
-                LibraryItem(
-                    libraryManga = manga,
-                    downloadCount = if (preferences.downloadBadge) {
-                        downloadManager.getDownloadCount(manga.manga).toLong()
+            securityPreferences.hideNsfwInLibrary().changes(),
+        ) { libraryManga, preferences, _, hideNsfwInLibrary ->
+            libraryManga
+                .let { mangas ->
+                    // Filter NSFW content if hideNsfwInLibrary is enabled
+                    if (hideNsfwInLibrary) {
+                        mangas.filter { !isMangaNsfw(it.manga) }
                     } else {
-                        0
-                    },
-                    unreadCount = if (preferences.unreadBadge) {
-                        manga.unreadCount
-                    } else {
-                        0
-                    },
-                    isLocal = if (preferences.localBadge) {
-                        manga.manga.isLocal()
-                    } else {
-                        false
-                    },
-                    sourceLanguage = if (preferences.languageBadge) {
-                        sourceManager.getOrStub(manga.manga.source).lang
-                    } else {
-                        ""
-                    },
-                )
-            }
+                        mangas
+                    }
+                }
+                .map { manga ->
+                    LibraryItem(
+                        libraryManga = manga,
+                        downloadCount = if (preferences.downloadBadge) {
+                            downloadManager.getDownloadCount(manga.manga).toLong()
+                        } else {
+                            0
+                        },
+                        unreadCount = if (preferences.unreadBadge) {
+                            manga.unreadCount
+                        } else {
+                            0
+                        },
+                        isLocal = if (preferences.localBadge) {
+                            manga.manga.isLocal()
+                        } else {
+                            false
+                        },
+                        sourceLanguage = if (preferences.languageBadge) {
+                            sourceManager.getOrStub(manga.manga.source).lang
+                        } else {
+                            ""
+                        },
+                    )
+                }
         }
+    }
+
+    /**
+     * Checks if a manga contains NSFW genres or tags.
+     * Uses a comprehensive list to catch various adult content indicators.
+     */
+    private fun isMangaNsfw(manga: Manga): Boolean {
+        // Comprehensive list of NSFW genres, tags, and content indicators
+        // Organized by category for maintainability
+        val nsfwGenres = listOf(
+            // General adult content markers
+            "Erotica", "Hentai", "Adult", "Pornographic", "Smut", "Ecchi", "+18", "18+",
+            "Mature", "NSFW", "XXX", "R-18", "R18", "X-Rated",
+
+            // Sexual content types
+            "Sex", "Sexual Content", "Explicit", "Hardcore", "Softcore",
+
+            // Sexual acts
+            "Blowjob", "Oral", "Fellatio", "Cunnilingus", "Handjob", "Footjob",
+            "Anal", "Anal Sex", "Anal Fingering", "Fingering", "Masturbation",
+            "Threesome", "Foursome", "Orgy", "Gangbang", "Group Sex",
+            "Creampie", "Cumshot", "Facial", "Swallowing", "Bukkake",
+            "Deepthroat", "Titfuck", "Paizuri", "Boobjob",
+
+            // Non-consensual content (important to filter)
+            "Rape", "Non-Con", "Non-Consensual", "Forced", "Coercion",
+            "Netorare", "NTR", "Cheating", "Blackmail", "Mind Break",
+            "Mind Control", "Hypnosis", "Drugged", "Sleeping",
+
+            // Fetishes and kinks
+            "BDSM", "Bondage", "S&M", "Sadism", "Masochism", "Femdom", "Maledom",
+            "Tentacles", "Tentacle", "Monster", "Futanari", "Futa", "Dickgirl",
+            "Ahegao", "Virginity", "Defloration", "First Time",
+            "Incest", "Impregnation", "Pregnant", "Pregnancy",
+            "Lactation", "Breastfeeding", "Big Breasts", "Huge Breasts",
+            "Lolicon", "Loli", "Shotacon", "Shota", "Toddlercon",
+            "Yaoi", "Bara", "Yuri", "Girls Love", "Boys Love",
+            "Exhibitionism", "Voyeurism", "Public Sex",
+            "Prostate Massage", "Pegging", "Strap-On",
+            "Crossdressing", "Trap", "Otokonoko",
+            "Guro", "Gore", "Ryona", "Snuff",
+            "Netori", "Swinging", "Wife Sharing", "Cuckold",
+            "Harem", "Reverse Harem", "Polyamory",
+            "Slave", "Pet Play", "Humiliation", "Degradation",
+            "Watersports", "Golden Shower", "Scat",
+            "Bestiality", "Zoophilia",
+
+            // Body/appearance related adult tags
+            "Nude", "Nudity", "Topless", "Full Frontal",
+            "Uncensored", "Decensored", "Mosaic Removed",
+
+            // Context-specific adult content
+            "Prostitution", "Escort", "Sex Work", "Brothel",
+            "Teacher-Student", "Student-Teacher", "Sensei",
+            "Office Lady", "OL", "Secretary",
+            "Maid", "Cosplay Sex",
+            "Hot Spring", "Onsen", "Bath",
+        )
+
+        return manga.genre?.any { genre ->
+            nsfwGenres.any { nsfwTag ->
+                genre.equals(nsfwTag, ignoreCase = true) ||
+                    genre.contains(nsfwTag, ignoreCase = true)
+            }
+        } ?: false
     }
 
     /**

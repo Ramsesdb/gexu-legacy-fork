@@ -6,6 +6,8 @@ import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import cafe.adriel.voyager.core.model.ScreenModel
@@ -24,6 +26,7 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
+import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +34,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.launch
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -61,6 +65,27 @@ data object MoreTab : Tab {
         val navigator = LocalNavigator.currentOrThrow
         val screenModel = rememberScreenModel { MoreScreenModel() }
         val downloadQueueState by screenModel.downloadQueueState.collectAsState()
+        val scope = rememberCoroutineScope()
+
+        // Check network state to determine if Updates should be shown here
+        // When online: Gexu AI is in nav, show Updates here
+        // When offline: Updates is in nav, don't show Updates here (would be duplicate)
+        val isOnline = remember {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager
+            connectivityManager?.activeNetworkInfo?.isConnected == true
+        }
+
+        // Observe new updates count using produceState (same pattern as HomeScreen)
+        val newUpdatesCount by androidx.compose.runtime.produceState(initialValue = 0) {
+            val libraryPrefs = uy.kohesive.injekt.Injekt.get<tachiyomi.domain.library.service.LibraryPreferences>()
+            kotlinx.coroutines.flow.combine(
+                libraryPrefs.newShowUpdatesCount().changes(),
+                libraryPrefs.newUpdatesCount().changes(),
+            ) { show, count -> if (show) count else 0 }
+                .collect { value = it }
+        }
+
         MoreScreen(
             downloadQueueStateProvider = { downloadQueueState },
             downloadedOnly = screenModel.downloadedOnly,
@@ -68,11 +93,14 @@ data object MoreTab : Tab {
             incognitoMode = screenModel.incognitoMode,
             onIncognitoModeChange = { screenModel.incognitoMode = it },
             onClickDownloadQueue = { navigator.push(DownloadQueueScreen) },
+            onClickUpdates = { scope.launch { HomeScreen.openTab(HomeScreen.Tab.Updates) } },
             onClickCategories = { navigator.push(CategoryScreen()) },
             onClickStats = { navigator.push(StatsScreen()) },
             onClickDataAndStorage = { navigator.push(SettingsScreen(SettingsScreen.Destination.DataAndStorage)) },
             onClickSettings = { navigator.push(SettingsScreen()) },
             onClickAbout = { navigator.push(SettingsScreen(SettingsScreen.Destination.About)) },
+            isOnline = isOnline,
+            newUpdatesCount = newUpdatesCount,
         )
     }
 }

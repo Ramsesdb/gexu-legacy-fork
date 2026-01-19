@@ -3,10 +3,16 @@ package eu.kanade.presentation.more.settings.screen
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.more.settings.Preference
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableMap
+import kotlinx.coroutines.launch
 import tachiyomi.domain.ai.AiPreferences
 import tachiyomi.domain.ai.AiProvider
 import tachiyomi.domain.ai.AiTone
@@ -32,8 +38,197 @@ object SettingsGexuAiScreen : SearchableSettings {
 
         return listOf(
             getProviderGroup(aiPreferences),
+            getWebSearchGroup(aiPreferences),
             getPersonalityGroup(aiPreferences),
+            getReadingBuddyGroup(aiPreferences),
+            getRagGroup(aiPreferences),
             getBehaviorGroup(aiPreferences),
+        )
+    }
+
+    @Composable
+    private fun getReadingBuddyGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val novelContextRepository = remember {
+            Injekt.get<tachiyomi.domain.novelcontext.repository.NovelContextRepository>()
+        }
+        val context = LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        return Preference.PreferenceGroup(
+            title = "Reading Buddy",
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.readingBuddyEnabled(),
+                    title = "Activar Reading Buddy",
+                    subtitle = "Genera resúmenes automáticos mientras lees PDFs/novelas",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Resetear Todos los Resúmenes",
+                    subtitle = "Elimina todos los resúmenes de IA generados para novelas",
+                    onClick = {
+                        scope.launch {
+                            novelContextRepository.deleteAll()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Resúmenes eliminados",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                ),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getWebSearchGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val currentProvider by aiPreferences.provider().collectAsState()
+        val provider = AiProvider.fromName(currentProvider)
+        val enableWebSearch by aiPreferences.enableWebSearch().collectAsState()
+
+        // Show different subtitle based on provider and availability
+        val subtitle = when {
+            provider == AiProvider.GEMINI -> stringResource(MR.strings.ai_web_search_summary)
+            enableWebSearch && !aiPreferences.isWebSearchAvailable() ->
+                stringResource(MR.strings.ai_web_search_unavailable)
+            else -> stringResource(MR.strings.ai_web_search_summary)
+        }
+
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.ai_web_search),
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.enableWebSearch(),
+                    title = stringResource(MR.strings.ai_web_search),
+                    subtitle = subtitle,
+                ),
+                Preference.PreferenceItem.EditTextPreference(
+                    preference = aiPreferences.geminiSearchApiKey(),
+                    title = stringResource(MR.strings.ai_gemini_search_key),
+                    subtitle = stringResource(MR.strings.ai_gemini_search_key_summary),
+                ),
+            ),
+        )
+    }
+
+    @Composable
+    private fun getRagGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val indexLibrary = remember { Injekt.get<tachiyomi.domain.ai.interactor.IndexLibrary>() }
+        val vectorStore = remember { Injekt.get<tachiyomi.domain.ai.repository.VectorStore>() }
+        val modelDownloadManager = remember { Injekt.get<tachiyomi.domain.ai.service.ModelDownloadManager>() }
+        val context = androidx.compose.ui.platform.LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        // State for index count
+        val indexCount = androidx.compose.runtime.produceState<Long>(initialValue = 0) {
+            value = try {
+                vectorStore.count()
+            } catch (e: Exception) {
+                0
+            }
+        }
+
+        // State for model availability
+        val isModelAvailable = androidx.compose.runtime.produceState(initialValue = false) {
+            value = try {
+                modelDownloadManager.isModelAvailable()
+            } catch (e: Exception) {
+                false
+            }
+        }
+
+        // State for download progress
+        var downloadProgress by remember { mutableFloatStateOf(0f) }
+        var isDownloading by remember { mutableStateOf(false) }
+
+        return Preference.PreferenceGroup(
+            title = "RAG / Contexto Avanzado",
+            preferenceItems = persistentListOf(
+                Preference.PreferenceItem.InfoPreference(
+                    title = "Elementos indexados: ${indexCount.value}",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Indexar Biblioteca",
+                    subtitle = "Analiza y guarda el contenido de tus mangas para que la IA los " +
+                        "entienda (Puede tardar).",
+                    onClick = {
+                        // Start background job
+                        eu.kanade.tachiyomi.data.ai.LibraryIndexingJob.startNow(context)
+                        android.widget.Toast.makeText(
+                            context,
+                            "Indexado iniciado en segundo plano",
+                            android.widget.Toast.LENGTH_SHORT,
+                        ).show()
+                    },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Borrar Índice",
+                    subtitle = "Elimina todos los datos vectoriales generados.",
+                    onClick = {
+                        scope.launch {
+                            vectorStore.deleteAll()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Índice borrado",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
+                ),
+                // Local model section
+                Preference.PreferenceItem.InfoPreference(
+                    title = if (isModelAvailable.value) {
+                        "✓ Modelo local disponible (offline)"
+                    } else if (isDownloading) {
+                        "Descargando modelo... ${(downloadProgress * 100).toInt()}%"
+                    } else {
+                        "Modelo local no instalado"
+                    },
+                ),
+                if (!isModelAvailable.value && !isDownloading) {
+                    Preference.PreferenceItem.TextPreference(
+                        title = "Descargar Modelo Local",
+                        subtitle = "~${tachiyomi.domain.ai.service.ModelDownloadManager.APPROXIMATE_SIZE_MB}MB - " +
+                            "Permite embeddings sin internet",
+                        onClick = {
+                            isDownloading = true
+                            scope.launch {
+                                modelDownloadManager.downloadModel(
+                                    onProgress = { progress -> downloadProgress = progress },
+                                    onComplete = { success, error ->
+                                        isDownloading = false
+                                        downloadProgress = 0f
+                                        val message = if (success) "Modelo descargado" else "Error: $error"
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            message,
+                                            android.widget.Toast.LENGTH_SHORT,
+                                        ).show()
+                                    },
+                                )
+                            }
+                        },
+                    )
+                } else if (isModelAvailable.value) {
+                    Preference.PreferenceItem.TextPreference(
+                        title = "Eliminar Modelo Local",
+                        subtitle = "Libera espacio de almacenamiento",
+                        onClick = {
+                            scope.launch {
+                                val deleted = modelDownloadManager.deleteModel()
+                                val message = if (deleted) "Modelo eliminado" else "Error al eliminar"
+                                android.widget.Toast.makeText(
+                                    context,
+                                    message,
+                                    android.widget.Toast.LENGTH_SHORT,
+                                ).show()
+                            }
+                        },
+                    )
+                } else {
+                    Preference.PreferenceItem.InfoPreference(title = "")
+                },
+            ),
         )
     }
 
@@ -41,6 +236,48 @@ object SettingsGexuAiScreen : SearchableSettings {
     private fun getProviderGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
         val currentProvider by aiPreferences.provider().collectAsState()
         val provider = AiProvider.fromName(currentProvider)
+
+        // Track configured providers for subtitle
+        val configuredProviders = remember(currentProvider) {
+            aiPreferences.getConfiguredProviders()
+        }
+
+        // State for managing the dialog
+        var showManageKeysDialog by remember { mutableStateOf(false) }
+
+        // State for showing the wizard
+        var showApiKeyWizard by remember { mutableStateOf(false) }
+
+        // Show ManageApiKeysDialog when state is true
+        if (showManageKeysDialog) {
+            eu.kanade.presentation.ai.components.ManageApiKeysDialog(
+                aiPreferences = aiPreferences,
+                onDismiss = { showManageKeysDialog = false },
+            )
+        }
+
+        // Show API Key Wizard when state is true
+        if (showApiKeyWizard) {
+            eu.kanade.presentation.ai.components.ApiKeyWizardDialog(
+                currentProvider = provider,
+                currentApiKey = aiPreferences.getApiKeyForProvider(provider),
+                onProviderChange = { newProvider ->
+                    aiPreferences.provider().set(newProvider.name)
+                },
+                onApiKeyChange = { newKey ->
+                    aiPreferences.setApiKeyForProvider(provider, newKey)
+                },
+                onDismiss = { showApiKeyWizard = false },
+                onConfirm = { showApiKeyWizard = false },
+            )
+        }
+
+        // Build subtitle for "Manage API Keys" button
+        val manageKeysSubtitle = if (configuredProviders.isNotEmpty()) {
+            configuredProviders.joinToString(", ") { it.displayName }
+        } else {
+            stringResource(MR.strings.ai_no_providers)
+        }
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_providers_title),
@@ -53,16 +290,15 @@ object SettingsGexuAiScreen : SearchableSettings {
                         .toImmutableMap(),
                     title = stringResource(MR.strings.ai_provider),
                 ),
-                Preference.PreferenceItem.EditTextPreference(
-                    preference = aiPreferences.apiKey(),
-                    title = stringResource(MR.strings.ai_api_key),
-                    subtitle = when (provider) {
-                        AiProvider.OPENAI -> stringResource(MR.strings.ai_help_openai)
-                        AiProvider.GEMINI -> stringResource(MR.strings.ai_help_gemini)
-                        AiProvider.ANTHROPIC -> stringResource(MR.strings.ai_help_anthropic)
-                        AiProvider.OPENROUTER -> stringResource(MR.strings.ai_help_openrouter)
-                        AiProvider.CUSTOM -> stringResource(MR.strings.ai_help_custom)
-                    },
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.ai_manage_api_keys),
+                    subtitle = manageKeysSubtitle,
+                    onClick = { showManageKeysDialog = true },
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.ai_wizard_welcome_title),
+                    subtitle = stringResource(MR.strings.ai_wizard_welcome_desc),
+                    onClick = { showApiKeyWizard = true },
                 ),
                 Preference.PreferenceItem.EditTextPreference(
                     preference = aiPreferences.model(),
@@ -86,6 +322,9 @@ object SettingsGexuAiScreen : SearchableSettings {
 
     @Composable
     private fun getPersonalityGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        // Use collectAsState for reactive slider updates
+        val temperatureValue by aiPreferences.temperature().collectAsState()
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_personality_title),
             preferenceItems = persistentListOf(
@@ -104,7 +343,7 @@ object SettingsGexuAiScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.ai_custom_instructions_hint),
                 ),
                 Preference.PreferenceItem.SliderPreference(
-                    value = (aiPreferences.temperature().get() * 10).toInt(),
+                    value = (temperatureValue * 10).toInt(),
                     valueRange = 0..10,
                     title = stringResource(MR.strings.ai_temperature),
                     subtitle = stringResource(MR.strings.ai_temperature_balanced),
@@ -118,6 +357,15 @@ object SettingsGexuAiScreen : SearchableSettings {
 
     @Composable
     private fun getBehaviorGroup(aiPreferences: AiPreferences): Preference.PreferenceGroup {
+        val responseCache = remember { Injekt.get<tachiyomi.domain.ai.service.AiResponseCache>() }
+        val context = LocalContext.current
+        val scope = androidx.compose.runtime.rememberCoroutineScope()
+
+        // State to track cache size for display
+        val cacheSize = produceState(initialValue = 0) {
+            value = responseCache.size()
+        }
+
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.ai_behavior_title),
             preferenceItems = persistentListOf(
@@ -145,6 +393,25 @@ object SettingsGexuAiScreen : SearchableSettings {
                     preference = aiPreferences.persistConversations(),
                     title = stringResource(MR.strings.ai_persist_conversations),
                     subtitle = stringResource(MR.strings.ai_persist_conversations_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = aiPreferences.enableResponseCache(),
+                    title = "Caché de respuestas",
+                    subtitle = "Reutiliza respuestas previas para consultas repetidas (ahorra tokens)",
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = "Limpiar caché de respuestas",
+                    subtitle = "${cacheSize.value} respuestas en caché",
+                    onClick = {
+                        scope.launch {
+                            responseCache.clear()
+                            android.widget.Toast.makeText(
+                                context,
+                                "Caché de respuestas limpiado",
+                                android.widget.Toast.LENGTH_SHORT,
+                            ).show()
+                        }
+                    },
                 ),
             ),
         )

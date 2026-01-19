@@ -51,7 +51,7 @@ fun OptimizedReaderImage(
     page: ReaderPage?,
     imageUrl: String,
     modifier: Modifier = Modifier,
-    contentScale: ContentScale = ContentScale.FillWidth
+    contentScale: ContentScale = ContentScale.FillWidth,
 ) {
     val context = LocalContext.current
     var bitmap by remember(imageUrl) { mutableStateOf<Bitmap?>(null) }
@@ -125,7 +125,9 @@ fun OptimizedReaderImage(
                                             }
                                         }
                                     } catch (e: Exception) {
-                                        logcat(LogPriority.WARN) { "OptimizedReaderImage: Stream decode failed: ${e.message}" }
+                                        logcat(LogPriority.WARN) {
+                                            "OptimizedReaderImage: Stream decode failed: ${e.message}"
+                                        }
                                         withContext(Dispatchers.Main) {
                                             useCoilFallback = true
                                         }
@@ -142,6 +144,9 @@ fun OptimizedReaderImage(
                     }
                 }
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // Ignore cancellation
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.WARN) { "OptimizedReaderImage: Loading failed: ${e.message}" }
             useCoilFallback = true
@@ -157,7 +162,7 @@ fun OptimizedReaderImage(
 
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         when {
             // Successfully loaded from cache
@@ -166,7 +171,7 @@ fun OptimizedReaderImage(
                     bitmap = bitmap!!.asImageBitmap(),
                     contentDescription = "Page ${page?.index ?: 0}",
                     contentScale = contentScale,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier.fillMaxWidth(),
                 )
             }
             // Fallback to Coil with aggressive caching
@@ -185,11 +190,11 @@ fun OptimizedReaderImage(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(300.dp),
-                        contentAlignment = Alignment.Center
+                        contentAlignment = Alignment.Center,
                     ) {
                         CircularProgressIndicator(
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(32.dp),
                         )
                     }
                 } else {
@@ -203,7 +208,7 @@ fun OptimizedReaderImage(
                         modifier = Modifier.fillMaxWidth(),
                         contentScale = contentScale,
                         onSuccess = { isLoading = false },
-                        onError = { isLoading = false }
+                        onError = { isLoading = false },
                     )
                 }
             }
@@ -213,18 +218,18 @@ fun OptimizedReaderImage(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(300.dp),
-                    contentAlignment = Alignment.Center
+                    contentAlignment = Alignment.Center,
                 ) {
                     if (loadProgress > 0f) {
                         CircularProgressIndicator(
                             progress = { loadProgress },
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(32.dp),
                         )
                     } else {
                         CircularProgressIndicator(
                             color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(32.dp)
+                            modifier = Modifier.size(32.dp),
                         )
                     }
                 }
@@ -232,6 +237,3 @@ fun OptimizedReaderImage(
         }
     }
 }
-
-
-

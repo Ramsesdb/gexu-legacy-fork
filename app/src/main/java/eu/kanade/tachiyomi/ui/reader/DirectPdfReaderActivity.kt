@@ -117,7 +117,7 @@ class DirectPdfReaderActivity : ComponentActivity() {
                 DirectPdfReader(
                     uri = uri,
                     fileName = fileName,
-                    onBack = { finish() }
+                    onBack = { finish() },
                 )
             }
         }
@@ -134,24 +134,24 @@ class DirectPdfReaderActivity : ComponentActivity() {
 
 // View modes for the PDF reader
 enum class PdfViewMode {
-    PDF_ORIGINAL,  // Show PDF pages as images (vertical scroll)
-    PDF_BOOK,      // Show PDF pages as images (horizontal, like book)
-    TEXT_SCROLL,   // Show extracted text with vertical scroll
-    TEXT_BOOK      // Show extracted text page by page (like a book)
+    PDF_ORIGINAL, // Show PDF pages as images (vertical scroll)
+    PDF_BOOK, // Show PDF pages as images (horizontal, like book)
+    TEXT_SCROLL, // Show extracted text with vertical scroll
+    TEXT_BOOK, // Show extracted text page by page (like a book)
 }
 
 // Preferences for the direct PDF reader
 data class DirectPdfPrefs(
     val viewMode: PdfViewMode = PdfViewMode.PDF_ORIGINAL,
     val fontSizeSp: Int = 18,
-    val theme: NovelTheme = NovelTheme.DARK
+    val theme: NovelTheme = NovelTheme.DARK,
 )
 
 @Composable
 fun DirectPdfReader(
     uri: Uri,
     fileName: String,
-    onBack: () -> Unit
+    onBack: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -284,7 +284,7 @@ fun DirectPdfReader(
         // Initialize with empty pages and switch mode IMMEDIATELY
         textPages = List(totalPages) { "" }
         prefs = prefs.copy(
-            viewMode = if (switchToBookMode) PdfViewMode.TEXT_BOOK else PdfViewMode.TEXT_SCROLL
+            viewMode = if (switchToBookMode) PdfViewMode.TEXT_BOOK else PdfViewMode.TEXT_SCROLL,
         )
 
         // Extract in background
@@ -298,8 +298,8 @@ fun DirectPdfReader(
                 suspend fun safeExtract(page: Int): String {
                     if (isClosed.get()) return ""
                     return textMutex.withLock {
-                         if (isClosed.get() || textExtractionDocument == null) return@withLock ""
-                         MuPdfUtil.extractPageText(textExtractionDocument!!, page)
+                        if (isClosed.get() || textExtractionDocument == null) return@withLock ""
+                        MuPdfUtil.extractPageText(textExtractionDocument!!, page)
                     }
                 }
 
@@ -346,7 +346,7 @@ fun DirectPdfReader(
                         Toast.makeText(
                             context,
                             "El PDF no contiene texto extraíble (puede ser escaneado)",
-                            Toast.LENGTH_LONG
+                            Toast.LENGTH_LONG,
                         ).show()
                         prefs = prefs.copy(viewMode = PdfViewMode.PDF_ORIGINAL)
                     }
@@ -391,7 +391,7 @@ fun DirectPdfReader(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(prefs.theme.backgroundColor())
+            .background(prefs.theme.backgroundColor()),
     ) {
         when {
             isLoading -> {
@@ -401,20 +401,20 @@ fun DirectPdfReader(
                         .fillMaxSize()
                         .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     CircularProgressIndicator(color = prefs.theme.textColor())
                     Spacer(modifier = Modifier.size(16.dp))
                     Text(
                         text = "Cargando PDF...",
                         color = prefs.theme.textColor(),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(
                         text = fileName,
                         color = prefs.theme.textColor().copy(alpha = 0.7f),
-                        style = MaterialTheme.typography.bodyMedium
+                        style = MaterialTheme.typography.bodyMedium,
                     )
                 }
             }
@@ -426,17 +426,17 @@ fun DirectPdfReader(
                         .fillMaxSize()
                         .padding(32.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = "⚠️",
-                        style = TextStyle(fontSize = 48.sp)
+                        style = TextStyle(fontSize = 48.sp),
                     )
                     Spacer(modifier = Modifier.size(16.dp))
                     Text(
                         text = error!!,
                         color = prefs.theme.textColor(),
-                        style = MaterialTheme.typography.bodyLarge
+                        style = MaterialTheme.typography.bodyLarge,
                     )
                 }
             }
@@ -452,7 +452,7 @@ fun DirectPdfReader(
                                 .fillMaxSize()
                                 .pointerInput(Unit) {
                                     detectTapGestures(onTap = { menuVisible = !menuVisible })
-                                }
+                                },
                         ) {
                             items(pageCount) { pageIndex ->
                                 PdfPageRenderer(
@@ -460,7 +460,7 @@ fun DirectPdfReader(
                                     onRender = { width -> renderPage(pageIndex, width) },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(bottom = 4.dp)
+                                        .padding(bottom = 4.dp),
                                 )
                             }
                             item {
@@ -473,7 +473,7 @@ fun DirectPdfReader(
                         // PDF pages with horizontal pager (book style)
                         val pagerState = rememberPagerState(
                             initialPage = currentPage.coerceIn(0, (pageCount - 1).coerceAtLeast(0)),
-                            pageCount = { pageCount }
+                            pageCount = { pageCount },
                         )
 
                         LaunchedEffect(pagerState) {
@@ -490,9 +490,9 @@ fun DirectPdfReader(
                                 },
                             flingBehavior = PagerDefaults.flingBehavior(
                                 state = pagerState,
-                                snapAnimationSpec = tween(durationMillis = 300)
+                                snapAnimationSpec = tween(durationMillis = 300),
                             ),
-                            pageSpacing = 8.dp
+                            pageSpacing = 8.dp,
                         ) { pageIndex ->
                             // Page flip effect
                             val pageOffset = (pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction
@@ -509,14 +509,14 @@ fun DirectPdfReader(
                                     }
                                     .shadow(
                                         elevation = 4.dp,
-                                        shape = RoundedCornerShape(4.dp)
+                                        shape = RoundedCornerShape(4.dp),
                                     )
-                                    .background(Color.White)
+                                    .background(Color.White),
                             ) {
                                 PdfPageRenderer(
                                     pageIndex = pageIndex,
                                     onRender = { width -> renderPage(pageIndex, width) },
-                                    modifier = Modifier.fillMaxSize()
+                                    modifier = Modifier.fillMaxSize(),
                                 )
                             }
                         }
@@ -532,7 +532,7 @@ fun DirectPdfReader(
                                     detectTapGestures(onTap = { menuVisible = !menuVisible })
                                 }
                                 .padding(horizontal = 16.dp),
-                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp)
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(vertical = 12.dp),
                         ) {
                             itemsIndexed(textPages) { index, pageText ->
                                 Column {
@@ -543,7 +543,7 @@ fun DirectPdfReader(
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(bottom = 8.dp),
-                                        textAlign = TextAlign.Center
+                                        textAlign = TextAlign.Center,
                                     )
 
                                     Text(
@@ -551,9 +551,9 @@ fun DirectPdfReader(
                                         style = TextStyle(
                                             fontSize = prefs.fontSizeSp.sp,
                                             lineHeight = (prefs.fontSizeSp * 1.5f).sp,
-                                            color = prefs.theme.textColor()
+                                            color = prefs.theme.textColor(),
                                         ),
-                                        modifier = Modifier.padding(bottom = 24.dp)
+                                        modifier = Modifier.padding(bottom = 24.dp),
                                     )
                                 }
                             }
@@ -563,7 +563,7 @@ fun DirectPdfReader(
                                 item {
                                     ExtractionProgressIndicator(
                                         progress = extractionProgress!!,
-                                        theme = prefs.theme
+                                        theme = prefs.theme,
                                     )
                                 }
                             }
@@ -578,7 +578,7 @@ fun DirectPdfReader(
                         // Text with horizontal pager (book style - swipe pages)
                         val pagerState = rememberPagerState(
                             initialPage = 0,
-                            pageCount = { textPages.size.coerceAtLeast(1) }
+                            pageCount = { textPages.size.coerceAtLeast(1) },
                         )
 
                         LaunchedEffect(pagerState) {
@@ -595,9 +595,9 @@ fun DirectPdfReader(
                                 },
                             flingBehavior = PagerDefaults.flingBehavior(
                                 state = pagerState,
-                                snapAnimationSpec = tween(durationMillis = 300)
+                                snapAnimationSpec = tween(durationMillis = 300),
                             ),
-                            pageSpacing = 0.dp
+                            pageSpacing = 0.dp,
                         ) { pageIndex ->
                             // Page flip effect
                             val pageOffset = (pagerState.currentPage - pageIndex) + pagerState.currentPageOffsetFraction
@@ -618,13 +618,13 @@ fun DirectPdfReader(
                                         alpha = 1f - (pageOffset.absoluteValue * 0.2f).coerceIn(0f, 0.2f)
                                     }
                                     .background(prefs.theme.backgroundColor())
-                                    .padding(horizontal = 24.dp, vertical = 16.dp)
+                                    .padding(horizontal = 24.dp, vertical = 16.dp),
                             ) {
                                 if (pageIndex < textPages.size) {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxSize()
-                                            .verticalScroll(rememberScrollState())
+                                            .verticalScroll(rememberScrollState()),
                                     ) {
                                         // Page number at top
                                         Text(
@@ -634,7 +634,7 @@ fun DirectPdfReader(
                                             modifier = Modifier
                                                 .fillMaxWidth()
                                                 .padding(bottom = 16.dp),
-                                            textAlign = TextAlign.Center
+                                            textAlign = TextAlign.Center,
                                         )
 
                                         Text(
@@ -643,29 +643,29 @@ fun DirectPdfReader(
                                                 fontSize = prefs.fontSizeSp.sp,
                                                 lineHeight = (prefs.fontSizeSp * 1.6f).sp,
                                                 color = prefs.theme.textColor(),
-                                                textAlign = TextAlign.Justify
+                                                textAlign = TextAlign.Justify,
                                             ),
-                                            modifier = Modifier.fillMaxWidth()
+                                            modifier = Modifier.fillMaxWidth(),
                                         )
                                     }
                                 } else if (isExtractingText) {
                                     Box(
                                         modifier = Modifier.fillMaxSize(),
-                                        contentAlignment = Alignment.Center
+                                        contentAlignment = Alignment.Center,
                                     ) {
                                         Column(
-                                            horizontalAlignment = Alignment.CenterHorizontally
+                                            horizontalAlignment = Alignment.CenterHorizontally,
                                         ) {
                                             CircularProgressIndicator(
                                                 color = prefs.theme.textColor(),
                                                 modifier = Modifier.size(32.dp),
-                                                strokeWidth = 2.dp
+                                                strokeWidth = 2.dp,
                                             )
                                             Spacer(modifier = Modifier.size(12.dp))
                                             Text(
                                                 text = "Extrayendo...",
                                                 color = prefs.theme.textColor().copy(alpha = 0.7f),
-                                                style = MaterialTheme.typography.bodySmall
+                                                style = MaterialTheme.typography.bodySmall,
                                             )
                                         }
                                     }
@@ -677,30 +677,32 @@ fun DirectPdfReader(
 
                 // Extraction indicator overlay (when extracting in PDF mode)
                 AnimatedVisibility(
-                    visible = isExtractingText && (prefs.viewMode == PdfViewMode.PDF_ORIGINAL || prefs.viewMode == PdfViewMode.PDF_BOOK),
+                    visible =
+                    isExtractingText &&
+                        (prefs.viewMode == PdfViewMode.PDF_ORIGINAL || prefs.viewMode == PdfViewMode.PDF_BOOK),
                     enter = fadeIn(),
                     exit = fadeOut(),
-                    modifier = Modifier.align(Alignment.TopCenter)
+                    modifier = Modifier.align(Alignment.TopCenter),
                 ) {
                     Surface(
                         modifier = Modifier.padding(top = 48.dp),
                         shape = RoundedCornerShape(12.dp),
-                        color = Color.Black.copy(alpha = 0.85f)
+                        color = Color.Black.copy(alpha = 0.85f),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 color = Color.White,
-                                strokeWidth = 2.dp
+                                strokeWidth = 2.dp,
                             )
                             Text(
                                 text = extractionProgress?.let { "${it.first}/${it.second}" } ?: "...",
                                 color = Color.White,
-                                style = MaterialTheme.typography.labelMedium
+                                style = MaterialTheme.typography.labelMedium,
                             )
                         }
                     }
@@ -710,12 +712,12 @@ fun DirectPdfReader(
                 Box(
                     modifier = Modifier
                         .align(Alignment.BottomEnd)
-                        .padding(end = 12.dp, bottom = 12.dp)
+                        .padding(end = 12.dp, bottom = 12.dp),
                 ) {
                     Text(
                         text = "${currentPage + 1}/$totalItems",
                         color = prefs.theme.textColor().copy(alpha = 0.4f),
-                        style = MaterialTheme.typography.labelSmall
+                        style = MaterialTheme.typography.labelSmall,
                     )
                 }
             }
@@ -726,7 +728,7 @@ fun DirectPdfReader(
             visible = menuVisible,
             enter = slideInHorizontally { -it },
             exit = slideOutHorizontally { -it },
-            modifier = Modifier.align(Alignment.CenterStart)
+            modifier = Modifier.align(Alignment.CenterStart),
         ) {
             DirectPdfReaderMenu(
                 prefs = prefs,
@@ -734,7 +736,7 @@ fun DirectPdfReader(
                 isExtractingText = isExtractingText,
                 onPrefsChanged = { prefs = it },
                 onExtractText = { bookMode -> extractText(bookMode) },
-                onDismiss = { menuVisible = false }
+                onDismiss = { menuVisible = false },
             )
         }
     }
@@ -743,29 +745,29 @@ fun DirectPdfReader(
 @Composable
 fun ExtractionProgressIndicator(
     progress: Pair<Int, Int>,
-    theme: NovelTheme
+    theme: NovelTheme,
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 16.dp),
         shape = RoundedCornerShape(8.dp),
-        color = theme.backgroundColor()
+        color = theme.backgroundColor(),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             LinearProgressIndicator(
                 progress = { progress.first.toFloat() / progress.second.toFloat() },
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.primary
+                color = MaterialTheme.colorScheme.primary,
             )
             Text(
                 text = "${progress.first}/${progress.second}",
                 style = MaterialTheme.typography.labelSmall,
                 color = theme.textColor().copy(alpha = 0.7f),
-                modifier = Modifier.padding(top = 8.dp)
+                modifier = Modifier.padding(top = 8.dp),
             )
         }
     }
@@ -775,7 +777,7 @@ fun ExtractionProgressIndicator(
 fun PdfPageRenderer(
     pageIndex: Int,
     onRender: suspend (Int) -> Bitmap?,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     var bitmap by remember { mutableStateOf<Bitmap?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -794,18 +796,18 @@ fun PdfPageRenderer(
 
     Box(
         modifier = modifier,
-        contentAlignment = Alignment.Center
+        contentAlignment = Alignment.Center,
     ) {
         if (isLoading || bitmap == null) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .size(300.dp),
-                contentAlignment = Alignment.Center
+                contentAlignment = Alignment.Center,
             ) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(32.dp),
-                    strokeWidth = 2.dp
+                    strokeWidth = 2.dp,
                 )
             }
         } else {
@@ -814,7 +816,7 @@ fun PdfPageRenderer(
                     bitmap = bmp.asImageBitmap(),
                     contentDescription = "Página ${pageIndex + 1}",
                     modifier = Modifier.fillMaxWidth(),
-                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth
+                    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                 )
             }
         }
@@ -827,8 +829,8 @@ fun DirectPdfReaderMenu(
     hasExtractedText: Boolean,
     isExtractingText: Boolean,
     onPrefsChanged: (DirectPdfPrefs) -> Unit,
-    onExtractText: (Boolean) -> Unit,  // Boolean = switch to book mode after extraction
-    onDismiss: () -> Unit
+    onExtractText: (Boolean) -> Unit, // Boolean = switch to book mode after extraction
+    onDismiss: () -> Unit,
 ) {
     var showFontSettings by remember { mutableStateOf(false) }
     var showThemeSettings by remember { mutableStateOf(false) }
@@ -843,10 +845,10 @@ fun DirectPdfReaderMenu(
         shape = RoundedCornerShape(topEnd = 20.dp, bottomEnd = 20.dp),
         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
         tonalElevation = 4.dp,
-        shadowElevation = 16.dp
+        shadowElevation = 16.dp,
     ) {
         Column(
-            modifier = Modifier.padding(12.dp)
+            modifier = Modifier.padding(12.dp),
         ) {
             // Header
             Text(
@@ -854,7 +856,7 @@ fun DirectPdfReaderMenu(
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 12.dp, start = 4.dp)
+                modifier = Modifier.padding(bottom = 12.dp, start = 4.dp),
             )
 
             // Section: PDF View
@@ -862,7 +864,7 @@ fun DirectPdfReaderMenu(
                 "Visualización",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp, start = 4.dp)
+                modifier = Modifier.padding(bottom = 6.dp, start = 4.dp),
             )
 
             // PDF Original (Vertical)
@@ -870,7 +872,7 @@ fun DirectPdfReaderMenu(
                 text = "PDF Vertical",
                 icon = Icons.Default.SwapVert,
                 isSelected = prefs.viewMode == PdfViewMode.PDF_ORIGINAL,
-                onClick = { onPrefsChanged(prefs.copy(viewMode = PdfViewMode.PDF_ORIGINAL)) }
+                onClick = { onPrefsChanged(prefs.copy(viewMode = PdfViewMode.PDF_ORIGINAL)) },
             )
 
             Spacer(modifier = Modifier.size(4.dp))
@@ -880,7 +882,7 @@ fun DirectPdfReaderMenu(
                 text = "PDF Libro",
                 icon = Icons.AutoMirrored.Filled.MenuBook,
                 isSelected = prefs.viewMode == PdfViewMode.PDF_BOOK,
-                onClick = { onPrefsChanged(prefs.copy(viewMode = PdfViewMode.PDF_BOOK)) }
+                onClick = { onPrefsChanged(prefs.copy(viewMode = PdfViewMode.PDF_BOOK)) },
             )
 
             Spacer(modifier = Modifier.size(12.dp))
@@ -890,7 +892,7 @@ fun DirectPdfReaderMenu(
                 "Modo Texto",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(bottom = 6.dp, start = 4.dp)
+                modifier = Modifier.padding(bottom = 6.dp, start = 4.dp),
             )
 
             // Text Scroll (Vertical)
@@ -908,29 +910,29 @@ fun DirectPdfReaderMenu(
                 colors = if (prefs.viewMode == PdfViewMode.TEXT_SCROLL) {
                     androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
                     androidx.compose.material3.ButtonDefaults.filledTonalButtonColors()
-                }
+                },
             ) {
                 if (isExtractingText && !hasExtractedText) {
                     CircularProgressIndicator(
                         modifier = Modifier.size(18.dp),
                         strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 } else {
                     Icon(
                         Icons.Default.TextFields,
                         contentDescription = null,
-                        modifier = Modifier.size(18.dp)
+                        modifier = Modifier.size(18.dp),
                     )
                 }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     if (hasExtractedText) "Texto Vertical" else "Extraer Texto",
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
 
@@ -951,21 +953,21 @@ fun DirectPdfReaderMenu(
                 colors = if (prefs.viewMode == PdfViewMode.TEXT_BOOK) {
                     androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
-                        contentColor = MaterialTheme.colorScheme.onPrimary
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
                     )
                 } else {
                     androidx.compose.material3.ButtonDefaults.filledTonalButtonColors()
-                }
+                },
             ) {
                 Icon(
                     Icons.AutoMirrored.Filled.MenuBook,
                     contentDescription = null,
-                    modifier = Modifier.size(18.dp)
+                    modifier = Modifier.size(18.dp),
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     if (hasExtractedText) "Texto Libro" else "Extraer (Libro)",
-                    style = MaterialTheme.typography.labelMedium
+                    style = MaterialTheme.typography.labelMedium,
                 )
             }
 
@@ -976,22 +978,30 @@ fun DirectPdfReaderMenu(
                 DirectPdfSettingsSection(
                     title = "Tamaño: ${prefs.fontSizeSp}sp",
                     expanded = showFontSettings,
-                    onToggle = { showFontSettings = !showFontSettings }
+                    onToggle = { showFontSettings = !showFontSettings },
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text("A", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("A", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            "A",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            "A",
+                            style = MaterialTheme.typography.titleLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                     }
                     Slider(
                         value = prefs.fontSizeSp.toFloat(),
                         onValueChange = { onPrefsChanged(prefs.copy(fontSizeSp = it.toInt())) },
                         valueRange = 12f..36f,
                         steps = 11,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
                     )
                 }
 
@@ -1002,18 +1012,18 @@ fun DirectPdfReaderMenu(
             DirectPdfSettingsSection(
                 title = "Fondo: ${prefs.theme.name}",
                 expanded = showThemeSettings,
-                onToggle = { showThemeSettings = !showThemeSettings }
+                onToggle = { showThemeSettings = !showThemeSettings },
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     NovelTheme.entries.forEach { theme ->
                         DirectPdfThemeChip(
                             theme = theme,
                             isSelected = prefs.theme == theme,
                             onClick = { onPrefsChanged(prefs.copy(theme = theme)) },
-                            modifier = Modifier.weight(1f)
+                            modifier = Modifier.weight(1f),
                         )
                     }
                 }
@@ -1027,7 +1037,7 @@ private fun ModeButton(
     text: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     isSelected: Boolean,
-    onClick: () -> Unit
+    onClick: () -> Unit,
 ) {
     FilledTonalButton(
         onClick = onClick,
@@ -1036,16 +1046,16 @@ private fun ModeButton(
         colors = if (isSelected) {
             androidx.compose.material3.ButtonDefaults.filledTonalButtonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
+                contentColor = MaterialTheme.colorScheme.onPrimary,
             )
         } else {
             androidx.compose.material3.ButtonDefaults.filledTonalButtonColors()
-        }
+        },
     ) {
         Icon(
             icon,
             contentDescription = null,
-            modifier = Modifier.size(18.dp)
+            modifier = Modifier.size(18.dp),
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(text, style = MaterialTheme.typography.labelMedium)
@@ -1057,29 +1067,29 @@ private fun DirectPdfSettingsSection(
     title: String,
     expanded: Boolean,
     onToggle: () -> Unit,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
 ) {
     Surface(
         onClick = onToggle,
         shape = RoundedCornerShape(12.dp),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
                     title,
                     style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
                 Text(
                     if (expanded) "▲" else "▼",
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.primary,
                 )
             }
 
@@ -1097,7 +1107,7 @@ private fun DirectPdfThemeChip(
     theme: NovelTheme,
     isSelected: Boolean,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
 ) {
     val bgColor = when (theme) {
         NovelTheme.SYSTEM -> MaterialTheme.colorScheme.surface
@@ -1115,11 +1125,11 @@ private fun DirectPdfThemeChip(
         } else {
             androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
         },
-        modifier = modifier
+        modifier = modifier,
     ) {
         Box(
             contentAlignment = Alignment.Center,
-            modifier = Modifier.padding(vertical = 8.dp)
+            modifier = Modifier.padding(vertical = 8.dp),
         ) {
             Text(
                 text = theme.name.first().toString(),
@@ -1129,7 +1139,7 @@ private fun DirectPdfThemeChip(
                     NovelTheme.DARK -> Color.White
                     NovelTheme.SEPIA -> Color(0xFF5D4037)
                     else -> Color.Black
-                }
+                },
             )
         }
     }

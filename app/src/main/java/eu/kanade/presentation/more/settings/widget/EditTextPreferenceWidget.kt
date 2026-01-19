@@ -31,6 +31,7 @@ fun EditTextPreferenceWidget(
     subtitle: String?,
     icon: ImageVector?,
     value: String,
+    allowEmpty: Boolean = false,
     onConfirm: suspend (String) -> Boolean,
 ) {
     var isDialogShown by remember { mutableStateOf(false) }
@@ -64,7 +65,7 @@ fun EditTextPreferenceWidget(
                             }
                         }
                     },
-                    isError = textFieldValue.text.isBlank(),
+                    isError = textFieldValue.text.isBlank() && !allowEmpty,
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -74,7 +75,8 @@ fun EditTextPreferenceWidget(
             ),
             confirmButton = {
                 TextButton(
-                    enabled = textFieldValue.text != value && textFieldValue.text.isNotBlank(),
+                    enabled = textFieldValue.text != value &&
+                        (allowEmpty || textFieldValue.text.isNotBlank()),
                     onClick = {
                         scope.launch {
                             if (onConfirm(textFieldValue.text)) {

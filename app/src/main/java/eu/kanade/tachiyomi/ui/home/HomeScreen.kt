@@ -46,6 +46,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryTab
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.more.MoreTab
 import eu.kanade.tachiyomi.ui.updates.UpdatesTab
+import eu.kanade.tachiyomi.util.system.activeNetworkState
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
@@ -61,7 +62,6 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.pluralStringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
-import eu.kanade.tachiyomi.util.system.activeNetworkState
 
 object HomeScreen : Screen() {
 
@@ -84,31 +84,38 @@ object HomeScreen : Screen() {
     )
 
     /**
-     * Get the list of tabs based on network connectivity.
-     * - When online: Show AiTab, hide UpdatesTab (AI requires internet)
-     * - When offline: Show UpdatesTab, hide AiTab (Updates work offline)
-     * This keeps the bottom nav to 5 tabs max for better UX.
+     * Get the list of tabs for bottom navigation based on network state.
+     * - Online: Show AiTab (chat requires cloud API), Updates in More section
+     * - Offline: Show UpdatesTab, AI not available
      */
     @Composable
     private fun getTabsForCurrentState(): List<eu.kanade.presentation.util.Tab> {
         val context = LocalContext.current
-        val networkState = remember { context.activeNetworkState() }
-        val isOnline = networkState.isOnline
+        val isOnline by produceState(initialValue = false) {
+            val connectivityManager = context.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager
+            value = connectivityManager?.activeNetworkInfo?.isConnected == true
+        }
 
         return remember(isOnline) {
-            buildList {
-                add(LibraryTab)
-                if (!isOnline) {
-                    // Offline: Show Updates tab
-                    add(UpdatesTab)
-                }
-                add(HistoryTab)
-                add(BrowseTab)
-                if (isOnline) {
-                    // Online: Show AI tab
-                    add(AiTab)
-                }
-                add(MoreTab)
+            if (isOnline) {
+                // Online: Show Gexu AI (chat requires internet)
+                listOf(
+                    LibraryTab,
+                    HistoryTab,
+                    BrowseTab,
+                    AiTab,
+                    MoreTab,
+                )
+            } else {
+                // Offline: Show Updates instead of AI
+                listOf(
+                    LibraryTab,
+                    UpdatesTab,
+                    HistoryTab,
+                    BrowseTab,
+                    MoreTab,
+                )
             }
         }
     }
@@ -311,6 +318,31 @@ object HomeScreen : Screen() {
                             }
                         }
                     }
+                    MoreTab::class.isInstance(tab) -> {
+                        // Show updates badge on More tab when online
+                        // (because UpdatesTab is hidden inside More when Gexu AI is in nav)
+                        val count by produceState(initialValue = 0) {
+                            val pref = Injekt.get<LibraryPreferences>()
+                            combine(
+                                pref.newShowUpdatesCount().changes(),
+                                pref.newUpdatesCount().changes(),
+                            ) { show, count -> if (show) count else 0 }
+                                .collectLatest { value = it }
+                        }
+                        if (count > 0) {
+                            Badge {
+                                val desc = pluralStringResource(
+                                    MR.plurals.notification_chapters_generic,
+                                    count = count,
+                                    count,
+                                )
+                                Text(
+                                    text = count.toString(),
+                                    modifier = Modifier.semantics { contentDescription = desc },
+                                )
+                            }
+                        }
+                    }
                     BrowseTab::class.isInstance(tab) -> {
                         val count by produceState(initialValue = 0) {
                             Injekt.get<SourcePreferences>().extensionUpdatesCount().changes()
@@ -332,6 +364,7 @@ object HomeScreen : Screen() {
                     }
                 }
             },
+
         ) {
             Icon(
                 painter = tab.options.icon!!,

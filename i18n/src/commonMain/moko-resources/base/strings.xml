@@ -150,6 +150,7 @@
     <string name="action_move_to_bottom_all_for_series">Move series to bottom</string>
     <string name="action_notes">Notes</string>
     <string name="action_edit_notes">Edit notes</string>
+    <string name="notes_hint">Write your note here…</string>
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
@@ -255,6 +256,10 @@
     <string name="pref_category_security">Security and privacy</string>
     <string name="pref_security">Security</string>
     <string name="pref_firebase">Analytics and Crash logs</string>
+
+    <!-- Hide NSFW in Library -->
+    <string name="pref_hide_nsfw_library">Hide +18 content in library</string>
+    <string name="pref_hide_nsfw_library_summary">Hide adult content from your library (requires authentication)</string>
 
     <string name="lock_with_biometrics">Require unlock</string>
     <string name="lock_when_idle">Lock when idle</string>
@@ -1085,6 +1090,12 @@
     <string name="ai_provider_test_failed">Connection failed: %s</string>
     <string name="ai_no_providers">No providers configured</string>
     <string name="ai_select_model">Select Model</string>
+    <string name="ai_manage_api_keys">Manage API Keys</string>
+    <string name="ai_manage_api_keys_summary">Configure keys for multiple providers</string>
+    <string name="ai_primary_provider">Primary Provider</string>
+    <string name="ai_key_configured">Configured</string>
+    <string name="ai_key_not_configured">Not configured</string>
+    <string name="ai_providers_configured">%d providers configured</string>
 
     <!-- AI Personality/Tone Settings -->
     <string name="ai_personality_title">Personality</string>
@@ -1117,4 +1128,45 @@
     <string name="ai_temperature_creative">Creative</string>
     <string name="ai_persist_conversations">Save Conversations</string>
     <string name="ai_persist_conversations_summary">Keep chat history for later</string>
+
+    <!-- Reader Notes -->
+    <string name="notes_tab_general">General</string>
+    <string name="notes_tab_chapter">Chapter</string>
+    <string name="notes_tab_chapter_count">Chapter (%d)</string>
+    <string name="notes_empty_title">No chapter notes</string>
+    <string name="notes_empty_hint">Tap 📝 while reading to add notes</string>
+    <string name="notes_location_format">Ch. %1$s, Page %2$d</string>
+    <string name="chapter_number_format">Ch. %1$s</string>
+
+    <!-- AI Web Search -->
+    <string name="ai_web_search">Web Search</string>
+    <string name="ai_web_search_summary">Allow AI to search the web for current information</string>
+    <string name="ai_gemini_search_key">Gemini API Key for Search</string>
+    <string name="ai_gemini_search_key_summary">Required to enable web search with non-Gemini providers</string>
+    <string name="ai_web_search_unavailable">Web search requires a Gemini API key</string>
+
+    <!-- AI Wizard Onboarding -->
+    <string name="ai_wizard_welcome_title">Set Up Your AI Assistant</string>
+    <string name="ai_wizard_welcome_desc">You need a free API key to use AI features. It takes less than 1 minute!</string>
+    <string name="ai_wizard_get_key">Get Free API Key</string>
+    <string name="ai_wizard_paste_key">Paste from clipboard</string>
+    <string name="ai_wizard_gemini_recommended">(Recommended - Free)</string>
+    <string name="ai_wizard_key_detected">API Key detected!</string>
+    <string name="ai_wizard_step_provider">Choose provider</string>
+    <string name="ai_wizard_step_get">Get your key</string>
+    <string name="ai_wizard_step_paste">Paste key</string>
+    <string name="ai_wizard_instructions_gemini">1. Sign in with Google\n2. Click "Create API Key"\n3. Copy the generated key</string>
+    <string name="ai_wizard_instructions_openai">1. Sign in to OpenAI\n2. Go to API Keys\n3. Create and copy new key</string>
+    <string name="ai_wizard_instructions_anthropic">1. Sign in to Anthropic\n2. Go to API Keys\n3. Create and copy new key</string>
+    <string name="ai_wizard_instructions_openrouter">1. Sign in to OpenRouter\n2. Go to Keys\n3. Create and copy new key</string>
+    <string name="ai_wizard_back_to_app">After copying, return here and we\'ll detect it automatically.</string>
+    <string name="ai_wizard_have_key">I already have a key</string>
+    <string name="ai_wizard_next">Next</string>
+    <string name="ai_wizard_back">Back</string>
+    <string name="ai_wizard_start">Get Started</string>
+    <string name="ai_wizard_why_needed">Why do I need an API key?</string>
+    <string name="ai_wizard_why_desc">AI providers require authentication to use their services. Your key is stored locally on your device and is never shared.</string>
+    <string name="ai_wizard_free_info">💰 Completely Free</string>
+    <string name="ai_wizard_free_desc">Google Gemini offers a generous free tier. You will NOT be charged anything unless you manually add a payment method in your Google Cloud account.</string>
+    <string name="ai_wizard_no_card">No credit card required</string>
 </resources>

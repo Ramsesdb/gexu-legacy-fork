@@ -47,6 +47,8 @@ fun ReaderAppBars(
     onOpenInWebView: (() -> Unit)?,
     onOpenInBrowser: (() -> Unit)?,
     onShare: (() -> Unit)?,
+    onEditNotes: (() -> Unit)?,
+    onAddQuickNote: (() -> Unit)? = null,
 
     viewer: Viewer?,
     onNextChapter: () -> Unit,
@@ -65,6 +67,7 @@ fun ReaderAppBars(
     onClickCropBorder: () -> Unit,
     onClickSettings: () -> Unit,
     onAiClick: () -> Unit = {},
+    isOnline: Boolean = false,
 ) {
     val isRtl = viewer is R2LPagerViewer
     val backgroundColor = MaterialTheme.colorScheme
@@ -91,6 +94,8 @@ fun ReaderAppBars(
                 onOpenInWebView = onOpenInWebView,
                 onOpenInBrowser = onOpenInBrowser,
                 onShare = onShare,
+                onEditNotes = onEditNotes,
+                onAddQuickNote = onAddQuickNote,
             )
         }
 
@@ -128,6 +133,7 @@ fun ReaderAppBars(
                     onClickCropBorder = onClickCropBorder,
                     onClickSettings = onClickSettings,
                     onAiClick = onAiClick,
+                    isOnline = isOnline,
                 )
             }
         }

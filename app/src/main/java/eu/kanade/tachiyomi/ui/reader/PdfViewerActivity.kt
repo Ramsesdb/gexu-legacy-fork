@@ -67,7 +67,7 @@ class PdfViewerActivity : ComponentActivity() {
                     Toast.makeText(
                         this@PdfViewerActivity,
                         "Primero configura el directorio de fuente local en Ajustes > Almacenamiento",
-                        Toast.LENGTH_LONG
+                        Toast.LENGTH_LONG,
                     ).show()
                     // Open main app anyway
                     openMainApp()
@@ -123,7 +123,7 @@ class PdfViewerActivity : ComponentActivity() {
                 Toast.makeText(
                     this@PdfViewerActivity,
                     "PDF importado a \"PDFs Externos\". Búscalo en Browse > Fuente Local",
-                    Toast.LENGTH_LONG
+                    Toast.LENGTH_LONG,
                 ).show()
 
                 // Open main app

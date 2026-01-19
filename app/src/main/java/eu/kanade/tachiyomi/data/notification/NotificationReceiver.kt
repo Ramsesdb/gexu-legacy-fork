@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.core.net.toUri
+import eu.kanade.tachiyomi.data.ai.LibraryIndexingJob
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreJob
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.library.LibraryUpdateJob
@@ -72,6 +73,8 @@ class NotificationReceiver : BroadcastReceiver() {
             ACTION_CANCEL_RESTORE -> cancelRestore(context)
             // Cancel library update and dismiss notification
             ACTION_CANCEL_LIBRARY_UPDATE -> cancelLibraryUpdate(context)
+            // Cancel AI indexing
+            ACTION_CANCEL_AI_INDEXING -> cancelAiIndexing(context)
             // Start downloading app update
             ACTION_START_APP_UPDATE -> startDownloadAppUpdate(context, intent)
             // Cancel downloading app update
@@ -178,6 +181,15 @@ class NotificationReceiver : BroadcastReceiver() {
         LibraryUpdateJob.stop(context)
     }
 
+    /**
+     * Method called when user wants to stop AI indexing
+     *
+     * @param context context of application
+     */
+    private fun cancelAiIndexing(context: Context) {
+        LibraryIndexingJob.stop(context)
+    }
+
     private fun startDownloadAppUpdate(context: Context, intent: Intent) {
         val url = intent.getStringExtra(AppUpdateDownloadJob.EXTRA_DOWNLOAD_URL) ?: return
         AppUpdateDownloadJob.start(context, url)
@@ -240,6 +252,8 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_CANCEL_RESTORE = "$ID.$NAME.CANCEL_RESTORE"
 
         private const val ACTION_CANCEL_LIBRARY_UPDATE = "$ID.$NAME.CANCEL_LIBRARY_UPDATE"
+
+        private const val ACTION_CANCEL_AI_INDEXING = "$ID.$NAME.CANCEL_AI_INDEXING"
 
         private const val ACTION_START_APP_UPDATE = "$ID.$NAME.ACTION_START_APP_UPDATE"
         private const val ACTION_CANCEL_APP_UPDATE_DOWNLOAD = "$ID.$NAME.CANCEL_APP_UPDATE_DOWNLOAD"
@@ -515,6 +529,24 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun cancelLibraryUpdatePendingBroadcast(context: Context): PendingIntent {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = ACTION_CANCEL_LIBRARY_UPDATE
+            }
+            return PendingIntent.getBroadcast(
+                context,
+                0,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+        }
+
+        /**
+         * Returns [PendingIntent] that stops AI library indexing
+         *
+         * @param context context of application
+         * @return [PendingIntent]
+         */
+        internal fun cancelAiIndexingPendingBroadcast(context: Context): PendingIntent {
+            val intent = Intent(context, NotificationReceiver::class.java).apply {
+                action = ACTION_CANCEL_AI_INDEXING
             }
             return PendingIntent.getBroadcast(
                 context,

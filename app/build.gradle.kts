@@ -43,6 +43,10 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         minSdk = 26
+
+        ndk {
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     flavorDimensions += "default"
@@ -127,8 +131,11 @@ android {
                 "libimagedecoder",
                 "libquickjs",
                 "libsqlite3x",
+                "libmediapipe_tasks_text_jni", // MediaPipe Text Tasks
             )
                 .map { "**/$it.so" }
+            // Ensure MediaPipe libraries are not stripped
+            useLegacyPackaging = true
         }
         resources {
             excludes += setOf(
@@ -175,6 +182,7 @@ kotlin {
             "-opt-in=androidx.compose.foundation.ExperimentalFoundationApi",
             "-opt-in=androidx.compose.foundation.layout.ExperimentalLayoutApi",
             "-opt-in=androidx.compose.material3.ExperimentalMaterial3Api",
+            "-opt-in=androidx.compose.material3.ExperimentalMaterial3ExpressiveApi",
             "-opt-in=androidx.compose.ui.ExperimentalComposeUiApi",
             "-opt-in=coil3.annotation.ExperimentalCoilApi",
             "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
@@ -292,6 +300,7 @@ dependencies {
     implementation(libs.compose.grid)
     implementation(libs.reorderable)
     implementation(libs.bundles.markdown)
+    implementation(libs.materialKolor)
 
     // Logging
     implementation(libs.logcat)
@@ -301,6 +310,9 @@ dependencies {
 
     // String similarity
     implementation(libs.stringSimilarity)
+
+    // MediaPipe Text Tasks - need to include here for native library packaging
+    implementation(libs.mediapipe.tasks.text)
 
     // Tests
     testImplementation(libs.bundles.test)
